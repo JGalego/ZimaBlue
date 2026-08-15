@@ -132,3 +132,23 @@ def test_replay_without_a_display_explains_itself(tmp_path):
     result = runner.invoke(app, ["replay", str(out)])
     assert result.exit_code == 0
     assert "--gif" in result.stdout
+
+
+def test_viz_hint_survives_rich_markup():
+    """Rich reads [viz] as a style tag and silently swallows it unless escaped.
+
+    The hint is useless if it renders as "pip install 'zimablue'", so assert on
+    what the user actually sees rather than on the source string.
+    """
+    import io
+
+    from rich.console import Console
+
+    import zimablue.cli as cli
+
+    buffer = io.StringIO()
+    console = Console(file=buffer, width=200, force_terminal=False)
+    for message, hint in ((cli._VIZ_MISSING, None), ("x", cli._VIZ_HINT)):
+        console.print(message if hint is None else hint)
+    rendered = buffer.getvalue()
+    assert rendered.count("zimablue[viz]") == 2, rendered

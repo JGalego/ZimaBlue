@@ -164,7 +164,7 @@ scenario = load_scenario("scenarios/kidney.yaml")
 scenario.duration = 600.0
 
 result = run_batch(scenario, episodes=50)
-print(result.stats("coverage"))          # mean, std, min, max, median
+print(result.stats("coverage"))  # mean, std, min, max, median
 print(result.success_rate)
 for episode in result.worst("dirt_removed_fraction", 3):
     print(episode.seed, episode.metrics.dirt_removed_fraction)
@@ -192,8 +192,8 @@ convenience for the common case, not the only way in.
 import zimablue as zb
 
 sim = zb.Simulation(
-    pool=my_pool,               # a Pool you built
-    robot=my_robot,             # a Cleaner you composed
+    pool=my_pool,  # a Pool you built
+    robot=my_robot,  # a Cleaner you composed
     dirt=my_dirt_spec,
     controller=MyController(),
     seed=42,

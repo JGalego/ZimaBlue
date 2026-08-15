@@ -139,9 +139,9 @@ Roughly two thirds is the frame table and one third the dirt keyframes.
 To make one smaller:
 
 ```python
-zb.Simulation(..., dirt_keyframe_interval=30.0)   # fewer dirt snapshots
-zb.Simulation(..., timestep=0.05)                 # 20 Hz instead of 50
-zb.Simulation(..., record=False)                  # metrics only
+zb.Simulation(..., dirt_keyframe_interval=30.0)  # fewer dirt snapshots
+zb.Simulation(..., timestep=0.05)  # 20 Hz instead of 50
+zb.Simulation(..., record=False)  # metrics only
 ```
 
 `record=False` is the right default for batch sweeps, and `run_batch` uses it
@@ -156,9 +156,9 @@ rec = Recording.load("runs/kidney.zbr")
 print(rec.describe())
 
 rec.n_frames, rec.duration, rec.seed
-rec.column("x")                    # a channel, as an array
-rec.frame_index_at(120.0)          # index of the frame at t = 2 min
-rec.dirt_at(120.0)                 # summed dirt raster at that moment
+rec.column("x")  # a channel, as an array
+rec.frame_index_at(120.0)  # index of the frame at t = 2 min
+rec.dirt_at(120.0)  # summed dirt raster at that moment
 rec.events_between(100.0, 200.0)
 rec.metrics["coverage"]
 ```

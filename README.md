@@ -13,7 +13,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0e6cb2?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-f59e0b?style=flat-square)](docs/roadmap.md)
 [![No GPU required](https://img.shields.io/badge/no%20GPU-required-3ddcff?style=flat-square)](docs/architecture.md)
-[![Tests: 128](https://img.shields.io/badge/tests-128%20passing-3fb950?style=flat-square)](tests)
+[![Tests: 159](https://img.shields.io/badge/tests-159%20passing-3fb950?style=flat-square)](tests)
 [![Linted with Ruff](https://img.shields.io/badge/lint-ruff-261230?style=flat-square&logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 [![Typed: mypy](https://img.shields.io/badge/typing-mypy%20clean-0e6cb2?style=flat-square)](pyproject.toml)
 
@@ -141,9 +141,9 @@ injected error.
 
 ```python
 robot.sensors.sonar.inject_fault(
-    bias=0.15,                 # reads 15 cm long
+    bias=0.15,  # reads 15 cm long
     dropout_probability=0.02,  # loses 2% of pings
-    start_time=300.0,          # ...starting five minutes in
+    start_time=300.0,  # ...starting five minutes in
 )
 ```
 

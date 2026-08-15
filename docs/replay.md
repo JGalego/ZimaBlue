@@ -82,9 +82,9 @@ from zimablue.replay import ReplayPlayer, export_movie, export_summary
 
 rec = Recording.load("runs/kidney.zbr")
 
-ReplayPlayer(rec, speed=4.0).show()          # interactive
-export_movie(rec, "out.gif", speed=90.0)     # GIF (or .mp4 with ffmpeg)
-export_summary(rec, "out.png")               # four-panel summary
+ReplayPlayer(rec, speed=4.0).show()  # interactive
+export_movie(rec, "out.gif", speed=90.0)  # GIF (or .mp4 with ffmpeg)
+export_summary(rec, "out.png")  # four-panel summary
 ```
 
 `ReplayRenderer` draws single frames if you want to build your own viewer:
@@ -93,7 +93,7 @@ export_summary(rec, "out.png")               # four-panel summary
 from zimablue.replay import ReplayRenderer
 
 renderer = ReplayRenderer(rec, show_sensors=True, trail_seconds=120)
-renderer.draw(rec.frame_index_at(300.0))     # the frame at t = 5 min
+renderer.draw(rec.frame_index_at(300.0))  # the frame at t = 5 min
 renderer.fig.savefig("t300.png")
 ```
 

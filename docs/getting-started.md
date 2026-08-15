@@ -112,9 +112,9 @@ See `examples/custom_robot.py`.
 
 ```python
 robot.sensors.sonar.inject_fault(
-    bias=0.15,                 # reads 15 cm long
+    bias=0.15,  # reads 15 cm long
     dropout_probability=0.02,  # loses 2% of pings
-    start_time=300.0,          # from five minutes in
+    start_time=300.0,  # from five minutes in
 )
 ```
 
@@ -128,14 +128,14 @@ One class, two methods. It sees sensor readings only — never ground-truth pose
 class MyController:
     name = "mine"
 
-    def reset(self, robot):
-        ...
+    def reset(self, robot): ...
 
     def step(self, ctl):
         sonar = ctl.reading("sonar")
         if sonar is not None and sonar.valid and sonar[0] < 0.4:
             return zb.DriveCommand(left=-0.2, right=0.2)
         return zb.DriveCommand(left=0.3, right=0.3)
+
 
 zb.Simulation(pool="kidney", controller=MyController(), seed=1).run(minutes=10)
 ```
@@ -149,6 +149,7 @@ Benchmark it against the shipped `random_bounce` (a floor) and
 ```python
 from shapely.geometry import Polygon
 from zimablue.pool import POOL_PRESETS, Pool
+
 
 @POOL_PRESETS.register("my_pool")
 def my_pool() -> Pool:

@@ -34,6 +34,15 @@ BANNER = (
 )
 
 
+# Rich parses square brackets as style tags, so the extra is escaped here once
+# rather than at each use -- an unescaped hint renders as "pip install
+# 'zimablue'", which is exactly the wrong advice.
+_VIZ_MISSING = (
+    "[yellow]matplotlib not installed; skipping images (pip install 'zimablue\\[viz]')[/yellow]"
+)
+_VIZ_HINT = "pip install 'zimablue\\[viz]' -- or render headless with --gif out.gif"
+
+
 def _fail(message: str, hint: str | None = None) -> None:
     console.print(f"[bold red]error[/bold red] {message}")
     if hint:
@@ -129,10 +138,7 @@ def demo(
         export_summary(result.recording, summary_path)
         console.print(f"[green]summary [/green] {summary_path}")
     except ImportError:
-        console.print(
-            "[yellow]matplotlib not installed; skipping images "
-            "(pip install 'zimablue[viz]')[/yellow]"
-        )
+        console.print(_VIZ_MISSING)
         return
 
     if gif:
@@ -397,7 +403,7 @@ def _watch(recording: Any, *, speed: float = 8.0, sensors: bool = True) -> None:
     except ImportError:
         _fail(
             "matplotlib is not installed",
-            "pip install 'zimablue[viz]' -- or render headless with --gif out.gif",
+            _VIZ_HINT,
         )
     backend = matplotlib.get_backend().lower()
     if backend == "agg":
