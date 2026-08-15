@@ -251,18 +251,38 @@ makes a cleaning-quality metric non-trivial:
 - **Algae bloom and biofilm** — *adhered*, not deposited. Requires mechanical
   agitation; suction alone does nothing.
 
-The physics of the settled fraction is Stokes' law: settling velocity scales
-with the square of particle diameter and with the density difference between
-particle and fluid
+The physics of the settled fraction starts with Stokes' law: settling velocity
+scales with the square of particle diameter and with the density difference
+between particle and fluid
 ([Stokes settling primer](https://www.geological-digressions.com/fluid-flow-stokes-law-and-particle-settling/)).
-Two complications from the sediment-transport literature are worth knowing about
-even when not modelled: biofilm growth on particles measurably changes their
-drag and settling velocity — increases of up to ~130% for non-buoyant
-microplastics
+Stokes is only valid in creeping flow, though — particle Reynolds number below
+about 1, which in water means roughly d < 100 µm. Pool dirt spans four orders of
+magnitude in size, from 8 µm biofilm to 70 mm twigs, so a pure-Stokes model is
+wrong for most of the range: it puts 350 µm sand at 124 mm/s against a measured
+~45 mm/s, and leaf-sized debris into the hundreds of m/s.
+
+The standard fix is Ferguson & Church (2004), *A simple universal equation for
+grain settling velocity*
+([J. Sedimentary Research 74(6)](https://pubs.geoscienceworld.org/sepm/jsedres/article-abstract/74/6/933/99413/A-Simple-Universal-Equation-for-Grain-Settling),
+[PDF](https://geoweb.uwyo.edu/geol5330/FergusonChurch_GrainSettling_JSR04.pdf)):
+
+```
+w = R g d² / (C1 ν + sqrt(0.75 C2 R g d³))
+```
+
+One explicit expression covering viscous through turbulent settling. The first
+denominator term dominates for fines, where it reduces exactly to Stokes; the
+second dominates for coarse grains, giving the constant-drag Newton regime.
+`C1 = 20, C2 = 1.1` are the paper's values for natural sand (smooth spheres
+would be 18 and 0.4).
+
+Two further complications are worth knowing about even though they are not
+modelled: biofilm growth on particles measurably changes their drag and settling
+velocity — increases of up to ~130% for non-buoyant microplastics
 ([Nature Comms Earth & Environment](https://www.nature.com/articles/s43247-023-00690-z),
 [Biofilm effects on settling velocity](https://www.sciencedirect.com/science/article/abs/pii/S1001627914600603)) —
 and fine particles flocculate, while dense suspensions settle *slower* than
-Stokes predicts through hindered settling
+predicted through hindered settling
 ([arXiv:1812.01365](https://arxiv.org/pdf/1812.01365)).
 
 > **→ what ZimaBlue does.** Dirt is a first-class entity with two
@@ -271,11 +291,13 @@ Stokes predicts through hindered settling
 > items** for leaves and twigs, which have a position, a mass and a
 > waterlogging state. Each `DirtType` carries `density`, `particle_size`,
 > `buoyancy`, `settling_velocity`, `adhesion` and `pickup_difficulty`. Settling
-> velocity is *derived from Stokes' law* at construction time from particle size
-> and density rather than hand-tuned per preset, so the presets stay physically
-> ordered. Flocculation and hindered settling are explicitly **not** modelled
-> and are noted as such in the code — the aim is useful simulation, not fake
-> precision.
+> velocity is *derived* at construction time from particle size and density via
+> Ferguson–Church rather than hand-tuned per preset, so the presets stay
+> physically ordered and the numbers check out against published data (350 µm
+> sand: 47.6 mm/s computed vs ~45 mm/s measured; 100 µm quartz: 7.6 vs ~7).
+> `stokes_settling_velocity` is kept alongside it, documented as fines-only.
+> Flocculation and hindered settling are explicitly **not** modelled and are
+> noted as such in the code — the aim is useful simulation, not fake precision.
 
 ## 9. Benchmark metrics
 
@@ -313,7 +335,7 @@ test** is the same distinction that motivates ZimaBlue.
 | Engines make themselves the API | Domain model is the API; `SimulationBackend` is a strategy |
 | GPU ordering breaks determinism | CPU float64, fixed dt, seeded `SeedSequence` child streams |
 | MCAP: self-describing + indexed | `.zbr` = readable JSON manifest + columnar `npz` + sparse events |
-| Stokes' law orders settling behaviour | `settling_velocity` derived from size and density, not tuned |
+| Stokes fails above ~100 µm; Ferguson–Church is universal | `settling_velocity` derived from size and density, not tuned |
 | IEC 62929 separates coverage from removal | Two metric families, each with a spatial companion |
 
 ## Sources
@@ -339,6 +361,7 @@ test** is the same distinction that motivates ZimaBlue.
 - [IEC 62929:2014](https://webstore.iec.ch/en/publication/7477)
 - [SHIFT Planner](https://arxiv.org/pdf/2412.10706)
 - [Stokes' law and particle settling](https://www.geological-digressions.com/fluid-flow-stokes-law-and-particle-settling/)
+- Ferguson & Church, [A Simple Universal Equation for Grain Settling Velocity](https://pubs.geoscienceworld.org/sepm/jsedres/article-abstract/74/6/933/99413/A-Simple-Universal-Equation-for-Grain-Settling), JSR 2004 ([PDF](https://geoweb.uwyo.edu/geol5330/FergusonChurch_GrainSettling_JSR04.pdf))
 - [Non-buoyant microplastic settling velocity varies with biofilm growth](https://www.nature.com/articles/s43247-023-00690-z)
 - [Biofilm effects on settling velocity of sediment particles](https://www.sciencedirect.com/science/article/abs/pii/S1001627914600603)
 - [Estimating the settling velocity of fine sediment at high concentrations](https://arxiv.org/pdf/1812.01365)
