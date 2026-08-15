@@ -100,13 +100,15 @@ class Motor:
     """Peak tractive force one side can deliver, N."""
 
     def clamp_speed(self, requested: float) -> float:
-        return float(np.clip(requested, -self.max_speed, self.max_speed))
+        # Builtin min/max rather than np.clip: these run twice per tick per
+        # side, and np.clip on a Python float costs ~30x more than min/max.
+        return max(-self.max_speed, min(self.max_speed, requested))
 
     def apply_limits(self, current: float, requested: float, dt: float) -> float:
         """Slew the current speed toward ``requested`` within acceleration limits."""
         target = self.clamp_speed(requested)
         max_delta = self.max_accel * dt
-        return float(current + np.clip(target - current, -max_delta, max_delta))
+        return current + max(-max_delta, min(max_delta, target - current))
 
     def power_draw(self, speed: float, load_force: float) -> float:
         """Electrical power for a given track speed and tractive load, W."""
@@ -273,8 +275,8 @@ class Pump:
         Suction falls off with clogging rather than stopping abruptly: a
         half-full filter still works, a full one barely does.
         """
-        duty = float(np.clip(duty, 0.0, 1.0))
-        return duty * float(np.clip(1.0 - clog**2, 0.0, 1.0))
+        duty = max(0.0, min(1.0, duty))
+        return duty * max(0.0, min(1.0, 1.0 - clog**2))
 
     def to_dict(self) -> dict[str, float]:
         return {
@@ -303,10 +305,10 @@ class Filter:
         real media capture some fraction of nominally-passing particles.
         """
         ratio = particle_size / self.mesh
-        return float(np.clip(ratio**2 / (1.0 + ratio**2), 0.0, 1.0))
+        return ratio**2 / (1.0 + ratio**2)
 
     def clog_fraction(self, load: float) -> float:
-        return float(np.clip(load / self.capacity, 0.0, 1.0))
+        return max(0.0, min(1.0, load / self.capacity))
 
     def to_dict(self) -> dict[str, float]:
         return {"capacity": self.capacity, "mesh": self.mesh}

@@ -22,7 +22,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from zimablue.dirt.types import DirtType, get_dirt_type
-from zimablue.geometry import Grid
+from zimablue.geometry import Grid, Window
 
 __all__ = ["DebrisSet", "DirtField", "DirtState"]
 
@@ -118,51 +118,71 @@ class DirtField:
     # ------------------------------------------------------------------
     # Mutation
     # ------------------------------------------------------------------
-    def remove(
-        self, cells: BoolArray, fractions: dict[str, FloatArray | float]
-    ) -> dict[str, float]:
-        """Remove a per-type fraction of the mass in ``cells``.
+    def remove_window(self, window: Window, fractions: dict[str, float]) -> dict[str, float]:
+        """Remove a per-type fraction of the mass under ``window``.
 
         Returns the mass removed per type, in grams.  Fractions are clipped to
         ``[0, 1]``: a cleaning model can never remove more than is there.
+
+        Window-scoped because this runs every tick over a patch the size of the
+        cleaning head, while the raster covers the whole pool.
         """
         removed: dict[str, float] = {}
         for name, layer in self.layers.items():
-            frac = fractions.get(name, 0.0)
-            if np.all(np.asarray(frac) <= 0.0):
+            frac = float(np.clip(fractions.get(name, 0.0), 0.0, 1.0))
+            if frac <= 0.0:
                 continue
-            f = np.clip(np.asarray(frac, dtype=float), 0.0, 1.0)
-            taken = np.where(cells, layer * f, 0.0)
-            self.layers[name] = layer - taken
+            patch = window.view(layer)
+            taken = patch[window.mask] * frac
             total = float(taken.sum())
-            if total > 0:
-                removed[name] = total
+            if total <= 0:
+                continue
+            patch[window.mask] -= taken
+            removed[name] = total
         return removed
 
-    def disturb(self, cells: BoolArray, strength: float = 1.0) -> None:
-        """Kick loose dirt out of ``cells`` and let it resettle nearby.
+    def disturb_window(self, window: Window, strength: float = 1.0) -> None:
+        """Kick loose dirt out of ``window`` and let it resettle just outside it.
 
-        This is why a robot that drives fast through fine sediment leaves a
-        haze behind it: mass is not destroyed, only moved.  Each type's
-        ``resuspension`` controls how much is liable to move.
+        This is why a robot driving fast through fine sediment leaves a haze
+        behind it: mass is not destroyed, only moved.  Each type's
+        ``resuspension`` controls how much is liable to shift.
         """
         if strength <= 0:
             return
+        # Blur over the window padded by one cell, so lifted mass can land
+        # outside the swath rather than settling straight back down.
+        rows = slice(max(window.rows.start - 1, 0), window.rows.stop + 1)
+        cols = slice(max(window.cols.start - 1, 0), window.cols.stop + 1)
+        inner = (
+            slice(
+                window.rows.start - rows.start,
+                window.rows.start - rows.start + window.mask.shape[0],
+            ),
+            slice(
+                window.cols.start - cols.start,
+                window.cols.start - cols.start + window.mask.shape[1],
+            ),
+        )
+        local_mask = self.mask[rows, cols]
+
         for name, layer in self.layers.items():
             dirt = self.types[name]
             share = float(np.clip(dirt.resuspension * strength, 0.0, 1.0))
             if share <= 0:
                 continue
-            lifted = np.where(cells, layer * share, 0.0)
-            if lifted.sum() <= 0:
+            patch = layer[rows, cols]
+            lifted = np.zeros_like(patch)
+            lifted[inner][window.mask] = patch[inner][window.mask] * share
+            total = float(lifted.sum())
+            if total <= 0:
                 continue
-            spread = _box_blur(lifted)
-            spread = np.where(self.mask, spread, 0.0)
-            # Renormalise: the blur leaks mass outside the mask and off-grid.
-            spread_sum = spread.sum()
-            if spread_sum > 0:
-                spread *= lifted.sum() / spread_sum
-            self.layers[name] = layer - lifted + spread
+            spread = np.where(local_mask, _box_blur(lifted), 0.0)
+            spread_sum = float(spread.sum())
+            if spread_sum <= 0:
+                continue
+            # Renormalise: the blur leaks mass past the mask and the window edge.
+            patch += spread * (total / spread_sum) - lifted
 
     def drift(self, flow_vx: FloatArray, flow_vy: FloatArray, dt: float) -> None:
         """Advect fine, easily-suspended dirt along the water flow.

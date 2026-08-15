@@ -17,6 +17,7 @@ from shapely.geometry import Polygon
 
 __all__ = [
     "Grid",
+    "Window",
     "closest_point_on_segments",
     "polygon_segments",
     "raycast",
@@ -24,6 +25,29 @@ __all__ = [
 ]
 
 FloatArray = NDArray[np.float64]
+
+
+@dataclass(frozen=True)
+class Window:
+    """A rectangular block of cells plus a boolean mask within it.
+
+    Lets hot-loop code touch only the cells under the robot::
+
+        w = grid.window(x, y, radius)
+        layer[w.rows, w.cols][w.mask] -= removed
+    """
+
+    rows: slice
+    cols: slice
+    mask: NDArray[np.bool_]
+
+    def view(self, array: NDArray) -> NDArray:
+        """The sub-array this window covers (a view, not a copy)."""
+        return array[self.rows, self.cols]
+
+    @property
+    def count(self) -> int:
+        return int(self.mask.sum())
 
 
 def wrap_angle(theta: FloatArray | float) -> FloatArray | float:
@@ -76,10 +100,46 @@ class Grid:
         )
 
     def cell_centers(self) -> tuple[FloatArray, FloatArray]:
-        """``(xs, ys)`` grids of cell-centre coordinates, both ``(nrows, ncols)``."""
-        xs = self.minx + (np.arange(self.ncols) + 0.5) * self.cell
-        ys = self.miny + (np.arange(self.nrows) + 0.5) * self.cell
-        return np.meshgrid(xs, ys)
+        """``(xs, ys)`` grids of cell-centre coordinates, both ``(nrows, ncols)``.
+
+        Cached: this is called from setup code on every raster query, and
+        rebuilding two full meshgrids each time showed up clearly in profiles.
+        The arrays are marked read-only so a caller cannot corrupt the cache.
+        """
+        cached = _CENTER_CACHE.get(self)
+        if cached is None:
+            xs = self.minx + (np.arange(self.ncols) + 0.5) * self.cell
+            ys = self.miny + (np.arange(self.nrows) + 0.5) * self.cell
+            cached = np.meshgrid(xs, ys)
+            cached[0].setflags(write=False)
+            cached[1].setflags(write=False)
+            _CENTER_CACHE[self] = cached
+        return cached
+
+    def window(self, cx: float, cy: float, radius: float) -> Window | None:
+        """The smallest cell block containing the disc at ``(cx, cy)``.
+
+        The cleaning head covers a ~34 cm disc inside a pool raster of several
+        thousand cells.  Operating on the whole raster every tick costs three
+        orders of magnitude more work than the disc does, so every hot-loop
+        consumer works through a window instead.  Returns ``None`` when the
+        disc misses the grid entirely.
+        """
+        col0 = int(np.floor((cx - radius - self.minx) / self.cell))
+        col1 = int(np.ceil((cx + radius - self.minx) / self.cell))
+        row0 = int(np.floor((cy - radius - self.miny) / self.cell))
+        row1 = int(np.ceil((cy + radius - self.miny) / self.cell))
+        col0, col1 = max(col0, 0), min(col1, self.ncols)
+        row0, row1 = max(row0, 0), min(row1, self.nrows)
+        if col0 >= col1 or row0 >= row1:
+            return None
+
+        # Broadcast a row vector against a column vector rather than building
+        # two full 2D meshgrids: same mask, two small 1D allocations.
+        xs = self.minx + (np.arange(col0, col1) + 0.5) * self.cell - cx
+        ys = self.miny + (np.arange(row0, row1) + 0.5) * self.cell - cy
+        mask = (xs[None, :] ** 2 + ys[:, None] ** 2) <= radius * radius
+        return Window(rows=slice(row0, row1), cols=slice(col0, col1), mask=mask)
 
     def index_of(
         self, x: FloatArray | float, y: FloatArray | float
@@ -100,6 +160,11 @@ class Grid:
         """Boolean mask of cells whose centre lies within ``radius`` of ``(cx, cy)``."""
         xs, ys = self.cell_centers()
         return (xs - cx) ** 2 + (ys - cy) ** 2 <= radius * radius
+
+
+_CENTER_CACHE: dict[Grid, tuple[FloatArray, FloatArray]] = {}
+"""Grid is a frozen dataclass, so it hashes by value: two grids with the same
+geometry share one cached meshgrid."""
 
 
 def polygon_segments(polygon: Polygon) -> FloatArray:
