@@ -1,0 +1,174 @@
+"""Standard pool geometries.
+
+Six shapes that between them exercise everything the simulator has to handle:
+straight walls, a sloped floor, a concave corner, curvature, no corners at all,
+and a blocking feature.  Dimensions are ordinary residential-pool sizes in
+metres.
+
+Each preset is an independent factory returning a fully-formed :class:`Pool`.
+There is deliberately no shared "build a pool" conditional -- adding a shape
+means adding a function, not extending a branch.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from shapely.geometry import Polygon
+from shapely.geometry import box as shapely_box
+
+from zimablue.pool.depth import CompositeDepth, ConstantDepth, PlaneSlopeDepth
+from zimablue.pool.features import Drain, Obstacle, Return, Skimmer, Stairs
+from zimablue.pool.pool import Pool
+from zimablue.registry import Registry
+
+__all__ = ["POOL_PRESETS", "make_pool"]
+
+POOL_PRESETS: Registry[Pool] = Registry("pool")
+
+
+def _ellipse(cx: float, cy: float, rx: float, ry: float, n: int = 96) -> Polygon:
+    t = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
+    return Polygon(np.column_stack([cx + rx * np.cos(t), cy + ry * np.sin(t)]))
+
+
+@POOL_PRESETS.register("rectangular")
+def rectangular(length: float = 10.0, width: float = 5.0, depth: float = 1.6) -> Pool:
+    """A plain 10 x 5 m rectangular pool with a flat floor."""
+    return Pool(
+        boundary=shapely_box(0.0, 0.0, length, width),
+        depth=ConstantDepth(depth),
+        name="rectangular",
+        material="plaster",
+        features=(
+            Drain("main_drain", position=(length / 2, width / 2), radius=0.25, flow_rate=0.15),
+            Return("return_a", position=(0.15, width * 0.25), direction=(1.0, 0.0)),
+            Return("return_b", position=(0.15, width * 0.75), direction=(1.0, 0.0)),
+            Skimmer("skimmer", position=(length - 0.2, width / 2)),
+        ),
+    )
+
+
+@POOL_PRESETS.register("sloped")
+def sloped(length: float = 12.0, width: float = 5.0) -> Pool:
+    """Rectangular pool ramping from a 1.0 m shallow end to a 2.4 m deep end."""
+    return Pool(
+        boundary=shapely_box(0.0, 0.0, length, width),
+        depth=PlaneSlopeDepth(
+            shallow=1.0, deep=2.4, origin=(0.0, 0.0), direction=(1.0, 0.0), length=length
+        ),
+        name="sloped",
+        material="plaster",
+        features=(
+            Drain("deep_drain", position=(length - 1.5, width / 2), radius=0.3, flow_rate=0.2),
+            Return("return_a", position=(0.15, width * 0.3), direction=(1.0, 0.0)),
+            Skimmer("skimmer", position=(0.3, width - 0.3)),
+        ),
+    )
+
+
+@POOL_PRESETS.register("l_shaped")
+def l_shaped() -> Pool:
+    """An L: a 12 x 5 m main leg with a 5 x 4 m wing, i.e. one concave corner.
+
+    The concave corner is the interesting part -- naive boustrophedon coverage
+    strands area behind it, which is exactly the failure the metrics should
+    surface.
+    """
+    boundary = Polygon([(0, 0), (12, 0), (12, 5), (5, 5), (5, 9), (0, 9)])
+    return Pool(
+        boundary=boundary,
+        depth=CompositeDepth(
+            base=ConstantDepth(1.5),
+            regions=((shapely_box(0, 5, 5, 9), ConstantDepth(1.1)),),
+        ),
+        name="l_shaped",
+        material="tile",
+        features=(
+            Drain("main_drain", position=(8.0, 2.5), radius=0.25, flow_rate=0.15),
+            Return("return_a", position=(0.15, 2.0), direction=(1.0, 0.0)),
+            Return("return_b", position=(2.5, 8.85), direction=(0.0, -1.0)),
+            Skimmer("skimmer", position=(11.7, 4.7)),
+        ),
+    )
+
+
+@POOL_PRESETS.register("kidney")
+def kidney() -> Pool:
+    """A kidney-bean pool: two overlapping lobes with a concave bite.
+
+    Built by union/difference of ellipses rather than a hand-typed vertex list,
+    so the shape stays smooth and easy to re-proportion.
+    """
+    lobe_a = _ellipse(4.2, 4.0, 4.2, 3.0)
+    lobe_b = _ellipse(9.5, 4.4, 3.6, 2.8)
+    bite = _ellipse(7.0, 8.6, 3.4, 3.0)
+    boundary = lobe_a.union(lobe_b).difference(bite).buffer(0)
+    if boundary.geom_type == "MultiPolygon":  # pragma: no cover - defensive
+        boundary = max(boundary.geoms, key=lambda g: g.area)
+
+    return Pool(
+        boundary=Polygon(boundary.exterior),
+        depth=PlaneSlopeDepth(
+            shallow=1.0, deep=2.0, origin=(0.5, 0.0), direction=(1.0, 0.0), length=11.0
+        ),
+        name="kidney",
+        material="plaster",
+        features=(
+            Drain("main_drain", position=(6.5, 3.5), radius=0.25, flow_rate=0.18),
+            Return("return_a", position=(1.2, 4.0), direction=(1.0, 0.2)),
+            Return("return_b", position=(11.5, 4.4), direction=(-1.0, -0.2)),
+            Skimmer("skimmer", position=(2.0, 1.6)),
+        ),
+    )
+
+
+@POOL_PRESETS.register("oval")
+def oval(length: float = 11.0, width: float = 6.0, depth: float = 1.5) -> Pool:
+    """A smooth oval -- no corners anywhere, which stresses wall following."""
+    return Pool(
+        boundary=_ellipse(length / 2, width / 2, length / 2, width / 2),
+        depth=ConstantDepth(depth),
+        name="oval",
+        material="fiberglass",
+        features=(
+            Drain("main_drain", position=(length / 2, width / 2), radius=0.25, flow_rate=0.15),
+            Return("return_a", position=(1.0, width / 2), direction=(1.0, 0.0)),
+            Skimmer("skimmer", position=(length - 1.0, width / 2)),
+        ),
+    )
+
+
+@POOL_PRESETS.register("stairs")
+def stairs() -> Pool:
+    """Rectangular pool with a corner stair block and a ladder foot.
+
+    Both features are blocking, so navigable area is strictly less than the
+    boundary area -- a good check that coverage is measured against the right
+    denominator.
+    """
+    length, width = 10.0, 5.0
+    stair_block = shapely_box(0.0, 0.0, 2.2, 2.2)
+    return Pool(
+        boundary=shapely_box(0.0, 0.0, length, width),
+        depth=PlaneSlopeDepth(
+            shallow=1.1, deep=2.0, origin=(0.0, 0.0), direction=(1.0, 0.0), length=length
+        ),
+        name="stairs",
+        material="vinyl",
+        features=(
+            Stairs("entry_stairs", polygon=stair_block, steps=3, top_depth=0.3, bottom_depth=1.1),
+            Obstacle("ladder_foot", polygon=shapely_box(9.4, 3.6, 9.8, 4.0), height=0.4),
+            Drain("main_drain", position=(7.5, 2.5), radius=0.25, flow_rate=0.16),
+            Return("return_a", position=(0.15, 4.0), direction=(1.0, 0.0)),
+            Skimmer("skimmer", position=(9.7, 0.4)),
+        ),
+    )
+
+
+def make_pool(name: str, **kwargs: object) -> Pool:
+    """Build a pool preset by name.
+
+    >>> make_pool("kidney").name
+    'kidney'
+    """
+    return POOL_PRESETS.create(name, **kwargs)
