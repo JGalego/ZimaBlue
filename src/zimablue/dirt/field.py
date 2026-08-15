@@ -224,10 +224,17 @@ class DirtField:
     # Serialisation
     # ------------------------------------------------------------------
     def snapshot(self) -> FloatArray:
-        """Compact float32 array of all layers, ``(n_types, rows, cols)``."""
+        """Compact float16 array of all layers, ``(n_types, rows, cols)``.
+
+        float16 because keyframes are a visualisation and analysis artefact,
+        not the source of truth: the metrics that matter are computed from the
+        live field and stored separately. Halving the width halves the biggest
+        contributor to a recording's size, and at typical per-cell masses
+        (~0.2 g) float16 still resolves to well under a milligram.
+        """
         if not self.layers:
-            return np.zeros((0, *self.grid.shape), dtype=np.float32)
-        return np.stack([self.layers[n] for n in self.layer_names()]).astype(np.float32)
+            return np.zeros((0, *self.grid.shape), dtype=np.float16)
+        return np.stack([self.layers[n] for n in self.layer_names()]).astype(np.float16)
 
     def layer_names(self) -> list[str]:
         """Layer names in a stable order -- recordings depend on this."""
@@ -294,13 +301,24 @@ class DebrisSet:
         self.collected |= selection
         return (mass, count)
 
-    def nudge(self, selection: BoolArray, dx: float, dy: float) -> None:
-        """Push items that are too big to swallow out of the way."""
+    def nudge(self, selection: BoolArray, dx: float, dy: float, inside: Any = None) -> None:
+        """Push items that are too big to swallow out of the way.
+
+        ``inside`` is an optional predicate taking ``(x, y)`` arrays and
+        returning a boolean mask.  Without it, a leaf shoved along by the robot
+        for long enough eventually ends up outside the pool -- which looks
+        exactly as wrong as it sounds when you watch the replay.
+        """
         selection = selection & self.active
         if not selection.any():
             return
-        self.x = np.where(selection, self.x + dx, self.x)
-        self.y = np.where(selection, self.y + dy, self.y)
+        new_x = np.where(selection, self.x + dx, self.x)
+        new_y = np.where(selection, self.y + dy, self.y)
+        if inside is not None:
+            allowed = np.asarray(inside(new_x, new_y))
+            new_x = np.where(allowed, new_x, self.x)
+            new_y = np.where(allowed, new_y, self.y)
+        self.x, self.y = new_x, new_y
 
     def type_names(self) -> list[str]:
         return [t.name for t in self.types]

@@ -37,7 +37,16 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 __all__ = ["Fast2DBackend"]
 
 STUCK_SPEED = 0.02
-"""Ground speed below which the robot counts as not moving, m/s."""
+"""Ground speed below which the robot counts as not translating, m/s."""
+
+STUCK_YAW_RATE = 0.08
+"""Yaw rate below which the robot counts as not rotating, rad/s.
+
+Rotation has to be part of the test: a robot deliberately spinning in place
+translates at zero speed, and a translation-only check flags that as stuck --
+which then makes every escape manoeuvre look like the failure it is trying to
+resolve, and traps the robot in a permanent turn.
+"""
 
 STUCK_DURATION = 1.5
 """How long it must be commanded to move without moving, s."""
@@ -60,6 +69,7 @@ class Fast2DBackend:
         self._slip_rng: np.random.Generator | None = None
         self._last_drift = 0.0
         self._visits: np.ndarray | None = None
+        self._last_visit_step: np.ndarray | None = None
         self._wall_visits: np.ndarray | None = None
         self._prev_v = 0.0
         self._prev_omega = 0.0
@@ -82,6 +92,8 @@ class Fast2DBackend:
 
         grid = world.pool.grid(world.cell)
         self._visits = np.zeros(grid.shape, dtype=np.int32)
+        # -1 rather than 0: step 0 must count as a first visit, not a repeat.
+        self._last_visit_step = np.full(grid.shape, -2, dtype=np.int64)
         # Wall coverage as an unrolled perimeter: 10 cm bins around the outline.
         self._wall_visits = np.zeros(
             max(8, int(np.ceil(world.pool.perimeter_length / 0.1))), dtype=np.int32
@@ -176,9 +188,12 @@ class Fast2DBackend:
         new.distance = state.distance + moved
         self._prev_v, self._prev_omega = achieved_v, omega
 
-        # 5. Stuck detection: commanded to move, not moving.
-        commanded = max(abs(command.left), abs(command.right))
-        if commanded > 0.05 and abs(achieved_v) < STUCK_SPEED:
+        # 5. Stuck detection: asked to move somehow, achieving neither
+        # translation nor rotation.
+        v_cmd, omega_cmd = robot.locomotion.to_body_velocity(command.left, command.right)
+        wants_motion = abs(v_cmd) > 0.03 or abs(omega_cmd) > 0.15
+        has_motion = abs(achieved_v) >= STUCK_SPEED or abs(omega) >= STUCK_YAW_RATE
+        if wants_motion and not has_motion:
             new.stuck_time = state.stuck_time + dt
             if new.stuck_time >= STUCK_DURATION and not state.stuck:
                 new.stuck = True
@@ -290,16 +305,25 @@ class Fast2DBackend:
     def _mark_visit(self, state: SimState) -> None:
         assert self.world is not None and self.robot is not None
         assert self._visits is not None and self._wall_visits is not None
+        assert self._last_visit_step is not None
         grid = self.world.pool.grid(self.world.cell)
         window = grid.window(state.x, state.y, 0.5 * self.robot.swath_width)
         if window is not None:
-            window.view(self._visits)[window.mask] += 1
+            # Count *passes*, not ticks. Incrementing every tick would make a
+            # robot that pauses for two seconds look like it covered the cell
+            # a hundred times, and would put the revisit metric in the
+            # hundreds regardless of the path. A cell counts again only once
+            # the head has left it and come back.
+            seen = window.view(self._last_visit_step)
+            fresh = window.mask & (seen < state.step - 1)
+            window.view(self._visits)[fresh] += 1
+            seen[window.mask] = state.step
 
         # Near the wall, also credit the corresponding unrolled perimeter bin.
         distance, _, _, is_obstacle = self.world.pool.nearest_wall(state.x, state.y)
         if not is_obstacle and distance <= self.robot.radius + 0.15:
-            s = self.world.pool.project_to_perimeter(state.x, state.y)
-            index = int(s / 0.1) % len(self._wall_visits)
+            arc = self.world.pool.project_to_perimeter(state.x, state.y)
+            index = int(arc / 0.1) % len(self._wall_visits)
             self._wall_visits[index] += 1
 
     @property

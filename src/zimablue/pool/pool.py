@@ -295,8 +295,8 @@ class Pool:
                 mask = np.asarray(contains_xy(inner, xs, ys))
 
         if not mask.any():
-            centroid = self.navigable.representative_point()
-            return (float(centroid.x), float(centroid.y), 0.0)
+            fallback = self.navigable.representative_point()
+            return (float(fallback.x), float(fallback.y), 0.0)
 
         # Deepest water wins; on a flat floor every cell ties, so break toward
         # the centroid rather than letting argmax pick an arbitrary corner.
@@ -304,7 +304,11 @@ class Pool:
         to_centre = np.hypot(xs - centroid.x, ys - centroid.y)
         scored = np.where(mask, depths - 1e-3 * to_centre, -np.inf)
         row, col = np.unravel_index(int(np.argmax(scored)), scored.shape)
-        return (float(xs[row, col]), float(ys[row, col]), 0.0)
+        x, y = float(xs[row, col]), float(ys[row, col])
+        # Face the middle of the pool. The deepest point is usually near a wall,
+        # and a fixed heading of zero would drop the robot nose-first into it.
+        heading = float(np.arctan2(centroid.y - y, centroid.x - x))
+        return (x, y, heading)
 
     # ------------------------------------------------------------------
     # Serialisation

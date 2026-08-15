@@ -154,7 +154,10 @@ def apply_cleaning(
             # Too big for the intake: shoved along instead of collected.
             outcome.debris_blocked = int(blocked.sum())
             dirt.debris.nudge(
-                blocked, float(np.cos(heading) * speed * dt), float(np.sin(heading) * speed * dt)
+                blocked,
+                float(np.cos(heading) * speed * dt),
+                float(np.sin(heading) * speed * dt),
+                inside=pool.contains,
             )
 
     outcome.filter_load = filter_load + outcome.captured
