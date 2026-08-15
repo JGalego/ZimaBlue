@@ -1,0 +1,23 @@
+name: kidney
+description: >
+  A kidney-shaped pool with a sloped floor. The concave side is the point: a
+  planner that treats the pool as one cell wastes travel crossing it, and the
+  coverage metric shows exactly how much.
+
+seed: 42
+
+pool:
+  preset: kidney
+
+robot:
+  preset: tracked
+
+dirt:
+  preset: light_sediment
+
+simulation:
+  duration: 1800
+  timestep: 0.02
+
+controller:
+  preset: baseline_coverage

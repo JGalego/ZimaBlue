@@ -1,0 +1,24 @@
+name: oracle_baseline
+description: >
+  The upper bound, for calibration. lawnmower_oracle drives a perfect
+  boustrophedon path from ground-truth pose -- impossible on hardware, which is
+  the point. Run this alongside a real controller to separate "the planner is
+  weak" from "this pool and robot cannot do better".
+
+seed: 42
+
+pool:
+  preset: kidney
+
+robot:
+  preset: tracked
+
+dirt:
+  preset: autumn
+
+simulation:
+  duration: 1800
+  timestep: 0.02
+
+controller:
+  preset: lawnmower_oracle

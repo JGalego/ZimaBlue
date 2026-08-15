@@ -1,0 +1,23 @@
+name: rectangular
+description: >
+  The simplest case: a 10 x 5 m rectangular pool with a flat floor and light
+  sediment. Use it as a control -- if a controller cannot cover a rectangle,
+  the problem is not the pool shape.
+
+seed: 42
+
+pool:
+  preset: rectangular
+
+robot:
+  preset: tracked
+
+dirt:
+  preset: light_sediment
+
+simulation:
+  duration: 1800
+  timestep: 0.02
+
+controller:
+  preset: baseline_coverage

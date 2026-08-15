@@ -1,0 +1,28 @@
+name: neglected
+description: >
+  A month unattended, heavy algae and biofilm on a tiled L-shaped pool. Most of
+  this mass is adhered, so suction alone will not lift it: this is the scenario
+  where coverage and cleanliness come apart most visibly.
+
+  Compare the heavy_duty cleaner (twin brushes, 40 um filter) against tracked.
+
+seed: 7
+
+pool:
+  preset: l_shaped
+
+robot:
+  preset: heavy_duty
+
+dirt:
+  preset: neglected_pool
+
+simulation:
+  duration: 2700
+  timestep: 0.02
+
+controller:
+  preset: baseline_coverage
+
+termination:
+  dirt_target: 0.9

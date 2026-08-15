@@ -1,0 +1,23 @@
+name: corner_heavy
+description: >
+  Sand and algae piled in the corners of a pool that has stairs and a ladder
+  foot. A boustrophedon path reaches corners last, if at all, so this is a
+  direct test of edge and corner coverage.
+
+seed: 3
+
+pool:
+  preset: stairs
+
+robot:
+  preset: compact
+
+dirt:
+  preset: corner_heavy
+
+simulation:
+  duration: 1800
+  timestep: 0.02
+
+controller:
+  preset: baseline_coverage

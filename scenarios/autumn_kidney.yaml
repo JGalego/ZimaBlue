@@ -1,0 +1,23 @@
+name: autumn_kidney
+description: >
+  Leaf fall in a kidney pool. Leaves are discrete and some are too large for
+  the intake, so this scenario exercises the debris path rather than just the
+  dirt raster -- expect debris_blocked events and a filter that fills.
+
+seed: 42
+
+pool:
+  preset: kidney
+
+robot:
+  preset: tracked
+
+dirt:
+  preset: autumn
+
+simulation:
+  duration: 1800
+  timestep: 0.02
+
+controller:
+  preset: baseline_coverage
