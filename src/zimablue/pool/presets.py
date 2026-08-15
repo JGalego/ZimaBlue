@@ -13,7 +13,7 @@ means adding a function, not extending a branch.
 from __future__ import annotations
 
 import numpy as np
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Polygon
 from shapely.geometry import box as shapely_box
 
 from zimablue.pool.depth import CompositeDepth, ConstantDepth, PlaneSlopeDepth
@@ -26,9 +26,33 @@ __all__ = ["POOL_PRESETS", "make_pool"]
 POOL_PRESETS: Registry[Pool] = Registry("pool")
 
 
-def _ellipse(cx: float, cy: float, rx: float, ry: float, n: int = 96) -> Polygon:
+def _ellipse(cx: float, cy: float, rx: float, ry: float, n: int = 256) -> Polygon:
     t = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
     return Polygon(np.column_stack([cx + rx * np.cos(t), cy + ry * np.sin(t)]))
+
+
+def _smooth_ring(polygon: Polygon, harmonics: int = 12, n: int = 512) -> Polygon:
+    """Replace a boundary with a low-order Fourier curve through it.
+
+    Boolean operations on ellipses leave cusps where the operands cross, and a
+    buffer fillet only trades a corner for a curvature jump.  Resampling the
+    ring at uniform arc length and keeping the first ``harmonics`` Fourier
+    coefficients of x(s) and y(s) instead yields a curve that is smooth
+    everywhere by construction -- a trigonometric polynomial has no corners.
+
+    Free curvature also matters physically: a wall follower that meets a corner
+    behaves differently from one tracing a smooth curve, and a kidney pool
+    really is smooth.
+    """
+    ring = LineString(polygon.exterior.coords)
+    stations = np.linspace(0.0, ring.length, n, endpoint=False)
+    points = np.array([ring.interpolate(float(s)).coords[0] for s in stations])
+    smoothed = []
+    for axis in (0, 1):
+        spectrum = np.fft.rfft(points[:, axis])
+        spectrum[harmonics + 1 :] = 0.0
+        smoothed.append(np.fft.irfft(spectrum, n))
+    return Polygon(np.column_stack(smoothed))
 
 
 @POOL_PRESETS.register("rectangular")
@@ -94,30 +118,37 @@ def l_shaped() -> Pool:
 
 @POOL_PRESETS.register("kidney")
 def kidney() -> Pool:
-    """A kidney-bean pool: two overlapping lobes with a concave bite.
+    """A kidney-bean pool: a 12.5 x 6.4 m bean with one concave long side.
 
-    Built by union/difference of ellipses rather than a hand-typed vertex list,
-    so the shape stays smooth and easy to re-proportion.
+    Composed from ellipse booleans rather than a hand-typed vertex list: a body
+    ellipse, a lobe that fattens the deep end, a closing buffer to erase the
+    waist where the two meet, and a large offset circle that scoops the shallow
+    side.  The result is then passed through :func:`_smooth_ring`, so the final
+    boundary is a smooth curve with no cusps left over from the booleans.
+
+    The concavity is the point: a boustrophedon planner that treats the pool as
+    a single cell wastes travel crossing the scoop, and coverage metrics show it.
     """
-    lobe_a = _ellipse(4.2, 4.0, 4.2, 3.0)
-    lobe_b = _ellipse(9.5, 4.4, 3.6, 2.8)
-    bite = _ellipse(7.0, 8.6, 3.4, 3.0)
-    boundary = lobe_a.union(lobe_b).difference(bite).buffer(0)
+    body = _ellipse(6.0, 3.9, 6.0, 3.1).union(_ellipse(9.6, 4.5, 2.9, 2.7))
+    body = body.buffer(0.5).buffer(-0.5)  # closing: erase the waist
+    scoop = _ellipse(4.6, 9.3, 4.3, 4.3)
+    boundary = body.difference(scoop)
     if boundary.geom_type == "MultiPolygon":  # pragma: no cover - defensive
         boundary = max(boundary.geoms, key=lambda g: g.area)
+    boundary = _smooth_ring(Polygon(boundary.exterior), harmonics=12)
 
     return Pool(
-        boundary=Polygon(boundary.exterior),
+        boundary=boundary,
         depth=PlaneSlopeDepth(
-            shallow=1.0, deep=2.0, origin=(0.5, 0.0), direction=(1.0, 0.0), length=11.0
+            shallow=1.0, deep=2.0, origin=(0.0, 0.0), direction=(1.0, 0.0), length=12.0
         ),
         name="kidney",
         material="plaster",
         features=(
-            Drain("main_drain", position=(6.5, 3.5), radius=0.25, flow_rate=0.18),
-            Return("return_a", position=(1.2, 4.0), direction=(1.0, 0.2)),
-            Return("return_b", position=(11.5, 4.4), direction=(-1.0, -0.2)),
-            Skimmer("skimmer", position=(2.0, 1.6)),
+            Drain("main_drain", position=(9.4, 4.2), radius=0.25, flow_rate=0.18),
+            Return("return_a", position=(1.4, 3.6), direction=(1.0, 0.1)),
+            Return("return_b", position=(11.8, 4.6), direction=(-1.0, -0.2)),
+            Skimmer("skimmer", position=(3.0, 1.4)),
         ),
     )
 
