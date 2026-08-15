@@ -1,0 +1,90 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zimablue"
+version = "0.1.0"
+description = "Simulate, test, and replay robotic pool cleaners."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "JGalego" }]
+keywords = [
+    "robotics",
+    "simulation",
+    "pool-cleaner",
+    "coverage-path-planning",
+    "digital-twin",
+    "replay",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
+]
+dependencies = [
+    "numpy>=1.24",
+    "shapely>=2.0",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+viz = ["matplotlib>=3.7"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.5",
+    "mypy>=1.8",
+    "matplotlib>=3.7",
+    "types-PyYAML",
+]
+
+[project.urls]
+Homepage = "https://github.com/JGalego/ZimaBlue"
+Repository = "https://github.com/JGalego/ZimaBlue"
+Issues = "https://github.com/JGalego/ZimaBlue/issues"
+
+[project.scripts]
+zimablue = "zimablue.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zimablue"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning:zimablue.*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "N", "C4", "PTH"]
+ignore = [
+    "B008",   # typer uses function calls in argument defaults
+    "RUF012", # mutable class attrs need ClassVar; noisy for dataclass-ish config
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+"examples/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/zimablue"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = false
+check_untyped_defs = true
