@@ -80,9 +80,7 @@ def main() -> None:
             expose_truth=truth,
         ).run(minutes=20)
         m = result.metrics
-        print(
-            f"{label:>18s}  {m.coverage:8.0%}  {m.dirt_removed_fraction:5.0%}  {m.revisits:9.2f}"
-        )
+        print(f"{label:>18s}  {m.coverage:8.0%}  {m.dirt_removed_fraction:5.0%}  {m.revisits:9.2f}")
 
     print(
         "\nlawnmower_oracle drives from ground truth, so it is an upper bound "

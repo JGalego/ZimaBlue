@@ -111,21 +111,39 @@ class CompositeDepth:
         return max([self.base.max_depth, *(m.max_depth for _, m in self.regions)])
 
     def depth_at(self, x: FloatArray | float, y: FloatArray | float) -> FloatArray:
-        xa = np.atleast_1d(np.asarray(x, dtype=float))
-        ya = np.atleast_1d(np.asarray(y, dtype=float))
-        out = np.asarray(self.base.depth_at(xa, ya), dtype=float).copy()
-        out = np.broadcast_to(out, xa.shape).copy()
+        # Preserve the caller's shape, including 0-d for scalar input. An
+        # earlier version promoted scalars with atleast_1d and returned a
+        # 1-element array, which NumPy refuses to convert back to a float --
+        # so a composite-depth pool crashed on the very first step while every
+        # other depth model worked.
+        xa = np.asarray(x, dtype=float)
+        ya = np.asarray(y, dtype=float)
+        shape = np.broadcast_shapes(xa.shape, ya.shape)
+        xb = np.broadcast_to(xa, shape)
+        yb = np.broadcast_to(ya, shape)
+
+        out = np.array(
+            np.broadcast_to(np.asarray(self.base.depth_at(xb, yb), dtype=float), shape),
+            dtype=float,
+        )
+        if not self.regions:
+            return out
+
+        from shapely import contains_xy  # local import: keeps module import cheap
+
+        # Work on flat views so the same code handles scalars and rasters.
+        flat_x, flat_y, flat_out = xb.ravel(), yb.ravel(), out.reshape(-1)
         for polygon, model in self.regions:
             minx, miny, maxx, maxy = polygon.bounds
             # Bounding-box prefilter first: the point-in-polygon test below is
             # the expensive part and most cells miss every region.
-            candidate = (xa >= minx) & (xa <= maxx) & (ya >= miny) & (ya <= maxy)
+            candidate = (flat_x >= minx) & (flat_x <= maxx) & (flat_y >= miny) & (flat_y <= maxy)
             if not candidate.any():
                 continue
-            from shapely import contains_xy  # local import: keeps module import cheap
-
             inside = np.zeros_like(candidate)
-            inside[candidate] = contains_xy(polygon, xa[candidate], ya[candidate])
+            inside[candidate] = contains_xy(polygon, flat_x[candidate], flat_y[candidate])
             if inside.any():
-                out[inside] = np.asarray(model.depth_at(xa[inside], ya[inside]), dtype=float)
+                flat_out[inside] = np.asarray(
+                    model.depth_at(flat_x[inside], flat_y[inside]), dtype=float
+                )
         return out

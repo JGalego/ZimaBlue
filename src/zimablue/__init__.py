@@ -11,7 +11,21 @@ implementation details reached through it, never around it.
 from __future__ import annotations
 
 from zimablue._version import __version__
+from zimablue.batch import BatchResult, run_batch
+from zimablue.controllers import CONTROLLERS, ControlInput, Controller
+from zimablue.dirt import (
+    DIRT_PRESETS,
+    DIRT_TYPES,
+    DebrisSpec,
+    DirtField,
+    DirtSpec,
+    DirtState,
+    DirtType,
+    LayerSpec,
+    make_dirt,
+)
 from zimablue.geometry import Grid
+from zimablue.metrics import Metrics, SpatialMetrics
 from zimablue.pool import (
     MATERIALS,
     POOL_PRESETS,
@@ -28,8 +42,10 @@ from zimablue.pool import (
     Stairs,
     SurfaceMaterial,
     Water,
+    get_material,
     make_pool,
 )
+from zimablue.recording import Recording
 from zimablue.registry import Registry
 from zimablue.rng import RngTree
 from zimablue.robot import (
@@ -48,6 +64,7 @@ from zimablue.robot import (
     Pump,
     make_robot,
 )
+from zimablue.scenarios import Scenario, load_scenario
 from zimablue.sensors import (
     IMU,
     ContactSensor,
@@ -61,12 +78,18 @@ from zimablue.sensors import (
     SensorSuite,
     Sonar,
 )
+from zimablue.simulation import RunResult, Simulation
+from zimablue.world import World
 
 __all__ = [
+    "CONTROLLERS",
+    "DIRT_PRESETS",
+    "DIRT_TYPES",
     "IMU",
     "MATERIALS",
     "POOL_PRESETS",
     "ROBOT_PRESETS",
+    "BatchResult",
     "Battery",
     "Brush",
     "Chassis",
@@ -75,14 +98,23 @@ __all__ = [
     "CompositeDepth",
     "ConstantDepth",
     "ContactSensor",
+    "ControlInput",
+    "Controller",
+    "DebrisSpec",
     "DepthModel",
+    "DirtField",
+    "DirtSpec",
+    "DirtState",
+    "DirtType",
     "Drain",
     "DriveCommand",
     "DriveUnit",
     "Encoder",
     "Filter",
     "Grid",
+    "LayerSpec",
     "Locomotion",
+    "Metrics",
     "Motor",
     "Obstacle",
     "PlaneSlopeDepth",
@@ -92,20 +124,30 @@ __all__ = [
     "PressureSensor",
     "Pump",
     "Reading",
+    "Recording",
     "Registry",
     "Return",
     "RngTree",
+    "RunResult",
+    "Scenario",
     "Sensor",
     "SensorConfig",
     "SensorContext",
     "SensorFault",
     "SensorSuite",
+    "Simulation",
     "Skimmer",
     "Sonar",
+    "SpatialMetrics",
     "Stairs",
     "SurfaceMaterial",
     "Water",
+    "World",
     "__version__",
+    "get_material",
+    "load_scenario",
+    "make_dirt",
     "make_pool",
     "make_robot",
+    "run_batch",
 ]

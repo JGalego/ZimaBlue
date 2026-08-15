@@ -91,3 +91,31 @@ def test_raycast_reports_max_range_when_nothing_is_hit():
 def test_unknown_preset_lists_alternatives():
     with pytest.raises(KeyError, match="kidny"):
         make_pool("kidny")
+
+
+@pytest.mark.parametrize("name", POOL_PRESETS.names())
+def test_depth_preserves_input_shape(name):
+    """Scalar in, scalar out.
+
+    A composite-depth pool once returned a 1-element array for scalar input,
+    which NumPy will not convert back to a float -- so the l_shaped preset
+    crashed on the first simulation step while every other pool worked.
+    """
+    pool = make_pool(name)
+    x, y, _ = pool.start_pose()
+    scalar = pool.depth_at(x, y)
+    assert scalar.shape == ()
+    assert float(scalar) > 0.0
+
+    grid = np.array([[x, x], [x, x]])
+    assert pool.depth_at(grid, grid).shape == (2, 2)
+    assert pool.depth_at(np.array([x, x]), np.array([y, y])).shape == (2,)
+
+
+def test_composite_depth_regions_apply_at_every_shape():
+    model = CompositeDepth(
+        base=ConstantDepth(2.0), regions=((shapely_box(0, 0, 1, 1), ConstantDepth(0.5)),)
+    )
+    assert float(model.depth_at(0.5, 0.5)) == pytest.approx(0.5)
+    xs = np.array([0.5, 5.0])
+    assert model.depth_at(xs, np.array([0.5, 5.0])) == pytest.approx([0.5, 2.0])

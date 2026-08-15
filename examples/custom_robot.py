@@ -10,6 +10,10 @@ Two things worth noticing:
 * The brush is what removes adhered dirt. Turn it down and coverage barely
   moves while cleaning collapses -- which is the distinction the whole library
   is built around.
+* Surface material changes how much the brush matters, in a way that is not
+  obvious until you measure it.
+* Sensor faults barely affect the baseline controller -- because the baseline
+  barely uses its sensors. Worth knowing before trusting it.
 """
 
 from __future__ import annotations
@@ -48,36 +52,98 @@ def build_cleaner(*, brush_aggressiveness: float, name: str) -> zb.Cleaner:
 
 
 def main() -> None:
+    # Dirt dominated by adhered growth. A mixed preset would bury the effect:
+    # most of its mass is loose sediment that comes up under suction whatever
+    # the brush is doing, so the totals barely move.
+    adhered = zb.DirtSpec(
+        name="growth",
+        layers=(
+            zb.LayerSpec("algae", grams_per_m2=45.0, patterns=("patchy",)),
+            zb.LayerSpec("biofilm", grams_per_m2=20.0, patterns=("edges",)),
+        ),
+    )
+
     print("Same pool, same dirt, same controller. Only the brush differs.\n")
-    print(f"{'brush':>10s}  {'coverage':>9s}  {'dirt removed':>13s}")
+    print(f"{'brush':>10s}  {'coverage':>9s}  {'algae':>7s}  {'biofilm':>8s}")
 
     for aggressiveness, label in ((1.4, "strong"), (1.0, "normal"), (0.15, "worn out")):
         robot = build_cleaner(brush_aggressiveness=aggressiveness, name=f"custom_{label}")
-        result = zb.Simulation(
-            pool="l_shaped", robot=robot, dirt="neglected_pool", seed=42, record=False
-        ).run(minutes=20)
+        metrics = (
+            zb.Simulation(pool="rectangular", robot=robot, dirt=adhered, seed=42, record=False)
+            .run(minutes=20)
+            .metrics
+        )
         print(
-            f"{label:>10s}  {result.metrics.coverage:8.0%}  "
-            f"{result.metrics.dirt_removed_fraction:12.0%}"
+            f"{label:>10s}  {metrics.coverage:8.0%}  "
+            f"{_removed(metrics, 'algae'):6.1%}  {_removed(metrics, 'biofilm'):7.1%}"
         )
 
-    # Now break a sensor part-way through, and watch the navigation suffer.
-    print("\nSame robot, but the sonar starts lying five minutes in:")
-    robot = build_cleaner(brush_aggressiveness=1.0, name="faulty")
-    robot.sensors.sonar.inject_fault(
-        bias=0.9,                  # reports walls almost a metre further away
-        dropout_probability=0.15,
-        start_time=300.0,
-        label="sonar_drift",
-    )
-    result = zb.Simulation(
-        pool="l_shaped", robot=robot, dirt="neglected_pool", seed=42, record=False
-    ).run(minutes=20)
     print(
-        f"{'faulty':>10s}  {result.metrics.coverage:8.0%}  "
-        f"{result.metrics.dirt_removed_fraction:12.0%}   "
-        f"collisions {result.metrics.collisions}"
+        "\nCoverage is identical -- the robot drives the same route either way.\n"
+        "Only the cleaning changes, and only for the dirt that is bonded down."
     )
+
+    # Surface matters too, and the model says something non-obvious about it.
+    print("\nThe same brush on different surfaces (algae removed):")
+    print(f"{'surface':>12s}  {'strong':>8s}  {'worn out':>9s}")
+    for surface in ("concrete", "plaster", "vinyl", "tile"):
+        row = []
+        for aggressiveness in (1.4, 0.15):
+            pool = zb.make_pool("rectangular")
+            pool.material = zb.get_material(surface)
+            robot = build_cleaner(brush_aggressiveness=aggressiveness, name="x")
+            metrics = (
+                zb.Simulation(pool=pool, robot=robot, dirt=adhered, seed=42, record=False)
+                .run(minutes=20)
+                .metrics
+            )
+            row.append(_removed(metrics, "algae"))
+        print(f"{surface:>12s}  {row[0]:7.1%}  {row[1]:8.1%}")
+
+    print(
+        "\nOn rough concrete the bond is strongest, so the brush matters most.\n"
+        "On smooth tile more of the growth is loose to begin with and suction\n"
+        "alone gets further -- which is why cleaner makers match brush material\n"
+        "to surface."
+    )
+
+    # Finally: break a sensor part-way through. The result here is not the one
+    # you might expect, and it is worth reporting rather than hiding.
+    print("\nInjecting sensor faults five minutes in:")
+    print(f"{'sensor':>12s}  {'coverage':>9s}  {'collisions':>11s}")
+    faults = (
+        ("none", None),
+        ("gyro drift", lambda r: r.sensors.imu.inject_fault(bias=0.03, start_time=300.0)),
+        ("sonar stuck", lambda r: r.sensors.sonar.inject_fault(stuck=True, start_time=300.0)),
+        ("sonar long", lambda r: r.sensors.sonar.inject_fault(bias=0.9, start_time=300.0)),
+    )
+    for label, inject in faults:
+        robot = build_cleaner(brush_aggressiveness=1.0, name=label)
+        if inject is not None:
+            inject(robot)
+        metrics = (
+            zb.Simulation(pool="l_shaped", robot=robot, dirt=adhered, seed=42, record=False)
+            .run(minutes=20)
+            .metrics
+        )
+        print(f"{label:>12s}  {metrics.coverage:8.0%}  {metrics.collisions:11d}")
+
+    print(
+        "\nBarely a difference -- and that is the finding. The baseline controller\n"
+        "is a reflex agent: it steers on bump switches and only glances at the\n"
+        "sonar, so corrupting the sonar changes little and a drifting gyro just\n"
+        "reshuffles which parts of the pool it misses. A controller that built a\n"
+        "map, or fused these sensors into a pose estimate, would degrade sharply\n"
+        "here. That is the point of having the fault machinery before having the\n"
+        "algorithm that depends on it."
+    )
+
+
+def _removed(metrics: zb.Metrics, dirt: str) -> float:
+    """Fraction of one dirt type removed over the run."""
+    gone = metrics.removed_by_type.get(dirt, 0.0)
+    left = metrics.dirt_by_type.get(dirt, 0.0)
+    return gone / max(gone + left, 1e-9)
 
 
 if __name__ == "__main__":

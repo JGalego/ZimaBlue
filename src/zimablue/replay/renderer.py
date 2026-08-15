@@ -548,12 +548,21 @@ def _water_cmap():
     )
 
 
+def _dirt_cmap():
+    """A flat water base for the before/after panels of the summary."""
+    from matplotlib.colors import LinearSegmentedColormap
+
+    return LinearSegmentedColormap.from_list("zimablue_base", [PALETTE["mid"], PALETTE["mid"]])
+
+
 def _hex_rgb(value: str) -> tuple[float, float, float]:
     value = value.lstrip("#")
     return tuple(int(value[i : i + 2], 16) / 255.0 for i in (0, 2, 4))  # type: ignore[return-value]
 
 
-def _dirt_alpha(dirt: np.ndarray, navigable: np.ndarray, vmax: float) -> np.ndarray:
+def _dirt_alpha(
+    dirt: np.ndarray, navigable: np.ndarray, vmax: float, *, strength: float = 0.85
+) -> np.ndarray:
     """Dirt as a semi-transparent brown overlay on the water.
 
     An alpha layer rather than a colormap so the depth shading stays visible
@@ -565,7 +574,7 @@ def _dirt_alpha(dirt: np.ndarray, navigable: np.ndarray, vmax: float) -> np.ndar
     intensity = np.clip(dirt / max(vmax, 1e-9), 0.0, 1.0)
     rgba = np.zeros((*dirt.shape, 4), dtype=float)
     rgba[..., :3] = _hex_rgb(PALETTE["dirt"])
-    rgba[..., 3] = _smooth(np.where(navigable, intensity * 0.85, 0.0))
+    rgba[..., 3] = _smooth(np.where(navigable, intensity * strength, 0.0))
     return rgba
 
 

@@ -254,18 +254,21 @@ def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) ->
     matplotlib.use("Agg", force=True)
     import matplotlib.pyplot as plt
 
-    from zimablue.replay.renderer import load_scene
+    from zimablue.replay.renderer import _dirt_alpha, _dirt_cmap, load_scene
 
     scene = load_scene(recording)
     spatial = recording.spatial
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    import matplotlib.patches as mpatches
+
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), dpi=dpi, facecolor=PALETTE["panel"])
     extent = scene.grid.extent
     navigable = scene.navigable
+    outline = np.asarray(scene.pool.boundary.exterior.coords)
 
-    def style(ax, title: str) -> None:
+    def style(ax, title: str):
         ax.set_title(title, color=PALETTE["ink"], fontsize=11, family="monospace")
         ax.set_facecolor(PALETTE["panel"])
         ax.set_xticks([])
@@ -273,8 +276,14 @@ def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) ->
         ax.set_aspect("equal")
         for spine in ax.spines.values():
             spine.set_visible(False)
-        outline = np.asarray(scene.pool.boundary.exterior.coords)
         ax.plot(outline[:, 0], outline[:, 1], color=PALETTE["coping"], linewidth=2)
+        # Clip to the true outline: without it the 10 cm cells show as a
+        # staircase fringe against the smooth boundary.
+        clip = mpatches.Polygon(
+            outline, closed=True, transform=ax.transData, facecolor="none", edgecolor="none"
+        )
+        ax.add_patch(clip)
+        return clip
 
     # Path
     ax = axes[0][0]
@@ -289,36 +298,50 @@ def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) ->
 
     # Visits
     ax = axes[0][1]
-    style(ax, "coverage (visit count)")
+    clip = style(ax, "coverage (visit count)")
     visits = spatial.get("visits")
     if visits is not None:
-        ax.imshow(
-            np.where(navigable, visits, np.nan),
+        image = ax.imshow(
+            np.where(navigable, visits, 0),
             extent=extent,
             origin="lower",
             cmap="cividis",
             interpolation="nearest",
         )
+        image.set_clip_path(clip)
 
-    # Dirt before / after, on a shared scale so the panels are comparable.
+    # Dirt before and after, on a shared scale so the pair is comparable.
+    # Same brown-on-water palette as the live replay, so "dark means dirty"
+    # means the same thing in both views.
     initial = spatial.get("initial_dirt")
     remaining = spatial.get("remaining_dirt")
-    vmax = float(np.nanpercentile(initial[navigable], 98)) if initial is not None else 1.0
+    # A low percentile on purpose: normalising to the peak leaves most of the
+    # pool at a barely-visible alpha, and these two panels exist to be compared
+    # at a glance rather than to be read off a scale.
+    vmax = float(np.nanpercentile(initial[navigable], 65)) if initial is not None else 1.0
     for ax, data, title in (
         (axes[1][0], initial, "dirt at start"),
         (axes[1][1], remaining, "dirt at end"),
     ):
-        style(ax, title)
-        if data is not None:
-            ax.imshow(
-                np.where(navigable, data, np.nan),
-                extent=extent,
-                origin="lower",
-                cmap="copper_r",
-                vmin=0,
-                vmax=vmax,
-                interpolation="bilinear",
-            )
+        clip = style(ax, title)
+        if data is None:
+            continue
+        base = ax.imshow(
+            np.zeros_like(data),
+            extent=extent,
+            origin="lower",
+            cmap=_dirt_cmap(),
+            vmin=0,
+            vmax=1,
+        )
+        base.set_clip_path(clip)
+        overlay = ax.imshow(
+            _dirt_alpha(np.asarray(data, dtype=float), navigable, vmax),
+            extent=extent,
+            origin="lower",
+            interpolation="bilinear",
+        )
+        overlay.set_clip_path(clip)
 
     metrics = recording.metrics
     fig.suptitle(

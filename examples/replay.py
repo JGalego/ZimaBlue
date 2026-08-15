@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Record a run, then replay it.
 
-    python examples/replay.py            # render to files
-    python examples/replay.py --watch    # open the interactive player
+python examples/replay.py            # render to files
+python examples/replay.py --watch    # open the interactive player
 """
 
 from __future__ import annotations
