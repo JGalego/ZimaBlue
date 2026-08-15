@@ -9,7 +9,7 @@ issue.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -58,7 +58,7 @@ class ReplayPlayer:
         self.paused = start_paused
         self.index = 0
         self._scrubbing = False
-        self._timer = None
+        self._timer: Any = None
 
         self.dt = float(recording.manifest.get("timestep", 0.02))
         self._build_controls()

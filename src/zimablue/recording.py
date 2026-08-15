@@ -314,7 +314,7 @@ def _npz_bytes(arrays: dict[str, NDArray]) -> bytes:
     import io
 
     buffer = io.BytesIO()
-    np.savez_compressed(buffer, **arrays)
+    np.savez_compressed(buffer, **arrays)  # type: ignore[arg-type]
     return buffer.getvalue()
 
 

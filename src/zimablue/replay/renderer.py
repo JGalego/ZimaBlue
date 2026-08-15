@@ -443,14 +443,14 @@ class ReplayRenderer:
         segments = np.stack([points[:-1], points[1:]], axis=1)
         # Older segments fade and thin out; the head of the trail is brightest.
         age = np.linspace(0.0, 1.0, len(segments))
-        self._trail.set_segments(segments)
-        self._trail.set_color(PALETTE["trail"])
-        self._trail.set_alpha(None)
-        self._trail.set_linewidths(0.7 + 3.2 * age)
         rgba = np.zeros((len(segments), 4))
         rgba[:, :3] = _hex_rgb(PALETTE["trail"])
         rgba[:, 3] = 0.06 + 0.78 * age
-        self._trail.set_colors(rgba)
+        # matplotlib's stubs are narrower than what LineCollection accepts;
+        # arrays are the documented input for all three of these.
+        self._trail.set_segments(list(segments))
+        self._trail.set_linewidth((0.7 + 3.2 * age).tolist())
+        self._trail.set_color(rgba)  # type: ignore[arg-type]
 
     def _update_text(self, index: int, t: float) -> None:
         f = self.recording.frames

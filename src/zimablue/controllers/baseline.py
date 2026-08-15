@@ -167,7 +167,7 @@ class BaselineCoverage:
         self._last_time = 0.0
         self._recover_turn = 1.0
         self._after_turn = Phase.LANE
-        self._contact_since: float | None = None
+        self._contact_since = None
 
     # ------------------------------------------------------------------
     def step(self, ctl: ControlInput) -> DriveCommand:

@@ -199,8 +199,8 @@ class DebrisSpec:
         return cls(
             dirt=data["dirt"],
             per_100m2=float(data["per_100m2"]),
-            mass_range=tuple(data.get("mass_range", (1.5, 6.0))),  # type: ignore[arg-type]
-            size_range=tuple(data.get("size_range", (0.03, 0.09))),  # type: ignore[arg-type]
+            mass_range=tuple(data.get("mass_range", (1.5, 6.0))),
+            size_range=tuple(data.get("size_range", (0.03, 0.09))),
             patterns=tuple(data.get("patterns", ("uniform",))),
         )
 

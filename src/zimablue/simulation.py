@@ -185,7 +185,7 @@ class Simulation:
     def _truth_view(self) -> SimState:
         """Ground truth, with the pool attached, for oracle controllers only."""
         state = self.state
-        state.pool = self.pool  # type: ignore[attr-defined]
+        state.pool = self.pool
         return state
 
     def _record(self, state: SimState, command: DriveCommand, observations: dict[str, Any]) -> None:

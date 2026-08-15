@@ -113,7 +113,7 @@ class Pool:
     # ------------------------------------------------------------------
     @property
     def bounds(self) -> tuple[float, float, float, float]:
-        return tuple(self.boundary.bounds)  # type: ignore[return-value]
+        return tuple(self.boundary.bounds)
 
     @property
     def max_depth(self) -> float:
@@ -385,8 +385,8 @@ def _depth_from_dict(data: dict[str, Any]) -> DepthModel:
         return PlaneSlopeDepth(
             shallow=float(data["shallow"]),
             deep=float(data["deep"]),
-            origin=tuple(data["origin"]),  # type: ignore[arg-type]
-            direction=tuple(data["direction"]),  # type: ignore[arg-type]
+            origin=tuple(data["origin"]),
+            direction=tuple(data["direction"]),
             length=float(data["length"]),
         )
     if kind == "composite":
@@ -459,22 +459,22 @@ def _feature_from_dict(data: dict[str, Any]) -> PoolFeature:
     if kind == "drain":
         return Drain(
             name=name,
-            position=tuple(data["position"]),  # type: ignore[arg-type]
+            position=tuple(data["position"]),
             radius=float(data["radius"]),
             flow_rate=float(data["flow_rate"]),
         )
     if kind == "return":
         return Return(
             name=name,
-            position=tuple(data["position"]),  # type: ignore[arg-type]
-            direction=tuple(data["direction"]),  # type: ignore[arg-type]
+            position=tuple(data["position"]),
+            direction=tuple(data["direction"]),
             flow_rate=float(data["flow_rate"]),
             reach=float(data["reach"]),
         )
     if kind == "skimmer":
         return Skimmer(
             name=name,
-            position=tuple(data["position"]),  # type: ignore[arg-type]
+            position=tuple(data["position"]),
             width=float(data["width"]),
             capture_radius=float(data["capture_radius"]),
         )

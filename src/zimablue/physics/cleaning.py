@@ -19,8 +19,11 @@ brush is working, and if the brush is off, ``agitation`` is zero and that share
 stays on the wall no matter how long the robot sits there.
 
 That single expression produces the behaviour the whole project exists to
-measure: a cleaner with a weak or disabled brush drives over algae, reports
-excellent coverage, and removes almost none of it.
+measure. With the brush disabled, per-pass removal of adhered dirt drops by a
+factor that grows with adhesion -- roughly 2.2x for algae and 3.5x for biofilm,
+against ~1.0x for loose sand, which the brush barely affects. Compounded over a
+run, a cleaner with a failed brush reports excellent coverage and leaves the
+algae behind.
 
 No CFD. See ``docs/research.md`` section 10.
 """

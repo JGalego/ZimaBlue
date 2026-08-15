@@ -189,7 +189,8 @@ def run(
 
         if result.recording is None:
             _fail("--summary needs a recording", "add --record runs/out.zbr")
-        export_summary(result.recording, summary)
+        else:
+            export_summary(result.recording, summary)
         console.print(f"[green]summary [/green] {summary}")
 
 
