@@ -36,14 +36,31 @@ environment name set to `pypi`.
 Both entries must match the workflow exactly. A mismatch fails at upload with
 an `invalid-publisher` error, which is the system working.
 
-### 4. Add the Codecov token
+### 4. Enable the repository on Codecov
 
-Public repositories can upload tokenlessly, but it is rate-limited and fails
-intermittently. Get the upload token from
-<https://app.codecov.io/gh/JGalego/ZimaBlue/settings> and add it as a repository
-secret named `CODECOV_TOKEN` (Settings → Secrets and variables → Actions).
+**This is the one step nothing in the repository can do for you**, and until it
+is done the coverage badge reads `unknown`.
 
-Without it the coverage badge simply stays stale; nothing else breaks.
+Sign in at <https://app.codecov.io> with GitHub and enable `JGalego/ZimaBlue`.
+That is usually all of it: CI authenticates by OIDC (`use_oidc`, backed by the
+test job's `id-token: write` permission), so no secret is needed.
+
+If you would rather use a token, or the repository is ever made private, take
+the upload token from
+<https://app.codecov.io/gh/JGalego/ZimaBlue/settings> and add it as a
+repository secret named `CODECOV_TOKEN` (Settings → Secrets and variables →
+Actions). The workflow switches to it automatically when it is present.
+
+To tell the two failure modes apart, read the "Upload coverage to Codecov" step
+of the `test (3.12)` job. It exits 0 either way — a coverage host being down
+should not turn the build red — so the message is the only signal:
+
+| Message | Meaning |
+|---|---|
+| `Token required - not valid tokenless upload` | no credential reached the uploader |
+| `Repository not found` | the credential is fine; Codecov does not know this repository yet |
+
+Nothing else breaks either way.
 
 ## Dry run to TestPyPI
 
