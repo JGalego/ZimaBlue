@@ -30,6 +30,12 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    # Codecov authenticates by OIDC when it can, which needs a token minted by
+    # the workflow. Without this the action's "Get OIDC token" step succeeds
+    # and hands back nothing, and the upload is rejected as tokenless.
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -54,9 +60,12 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
-          # Tokenless upload works for public repositories; the token makes it
-          # reliable and is required if the repo is ever made private.
+          # Codecov no longer accepts anonymous uploads: without either OIDC
+          # (see the job's id-token permission) or this secret the upload is
+          # rejected with "Token required - not valid tokenless upload", and
+          # the badge reads "unknown" while CI stays green.
           token: ${{ secrets.CODECOV_TOKEN }}
+          # A coverage host being down should not turn the build red.
           fail_ci_if_error: false
 
       - name: Smoke-test the CLI
