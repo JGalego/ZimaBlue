@@ -116,9 +116,11 @@ class Grid:
         if cached is None:
             xs = self.minx + (np.arange(self.ncols) + 0.5) * self.cell
             ys = self.miny + (np.arange(self.nrows) + 0.5) * self.cell
-            cached = np.meshgrid(xs, ys)
-            cached[0].setflags(write=False)
-            cached[1].setflags(write=False)
+            # meshgrid returns a list; the cache holds a pair.
+            grid_x, grid_y = np.meshgrid(xs, ys)
+            grid_x.setflags(write=False)
+            grid_y.setflags(write=False)
+            cached = (grid_x, grid_y)
             _CENTER_CACHE[self] = cached
         return cached
 
