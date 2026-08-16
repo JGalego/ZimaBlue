@@ -569,9 +569,10 @@ def trace_pool(
     glare_value: float | None = None,
     glare_surround: float = 0.55,
     closing: int = 2,
+    close_gaps: float = 0.35,
     # -- how smooth ---------------------------------------------------------
     simplify: float = 1.5,
-    smooth: int | None = 16,
+    smooth: int | None = None,
     max_size: int = MAX_SIZE,
 ) -> PoolTrace:
     """Find a pool in ``image`` and measure it.
@@ -580,6 +581,13 @@ def trace_pool(
     ``corners`` is required -- a photograph carries no scale of its own, and
     inventing one would put every area and coverage number downstream quietly
     out by a factor nobody could see.
+
+    ``smooth`` is off by default. Fourier smoothing suits a shape that really
+    is smooth, and rounds the corners off one that is not: on a hotel pool with
+    straight sides and a mitred corner, sixteen harmonics returned a blob.
+    ``simplify`` already removes the pixel grid's staircase, so the outline you
+    get is the pool you photographed. Turn ``smooth`` on for a genuinely curved
+    pool where the segmentation came out ragged.
     """
     scales = [
         metres_per_pixel is not None,
@@ -666,10 +674,27 @@ def trace_pool(
     ring = np.asarray(pixel_polygon.exterior.coords, dtype=float)[:-1]
     boundary, scale = _to_metres(ring, factor, rows, metres_per_pixel, width, reference, corners)
 
+    if close_gaps > 0 and pixel_polygon.area > 0:
+        # Closing belongs in metres -- see _close_notches -- but it is applied
+        # to the pixel outline so that what the overlay draws is what was used.
+        # The radius converts through the average linear scale, which for a
+        # perspective-corrected trace varies a little across the frame and does
+        # not matter at the size of the slots being removed.
+        metres_per_px = float(np.sqrt(boundary.area / pixel_polygon.area))
+        pixel_polygon = _close_notches(pixel_polygon, close_gaps / metres_per_px)
+        ring = np.asarray(pixel_polygon.exterior.coords, dtype=float)[:-1]
+        boundary, scale = _to_metres(
+            ring, factor, rows, metres_per_pixel, width, reference, corners
+        )
+
     if smooth:
-        # Enough harmonics to keep a kidney's waist, few enough to drop the
-        # staircase the pixel grid leaves behind.
-        boundary = smooth_ring(boundary, harmonics=int(smooth))
+        # In pixel space, again so the overlay shows what was used. Smoothing
+        # is scale-free, so doing it here or after scaling is the same curve.
+        pixel_polygon = smooth_ring(pixel_polygon, harmonics=int(smooth))
+        ring = np.asarray(pixel_polygon.exterior.coords, dtype=float)[:-1]
+        boundary, scale = _to_metres(
+            ring, factor, rows, metres_per_pixel, width, reference, corners
+        )
 
     minx, miny, _maxx, _maxy = boundary.bounds
     from shapely.affinity import translate
@@ -686,6 +711,33 @@ def trace_pool(
         scale=scale,
         warnings=warnings,
     )
+
+
+def _close_notches(boundary: Polygon, radius: float) -> Polygon:
+    """Fill intrusions narrower than ``2 * radius`` metres.
+
+    Every way a photograph goes wrong at the water's edge leaves the same
+    signature: a slot poked into the outline that is far longer than it is
+    wide. An underwater lamp does it, a hard shadow does it, a pool ladder
+    does it. Chasing each cause through the colour rules is a losing game --
+    on one photo the insulating shell was too bright for the water test, on the
+    next it was too *yellow* for it -- but the shape of the damage is the same
+    every time and a morphological closing removes it by definition.
+
+    The threshold is set in metres, because that is the only place it means
+    anything: pools do not have 30 cm slots in them, so anything narrower than
+    that is the photograph rather than the pool. A genuine narrow waist -- a
+    kidney's, or the neck on a figure-of-eight -- is metres wide and survives.
+
+    Shapely's buffer does the closing exactly on the polygon, so there is no
+    second rasterisation and no staircase to smooth away afterwards.
+    """
+    closed = boundary.buffer(radius, join_style=1).buffer(-radius, join_style=1)
+    if closed.is_empty:  # pragma: no cover - only for a degenerate sliver
+        return boundary
+    if closed.geom_type == "MultiPolygon":
+        closed = max(closed.geoms, key=lambda g: g.area)
+    return Polygon(closed.exterior)
 
 
 def _to_metres(
