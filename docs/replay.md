@@ -50,6 +50,43 @@ so it is rotated into world coordinates for display. Any controller can join in
 by growing a `telemetry()` method returning `est_x`, `est_y` and `est_heading`;
 those become `ctl.*` channels in the recording.
 
+## Dirt cam
+
+```bash
+zimablue replay run.zbr --dirtcam --gif out.gif      # animation, map alongside
+zimablue replay run.zbr --dirtcam --gif out.gif --no-map
+zimablue replay run.zbr --dirtcam --summary out.png  # contact sheet
+```
+
+```python
+from zimablue.replay import DirtCam, DirtCamConfig, export_dirtcam, render_dirtcam
+```
+
+The camera sits 18 cm off the floor behind the brush and looks forward. From
+there the pool is not the calm blue sheet the top-down view shows; it is a silt
+plain with leaves in it, and that is a fairer impression of what the machine is
+driving through. Both views read the same dirt raster, so when they disagree
+the disagreement is real: from above you see *where the robot went*, from the
+bumper you see *what it left behind*.
+
+The technique is inverse perspective mapping. Each output pixel is a ray cast
+through the floor plane; where it lands, the dirt raster is sampled. The whole
+frame is one vectorised NumPy expression over a precomputed grid of rays --
+no mesh, no z-buffer, no engine.
+
+Tunable through `DirtCamConfig`: frame size, `camera_height`, `pitch`, `fov`,
+`far` and the grout `tile` pitch. The floor texture is locked to world
+coordinates rather than to the screen, because without something sliding past
+underneath, a colour field only changes shade and the view reads as a gradient
+instead of as motion.
+
+Two approximations worth knowing. The ray geometry treats the floor as flat
+even where the depth model slopes, which costs a little foreshortening accuracy
+at the far edge of frame and saves a ray–surface intersection per pixel. And
+anything off the navigable floor is shaded as wall rather than raycast against
+real wall geometry, so the pool edge is a darkened region at floor resolution,
+not a modelled surface.
+
 ## The 3D view
 
 ```bash
@@ -159,9 +196,18 @@ frame *n* is then a comparison against that array. Accumulating forward would
 be cheaper but would show stale coverage after scrubbing backwards — a rewind
 would display area the robot has not reached yet.
 
-**Rasters are clipped to the pool outline** and their alpha is blurred. Without
-either, the 10 cm cells read as a staircase fringe against the smooth coping,
-which looks like a rendering bug rather than like resolution.
+**Rasters are clipped to the pool outline**, so the 10 cm cells do not read as
+a staircase fringe against the smooth coping.
+
+**The coverage overlay is deliberately not smoothed.** It used to be: a 3x3 box
+blur on the alpha channel plus bilinear interpolation, both there to soften the
+cell edges. Measured against the visit grid, that combination rendered 28% more
+area as covered than the robot had driven over -- 9.5 m2 of coverage that never
+happened in a 59 m2 pool, and every cleaned lane drawn at 1.4x its true width.
+A viewer would have concluded the dirt was vanishing from places the machine
+never reached, which is precisely the error this project exists to catch. Both
+overlays now use nearest-neighbour sampling and no blur. The picture is
+blockier and it is true.
 
 **Dirt keyframes are not interpolated.** The nearest keyframe at or before the
 current time is used; averaging two mass fields would invent dirt that never
@@ -179,7 +225,29 @@ pip install 'zimablue[viz]'
 A headless batch of a thousand episodes never imports a plotting library, and
 `import zimablue` never pulls in a GUI stack.
 
+## Turning a pool over in a notebook
+
+```python
+import zimablue as zb
+
+zb.preview("kidney")   # drag to rotate, scroll to zoom
+zb.preview(result)     # ...tinted with the dirt left behind, path drawn on it
+```
+
+This one does not go through matplotlib at all. The pool's geometry is built in
+Python, shipped to the page as JSON, and projected by a small canvas renderer,
+so dragging costs a matrix multiply over a few thousand vertices rather than a
+round trip to the kernel. There is no `ipywidgets`, no `ipympl` and no widget
+state, which means it works in JupyterLab, classic Notebook, VS Code and Colab
+alike -- and keeps working in an exported HTML file after the kernel is gone.
+`PoolPreview.save("pool.html")` writes that file directly.
+
+The renderer is a painter's algorithm with flat shading and no z-buffer. For a
+basin that is enough; faces that pass through each other would be a bug in the
+mesh rather than a limit of the sort. Vertical scale is exaggerated 2.6x, and
+the page says so.
+
 ## Not yet
 
 - Playing two runs side by side (comparing controllers is currently two windows)
-- A web viewer
+- The dirt cam inside the interactive player, as a live side panel

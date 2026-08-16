@@ -115,6 +115,7 @@ class ReplayRenderer:
         show_trail: bool = True,
         trail_seconds: float = 90.0,
         dpi: int = 100,
+        ax: Axes | None = None,
     ) -> None:
         self.recording = recording
         self.scene = load_scene(recording)
@@ -124,13 +125,26 @@ class ReplayRenderer:
         self._frame_origin: tuple[float, float, float] | None = None
         self._ghost_world: tuple[float, float] | None = None
 
-        import matplotlib
-
-        if matplotlib.get_backend().lower() not in ("agg",):
-            pass
         import matplotlib.pyplot as plt
 
-        self.fig: Figure = plt.figure(figsize=figsize, dpi=dpi, facecolor=PALETTE["panel"])
+        self.fig: Figure
+        self.ax: Axes
+        self.hud: Axes | None
+
+        if ax is not None:
+            # Drawing into someone else's axes: a dirt-cam side panel, a
+            # notebook grid, a figure of several pools. No HUD strip -- the
+            # host owns the layout and a stolen row of meters would fight it.
+            figure = ax.get_figure()
+            if figure is None:  # pragma: no cover - detached axes
+                raise ValueError("the axes passed as ax= is not attached to a figure")
+            self.ax = ax
+            self.fig = figure  # type: ignore[assignment]
+            self.hud = None
+            self._build()
+            return
+
+        self.fig = plt.figure(figsize=figsize, dpi=dpi, facecolor=PALETTE["panel"])
         # Pool on top, a thin HUD strip below: the numbers support the picture,
         # they do not compete with it.
         gridspec = self.fig.add_gridspec(
@@ -143,8 +157,8 @@ class ReplayRenderer:
             top=0.965,
             bottom=0.04,
         )
-        self.ax: Axes = self.fig.add_subplot(gridspec[0])
-        self.hud: Axes = self.fig.add_subplot(gridspec[1])
+        self.ax = self.fig.add_subplot(gridspec[0])
+        self.hud = self.fig.add_subplot(gridspec[1])
         self._build()
 
     # ------------------------------------------------------------------
@@ -212,7 +226,9 @@ class ReplayRenderer:
             extent=scene.grid.extent,
             origin="lower",
             zorder=2.5,
-            interpolation="bilinear",
+            # Same reason as the dirt layer: no interpolation, because the
+            # cleaned swath is exactly as wide as the robot, not wider.
+            interpolation="nearest",
         )
         self._covered_image.set_clip_path(self._water_clip)
         self._first_visit = self._build_first_visit()
@@ -225,7 +241,9 @@ class ReplayRenderer:
             extent=scene.grid.extent,
             origin="lower",
             zorder=3,
-            interpolation="bilinear",
+            # Nearest, not bilinear: interpolating between cells smears the
+            # cleaned swath outward again at display resolution.
+            interpolation="nearest",
         )
         self._dirt_image.set_clip_path(self._water_clip)
 
@@ -336,11 +354,23 @@ class ReplayRenderer:
             weight="bold",
             zorder=12,
         )
-        self._build_hud()
+        if self.hud is not None:
+            self._build_hud()
 
     # ------------------------------------------------------------------
+    def _update_title_only(self, index: int, t: float) -> None:
+        """A bare label, for when this renderer is a panel in someone else's
+        figure: the host owns the clock and the meters, and repeating them here
+        just crowds the pool."""
+        self._title.set_text("top down")
+        self._title.set_fontsize(9)
+        self._title.set_alpha(0.55)
+        self._banner.set_text("")
+
     def _build_hud(self) -> None:
         hud = self.hud
+        if hud is None:  # pragma: no cover - guarded by the caller
+            return
         hud.set_facecolor(PALETTE["panel"])
         hud.set_xlim(0, 1)
         hud.set_ylim(0, 1)
@@ -394,8 +424,17 @@ class ReplayRenderer:
             hud.add_patch(bar)
             self._bars[label] = (bar, value, x0, width)
 
+        # Right-aligned to the last bar. Left-aligned it grew off the edge of
+        # the figure as soon as the frame counter reached five digits.
         self._hud_note = hud.text(
-            0.72, 0.10, "", color=PALETTE["ink"], fontsize=8, family="monospace", alpha=0.55
+            0.97,
+            0.10,
+            "",
+            color=PALETTE["ink"],
+            fontsize=8,
+            family="monospace",
+            alpha=0.55,
+            ha="right",
         )
 
     # ------------------------------------------------------------------
@@ -509,6 +548,9 @@ class ReplayRenderer:
 
     def _update_text(self, index: int, t: float) -> None:
         f = self.recording.frames
+        if self.hud is None:
+            self._update_title_only(index, t)
+            return
         manifest = self.recording.manifest
         scenario = manifest.get("scenario", {})
 
@@ -638,18 +680,25 @@ def _dirt_alpha(
     intensity = np.clip(dirt / max(vmax, 1e-9), 0.0, 1.0)
     rgba = np.zeros((*dirt.shape, 4), dtype=float)
     rgba[..., :3] = _hex_rgb(PALETTE["dirt"])
-    rgba[..., 3] = _smooth(np.where(navigable, intensity * strength, 0.0))
+    rgba[..., 3] = np.where(navigable, intensity * strength, 0.0)
     return rgba
 
 
 def _covered_alpha(covered: np.ndarray, navigable: np.ndarray) -> np.ndarray:
     """The cleaned swath as a pale wash over the water.
 
-    The alpha is blurred before display: a binary mask stretched over 10 cm
-    cells reads as a staircase, and the swath is a soft thing in reality.
+    Deliberately *not* blurred. Softening the edge looked better and lied: a
+    3x3 blur over 10 cm cells spreads the wash 10 cm past the swath on every
+    side, which rendered 28% more area as covered than the robot had actually
+    driven over -- 9.5 m2 of phantom coverage in a 59 m2 pool, and a cleaned
+    lane drawn at 1.4x its true width.
+
+    That is the one error this renderer must not make. The project exists to
+    separate where the robot drove from what it removed, and an overlay that
+    quietly widens the swath argues the opposite case. The cells are 10 cm and
+    the staircase is the truth.
     """
     alpha = np.where(covered & navigable, 0.34, 0.0)
-    alpha = _smooth(alpha)
     rgba = np.zeros((*covered.shape, 4), dtype=float)
     rgba[..., :3] = _hex_rgb(PALETTE["foam"])
     rgba[..., 3] = alpha
