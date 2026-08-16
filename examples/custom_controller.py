@@ -2,12 +2,15 @@
 """Write your own autonomy stack and benchmark it against the shipped ones.
 
     python examples/custom_controller.py
+    python examples/custom_controller.py --minutes 5
 
 A controller is one class with two methods. It sees sensor readings only --
 never ground-truth pose -- which is what keeps the coverage numbers honest.
 """
 
 from __future__ import annotations
+
+import argparse
 
 import numpy as np
 
@@ -61,7 +64,11 @@ class SpiralOut:
 
 
 def main() -> None:
-    print("20 simulated minutes in a kidney pool, seed 42.\n")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--minutes", type=float, default=20.0)
+    args = parser.parse_args()
+
+    print(f"{args.minutes:g} simulated minutes in a kidney pool, seed 42.\n")
     print(f"{'controller':>18s}  {'coverage':>9s}  {'dirt':>6s}  {'revisits':>9s}")
 
     contenders = [
@@ -78,7 +85,7 @@ def main() -> None:
             seed=42,
             record=False,
             expose_truth=truth,
-        ).run(minutes=20)
+        ).run(minutes=args.minutes)
         m = result.metrics
         print(f"{label:>18s}  {m.coverage:8.0%}  {m.dirt_removed_fraction:5.0%}  {m.revisits:9.2f}")
 

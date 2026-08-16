@@ -284,11 +284,19 @@ fake one.
 | [Roadmap](docs/roadmap.md) | Done, next, and deliberately not planned |
 | [Releasing](RELEASING.md) | Publishing to TestPyPI and PyPI |
 
-Examples: [`basic.py`](examples/basic.py) ·
-[`custom_robot.py`](examples/custom_robot.py) ·
-[`custom_controller.py`](examples/custom_controller.py) ·
-[`estimation_replay.py`](examples/estimation_replay.py) ·
-[`replay.py`](examples/replay.py)
+### Examples
+
+Every one takes `--minutes` if you want a shorter run.
+
+| | |
+|---|---|
+| [`basic.py`](examples/basic.py) | The smallest useful program: pool in, metrics out |
+| [`custom_pool.py`](examples/custom_pool.py) | Build a pool from geometry, depth models and features, then read the spatial metrics |
+| [`custom_robot.py`](examples/custom_robot.py) | Compose a cleaner from components and break a sensor on purpose |
+| [`custom_controller.py`](examples/custom_controller.py) | Write an autonomy stack and benchmark it against the shipped ones |
+| [`estimation_replay.py`](examples/estimation_replay.py) | The EKF controller, with the pose estimate drawn against ground truth |
+| [`batch_experiment.py`](examples/batch_experiment.py) | Run a scenario across seeds, then reproduce its worst episode exactly |
+| [`replay.py`](examples/replay.py) | Replay a recording flat, in 3D, or interactively |
 
 ## License
 

@@ -2,6 +2,7 @@
 """Build a cleaner from components, and break one of its sensors on purpose.
 
     python examples/custom_robot.py
+    python examples/custom_robot.py --minutes 5
 
 Two things worth noticing:
 
@@ -17,6 +18,8 @@ Two things worth noticing:
 """
 
 from __future__ import annotations
+
+import argparse
 
 import numpy as np
 
@@ -52,6 +55,10 @@ def build_cleaner(*, brush_aggressiveness: float, name: str) -> zb.Cleaner:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--minutes", type=float, default=20.0)
+    args = parser.parse_args()
+
     # Dirt dominated by adhered growth. A mixed preset would bury the effect:
     # most of its mass is loose sediment that comes up under suction whatever
     # the brush is doing, so the totals barely move.
@@ -70,7 +77,7 @@ def main() -> None:
         robot = build_cleaner(brush_aggressiveness=aggressiveness, name=f"custom_{label}")
         metrics = (
             zb.Simulation(pool="rectangular", robot=robot, dirt=adhered, seed=42, record=False)
-            .run(minutes=20)
+            .run(minutes=args.minutes)
             .metrics
         )
         print(
@@ -94,7 +101,7 @@ def main() -> None:
             robot = build_cleaner(brush_aggressiveness=aggressiveness, name="x")
             metrics = (
                 zb.Simulation(pool=pool, robot=robot, dirt=adhered, seed=42, record=False)
-                .run(minutes=20)
+                .run(minutes=args.minutes)
                 .metrics
             )
             row.append(_removed(metrics, "algae"))
@@ -123,7 +130,7 @@ def main() -> None:
             inject(robot)
         metrics = (
             zb.Simulation(pool="l_shaped", robot=robot, dirt=adhered, seed=42, record=False)
-            .run(minutes=20)
+            .run(minutes=args.minutes)
             .metrics
         )
         print(f"{label:>12s}  {metrics.coverage:8.0%}  {metrics.collisions:11d}")

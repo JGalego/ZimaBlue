@@ -2,19 +2,25 @@
 """The smallest useful ZimaBlue program.
 
     python examples/basic.py
+    python examples/basic.py --minutes 5
 
-Builds a dirty kidney pool, runs the baseline cleaner for 20 simulated
-minutes, prints both families of metrics, and saves a replayable recording.
+Builds a dirty kidney pool, runs the baseline cleaner, prints both families of
+metrics, and saves a replayable recording.
 """
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import zimablue as zb
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--minutes", type=float, default=20.0)
+    args = parser.parse_args()
+
     sim = zb.Simulation(
         pool="kidney",
         robot="tracked",
@@ -26,7 +32,7 @@ def main() -> None:
     print(f"robot {sim.robot.describe()}")
     print(f"dirt  {sim.world.dirt.initial_mass:.0f} g to remove\n")
 
-    result = sim.run(minutes=20)
+    result = sim.run(minutes=args.minutes)
     print(result.metrics.summary())
 
     # Coverage and cleanliness are different questions. This is the whole point.
