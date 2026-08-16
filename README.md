@@ -58,6 +58,12 @@ The kidney boundary is a low-order Fourier curve, which makes it smooth
 everywhere — a wall follower meeting a corner behaves differently from one
 tracing a curve, and a real kidney pool has no corners.
 
+In a notebook, `zb.preview(pool)` renders it in the browser — drag to rotate,
+scroll to zoom. The pool's geometry is shipped to the page as JSON and
+projected there, so it needs no widget extensions and keeps working in an
+exported HTML file. Hand it a finished run and it tints the floor with the
+dirt left behind and draws the path that was driven.
+
 ## Add a cleaner
 
 Composed from components, not subclassed:
@@ -157,6 +163,27 @@ controller publishes a pose estimate it appears as an amber ghost drifting away
 from the true position.
 
 Headless? `zimablue replay run.zbr --gif out.gif`.
+
+### From the bumper
+
+<div align="center">
+<img src="docs/assets/dirtcam.gif" alt="The pool floor seen from the cleaner's own bumper, silt and leaves passing beneath it, with the top-down view alongside" width="820">
+
+<sub>Dirt cam, with the top-down view alongside. The two disagree constantly.</sub>
+</div>
+
+```bash
+zimablue replay runs/example.zbr --dirtcam --gif out.gif
+```
+
+Watching from above is calming. From 18 cm off the floor the same pool is a
+silt plain with leaves in it, which is a fair impression of what a cleaner is
+actually driving through. From above you see where the robot went; from down
+here you see what it left behind.
+
+It is inverse perspective mapping over the same dirt raster the metrics are
+computed from — one NumPy expression per frame across a grid of rays, no 3D
+engine involved.
 
 ### In 3D
 
@@ -296,7 +323,8 @@ Every one takes `--minutes` if you want a shorter run.
 | [`custom_controller.py`](examples/custom_controller.py) | Write an autonomy stack and benchmark it against the shipped ones |
 | [`estimation_replay.py`](examples/estimation_replay.py) | The EKF controller, with the pose estimate drawn against ground truth |
 | [`batch_experiment.py`](examples/batch_experiment.py) | Run a scenario across seeds, then reproduce its worst episode exactly |
-| [`replay.py`](examples/replay.py) | Replay a recording flat, in 3D, or interactively |
+| [`replay.py`](examples/replay.py) | Replay a recording flat, in 3D, from the bumper, or interactively |
+| [`tour.ipynb`](examples/tour.ipynb) | All of the above in one notebook, with the pool turnable in the browser |
 
 ## License
 
