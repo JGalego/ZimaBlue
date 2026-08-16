@@ -60,10 +60,16 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
-          # Codecov no longer accepts anonymous uploads: without either OIDC
-          # (see the job's id-token permission) or this secret the upload is
-          # rejected with "Token required - not valid tokenless upload", and
-          # the badge reads "unknown" while CI stays green.
+          # Codecov no longer accepts anonymous uploads: without a credential
+          # it rejects the report with "Token required - not valid tokenless
+          # upload" and the badge reads "unknown" while CI stays green.
+          #
+          # Two ways to give it one. use_oidc trades the workflow's identity
+          # (hence the job's id-token permission) for an upload token, needing
+          # no secret at all -- the action defaults it to false, so granting
+          # the permission alone changes nothing. The secret is the fallback,
+          # and is required if this repository is ever made private.
+          use_oidc: ${{ secrets.CODECOV_TOKEN == '' }}
           token: ${{ secrets.CODECOV_TOKEN }}
           # A coverage host being down should not turn the build red.
           fail_ci_if_error: false
