@@ -19,7 +19,7 @@
 <img src="docs/assets/replay.gif" alt="Replay of a cleaning run: the robot traces the pool while the cleaned swath and remaining dirt update live" width="720">
 
 <sub>25 simulated minutes in a kidney pool, replayed at 260×.<br>
-Watch the two left-hand meters diverge — that gap is the point.</sub>
+Watch the coverage and dirt meters diverge — that gap is the point.</sub>
 
 </div>
 
@@ -66,12 +66,10 @@ zimablue replay runs/example.zbr
 
 ## Results
 
-Two numbers that a generic simulator will not separate for you:
+Coverage is where the robot drove. Cleanliness is what it removed. They come
+apart, and most simulators will not tell you so.
 
-> **coverage** — where the robot drove<br>
-> **cleanliness** — what the robot removed
-
-The clearest demonstration is the oracle. Over 30 minutes in a kidney pool:
+The oracle makes it obvious. Over 30 minutes in a kidney pool:
 
 | controller | coverage | dirt removed | distance |
 |---|---|---|---|
@@ -84,9 +82,9 @@ finishes early and stops, while the scrappier controllers keep going over the
 same adhered dirt — which is what actually removes it. Report only coverage and
 you rank these backwards.
 
-A second result the testbed surfaced, this one uncomfortable: **better
-localisation currently makes things worse.** Calibrating the odometry improves
-the mapping controller's position estimate fivefold and halves its coverage.
+Another one, less comfortable: **better localisation currently makes things
+worse.** Calibrating the odometry improves the mapping controller's position
+estimate fivefold and halves its coverage.
 
 | `encoder_scale` | position error | coverage |
 |---|---|---|
@@ -144,8 +142,8 @@ breaks the bond, so the brush advantage rises with adhesion: ~1.0× for sand,
 
 **Controllers** — a boustrophedon baseline, a random-bounce floor, a
 map-building `systematic` controller, and a `lawnmower_oracle` upper bound that
-reads ground truth and is explicitly *not* deployable. Yours needs one class
-with two methods, and sees sensor readings only.
+reads ground truth and is explicitly *not* deployable. Yours needs a class with
+`reset` and `step`, and sees sensor readings only.
 
 **State estimation.** `systematic` runs an EKF over position, heading and
 **gyro bias**, fed by the encoders and IMU. The bias is only observable when
@@ -166,7 +164,7 @@ Asserted in `tests/test_determinism.py`.
 ## Replay
 
 <div align="center">
-<img src="docs/assets/summary.png" alt="Four-panel summary: path driven, visit counts, dirt at start, dirt at end" width="760">
+<img src="docs/assets/summary.png" alt="Run summary: path driven, visit counts, dirt at start, dirt at end" width="760">
 </div>
 
 Playback runs at 0.25× to 25×, with pause, scrub, step and speed control. The
@@ -183,7 +181,7 @@ Headless? `zimablue replay run.zbr --gif out.gif`.
 
 <sub>A sloped pool: 1.0 m at the shallow end, 2.4 m at the deep end.</sub>
 
-<img src="docs/assets/3d-kidney.png" alt="The same kidney run as a 3D basin at four points in time, the floor clearing from brown to blue" width="820">
+<img src="docs/assets/3d-kidney.png" alt="The same kidney run as a 3D basin across the run, the floor clearing from brown to blue" width="820">
 </div>
 
 ```bash

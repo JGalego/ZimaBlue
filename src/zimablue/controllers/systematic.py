@@ -6,7 +6,7 @@ bounce can out-cover it given enough time. This controller is the answer to
 that -- and, being map-based, it is also the one that *degrades* when a sensor
 lies, which is the point of having the fault machinery.
 
-Three parts:
+Parts:
 
 * :class:`~zimablue.estimation.PoseEstimator` -- an EKF over encoders and the
   IMU, with zero-velocity updates to pin down the gyro bias.

@@ -1,6 +1,6 @@
 """Standard pool geometries.
 
-Six shapes that between them exercise everything the simulator has to handle:
+Shapes that between them exercise everything the simulator has to handle:
 straight walls, a sloped floor, a concave corner, curvature, no corners at all,
 and a blocking feature.  Dimensions are ordinary residential-pool sizes in
 metres.

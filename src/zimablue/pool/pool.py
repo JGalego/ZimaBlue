@@ -3,8 +3,8 @@
 A pool is a planar boundary, a depth model, a surface material and a list of
 features.  Everything the simulator needs at run time (navigable mask, depth
 raster, collision segments, perimeter parameterisation) is *derived* from those
-four things and cached, so presets stay declarative and no preset needs to know
-how the simulator consumes it.
+and cached, so presets stay declarative and no preset needs to know how the
+simulator consumes it.
 """
 
 from __future__ import annotations

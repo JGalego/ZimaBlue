@@ -189,7 +189,7 @@ class BaselineCoverage:
             self.phase = Phase.DONE
             return DriveCommand.stop()
 
-        # Watchdog. Two things the obvious checks miss:
+        # Watchdog, for what the obvious checks miss:
         #
         # The simulator's stuck flag only fires when the robot achieves neither
         # translation nor rotation, so one grinding along a wall while spinning

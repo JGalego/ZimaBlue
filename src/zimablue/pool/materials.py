@@ -1,11 +1,11 @@
 """Pool surface materials.
 
-Material affects three things the simulator cares about: how well tracks grip
-(``friction``), how effectively a brush dislodges adhered dirt (``brush_gain``),
-and how strongly dirt sticks in the first place (``adhesion_factor``).  Values
-are relative, ordered by the qualitative behaviour reported in cleaner
-literature (rubber brushes for rough plaster/concrete, soft foam for smooth
-vinyl and fiberglass) rather than measured coefficients.
+Material decides how well tracks grip (``friction``), how effectively a brush
+dislodges adhered dirt (``brush_gain``), and how strongly dirt sticks in the
+first place (``adhesion_factor``).  Values are relative, ordered by the
+qualitative behaviour reported in cleaner literature (rubber brushes for rough
+plaster/concrete, soft foam for smooth vinyl and fiberglass) rather than
+measured coefficients.
 """
 
 from __future__ import annotations
