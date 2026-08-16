@@ -38,6 +38,26 @@ Layer order is deliberate: the cleaned wash is drawn *under* the dirt, so a
 patch the robot has driven over but failed to clean still shows as dirty. If
 coverage were painted on top it would hide exactly the failure worth seeing.
 
+### The dots
+
+Three unrelated things are drawn as dots, which is worth spelling out because
+at 260x playback they all read as flicker.
+
+**Brown-orange circles** are debris -- leaves and twigs -- sized by the item's
+own diameter and drawn dark-rimmed. They wink out as they are collected. The
+winking looks like flashing because debris is stored as keyframes every ten
+simulated seconds, not per frame: a leaf is there in one keyframe and gone in
+the next, with no fade between. A typical autumn kidney run starts with 60 and
+finishes with 19 still on the floor.
+
+**A red star at the robot** is a bump: it appears on any frame where a contact
+switch is closed, and in a tight corner it can strobe for several seconds.
+That strobe is real -- the collision counter is climbing at the same rate.
+
+**Faint pale dots that never move** are the pool's hydraulic features: drains,
+returns and skimmers, drawn at 40% alpha so they stay legible under the dirt
+without competing with it.
+
 ### The amber ghost
 
 If the controller publishes a pose estimate -- `systematic` does -- replay
