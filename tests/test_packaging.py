@@ -12,10 +12,14 @@ import sys
 from pathlib import Path
 
 import pytest
-import tomllib
 
 import zimablue as zb
 from zimablue.scenarios import bundled_scenarios, load_scenario, resolve_scenario
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # tomllib entered the standard library in 3.11; 3.10 is our floor.
+    import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 
