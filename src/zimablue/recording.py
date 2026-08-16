@@ -79,6 +79,19 @@ class Recording:
         return 0.0 if times is None or times.size == 0 else float(times[-1])
 
     @property
+    def frame_dt(self) -> float:
+        """Seconds between recorded frames.
+
+        Not the simulation timestep: the recorder may keep every Nth tick.
+        Taken from the timestamps rather than the manifest so it stays right
+        for a recording written at a decimated rate.
+        """
+        times = self.frames.get("time")
+        if times is None or times.size < 2:
+            return float(self.manifest.get("timestep", 0.02))
+        return float(times[1] - times[0])
+
+    @property
     def seed(self) -> int:
         return int(self.manifest.get("seed", 0))
 

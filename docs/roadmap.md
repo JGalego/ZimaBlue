@@ -27,6 +27,7 @@ rather than stubbed. **Shipped.**
 | ✅ | EKF pose estimator with ZUPT gyro-bias observation | done |
 | ✅ | Occupancy mapping + `systematic` coverage controller | done |
 | ✅ | Estimate-vs-truth overlay in replay | done |
+| ✅ | 3D replay renderer (geometry, not physics) | done |
 
 ## v0.2 — depth
 
@@ -54,6 +55,10 @@ rather than stubbed. **Shipped.**
   seed sweeps.
 
 ## v0.3 — the 3D backend
+
+Not to be confused with the 3D *renderer*, which ships today: that draws a
+recorded 2D run as a basin with real depth. This is the other half -- actually
+integrating the dynamics in three dimensions.
 
 Design is in [`architecture.md`](architecture.md#3d-backend-intended-design).
 The acceptance test is deliberately strict: **a `.zbr` produced by the 3D

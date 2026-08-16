@@ -50,6 +50,39 @@ so it is rotated into world coordinates for display. Any controller can join in
 by growing a `telemetry()` method returning `est_x`, `est_y` and `est_heading`;
 those become `ctl.*` channels in the recording.
 
+## The 3D view
+
+```bash
+zimablue replay run.zbr --3d --gif out.gif      # orbiting animation
+zimablue replay run.zbr --3d --summary out.png  # contact sheet
+```
+
+```python
+from zimablue.replay import export_3d_movie, export_3d_frames, render_3d
+```
+
+The floor is a surface sampled from the pool's depth model, the walls are
+extruded from its boundary, and the robot box sits at the local floor depth --
+so a sloped pool renders as a real basin and the cleaner is metres lower at the
+deep end. Floor colour is remaining dirt, as in the 2D view. The camera orbits
+about 50 degrees across the run, because parallax is what makes a rendered
+scene read as solid.
+
+Vertical scale is exaggerated roughly 3.6x. A 12 m pool 2 m deep is a pancake
+at true scale, and depth is the entire reason for this view -- so do not read a
+gradient off the picture.
+
+**It renders in 3D; it does not simulate in 3D.** Motion comes from
+`Fast2DBackend` either way. A 3D *backend* is designed and not built; see
+[`architecture.md`](architecture.md#3d-backend-intended-design). The geometry
+comes from the recording's embedded pool config, so the 3D view works on any
+`.zbr`, including ones written before the renderer existed.
+
+Interactive 3D is not wired up -- the view renders to a file. Rebuilding the
+floor surface every frame is far too slow for scrubbing, and solving that means
+caching the mesh and updating only its colours, which is worth doing when
+somebody wants it.
+
 ## Controls
 
 | Key | Action |

@@ -209,6 +209,10 @@ def replay(
     summary: Annotated[Path | None, typer.Option(help="Write a summary PNG instead.")] = None,
     frames: Annotated[Path | None, typer.Option(help="Write still frames to a directory.")] = None,
     sensors: Annotated[bool, typer.Option(help="Draw sonar rays.")] = True,
+    three_d: Annotated[
+        bool,
+        typer.Option("--3d/--2d", help="Render the pool as a 3D basin (file output only)."),
+    ] = False,
 ) -> None:
     """Replay a recorded run -- interactively, or to a file."""
     from zimablue.recording import Recording
@@ -221,18 +225,34 @@ def replay(
         )
 
     if gif is not None:
-        from zimablue.replay import export_movie
+        if three_d:
+            from zimablue.replay import export_3d_movie
 
-        with console.status(f"rendering {gif}..."):
-            export_movie(rec, gif, speed=max(speed * 10, 60.0), show_sensors=sensors)
+            with console.status(f"rendering {gif} in 3D..."):
+                export_3d_movie(rec, gif, speed=max(speed * 10, 60.0))
+        else:
+            from zimablue.replay import export_movie
+
+            with console.status(f"rendering {gif}..."):
+                export_movie(rec, gif, speed=max(speed * 10, 60.0), show_sensors=sensors)
         console.print(f"[green]wrote[/green] {gif}")
         return
     if summary is not None:
-        from zimablue.replay import export_summary
+        if three_d:
+            from zimablue.replay import export_3d_frames
 
-        export_summary(rec, summary)
+            export_3d_frames(rec, summary, count=4)
+        else:
+            from zimablue.replay import export_summary
+
+            export_summary(rec, summary)
         console.print(f"[green]wrote[/green] {summary}")
         return
+    if three_d:
+        _fail(
+            "3D replay renders to a file, not an interactive window.",
+            "try: zimablue replay run.zbr --3d --gif out.gif",
+        )
     if frames is not None:
         from zimablue.replay import export_frames
 
