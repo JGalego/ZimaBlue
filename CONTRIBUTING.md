@@ -72,6 +72,18 @@ python tools/make_logo.py
 
 If you change that preset's geometry, regenerate and commit both SVGs.
 
+## Coverage
+
+`pytest --cov=zimablue` runs in CI and reports to Codecov. New code is held to
+90% patch coverage, which is how the overall number goes up rather than
+sideways.
+
+The interactive replay player is the one place that stays low on purpose: it is
+a matplotlib window whose job is to block on user input. Its state machine --
+seeking, clamping, speed cycling, key bindings -- is tested directly in
+`tests/test_player.py`; the window plumbing around it is not, because mocking
+an event loop tests the mock.
+
 ## Citing prior art
 
 New models should say where they come from. Add the reference to

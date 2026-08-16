@@ -51,7 +51,13 @@ class Window:
 
 
 def wrap_angle(theta: FloatArray | float) -> FloatArray | float:
-    """Wrap angles into ``(-pi, pi]``."""
+    """Wrap angles into ``[-pi, pi)``.
+
+    Note the half-open end: exactly +pi comes back as -pi. Every caller
+    compares magnitudes or feeds the result to a trig function, so the choice
+    does not matter to them -- but the docstring used to claim the opposite
+    interval, which is the sort of thing someone eventually relies on.
+    """
     return (np.asarray(theta) + np.pi) % (2 * np.pi) - np.pi
 
 

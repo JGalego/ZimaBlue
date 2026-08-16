@@ -36,6 +36,15 @@ environment name set to `pypi`.
 Both entries must match the workflow exactly. A mismatch fails at upload with
 an `invalid-publisher` error, which is the system working.
 
+### 4. Add the Codecov token
+
+Public repositories can upload tokenlessly, but it is rate-limited and fails
+intermittently. Get the upload token from
+<https://app.codecov.io/gh/JGalego/ZimaBlue/settings> and add it as a repository
+secret named `CODECOV_TOKEN` (Settings → Secrets and variables → Actions).
+
+Without it the coverage badge simply stays stale; nothing else breaks.
+
 ## Dry run to TestPyPI
 
 Actions → Release → **Run workflow** → target `testpypi`.

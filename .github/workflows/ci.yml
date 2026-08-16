@@ -33,7 +33,17 @@ jobs:
         run: mypy
 
       - name: Test
-        run: pytest -q
+        run: pytest -q --cov=zimablue --cov-report=xml --cov-report=term:skip-covered
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          # Tokenless upload works for public repositories; the token makes it
+          # reliable and is required if the repo is ever made private.
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
       - name: Smoke-test the CLI
         run: |
@@ -60,6 +70,29 @@ jobs:
 
       - name: Check metadata
         run: python -m twine check --strict dist/*
+
+      - name: The description must render on PyPI with its images intact
+        run: |
+          # twine check only asks whether it renders. It does not notice that
+          # every image is a relative path that PyPI cannot resolve.
+          python -m pip install "readme_renderer[md]"
+          python - <<'EOF'
+          import glob, re, sys, zipfile
+          import readme_renderer.markdown as md
+          meta = zipfile.ZipFile(glob.glob("dist/*.whl")[0])
+          name = [n for n in meta.namelist() if n.endswith("METADATA")][0]
+          body = meta.read(name).decode().split("\n\n", 1)[1]
+          relative = [u for u in re.findall(r'<img[^>]+src="([^"]+)"', body)
+                      if not u.startswith("http")]
+          if relative:
+              sys.exit(f"relative image URLs in the description: {relative}")
+          html = md.render(body)
+          if html is None:
+              sys.exit("PyPI would reject this description")
+          if html.count("<img") < 5:
+              sys.exit("images were stripped by PyPI's sanitiser")
+          print(f"description renders with {html.count('<img')} images")
+          EOF
 
       - name: Install the wheel with no extras
         run: |

@@ -32,6 +32,11 @@ jobs:
           python-version: "3.12"
 
       - name: Build
+        env:
+          # Pin the README's image URLs to the tag, so the page for a released
+          # version keeps showing that version's screenshots rather than
+          # whatever main drifts to later.
+          ZIMABLUE_DOCS_REF: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'main' }}
         run: |
           python -m pip install --upgrade build twine
           python -m build

@@ -4,9 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zimablue"
-dynamic = ["version"]
+dynamic = ["readme", "version"]
 description = "Simulate, test, and replay robotic pool cleaners."
-readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "JGalego" }]
@@ -40,9 +39,15 @@ dependencies = [
 [project.optional-dependencies]
 viz = ["matplotlib>=3.7"]
 dev = [
+    # The build backend, so the tests can import the metadata hook in
+    # hatch_build.py and check the README rewriting it does.
+    "hatchling>=1.21",
     "pytest>=7.4",
     "pytest-cov>=4.1",
-    "ruff>=0.5",
+    # Pinned to a minor range: ruff gains rules and formatting opinions
+    # between releases, and an unrelated upgrade should not turn CI red on a
+    # branch that changed nothing. Bump deliberately.
+    "ruff>=0.16,<0.17",
     "mypy>=1.8",
     "matplotlib>=3.7",
     "types-PyYAML",
@@ -57,6 +62,11 @@ Issues = "https://github.com/JGalego/ZimaBlue/issues"
 
 [project.scripts]
 zimablue = "zimablue.cli:main"
+
+[tool.hatch.metadata.hooks.custom]
+# Rewrites the README's repository-relative image and link URLs to absolute
+# ones, so the PyPI page is not a wall of broken images. See hatch_build.py.
+path = "hatch_build.py"
 
 [tool.hatch.version]
 # Single source of truth. Duplicating the number in pyproject.toml is how a

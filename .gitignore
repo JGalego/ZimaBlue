@@ -25,3 +25,4 @@ out/
 .DS_Store
 .idea/
 .vscode/
+coverage.xml

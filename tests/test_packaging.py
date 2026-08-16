@@ -7,6 +7,8 @@ neither still passes every other test in this suite.
 
 from __future__ import annotations
 
+import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,9 @@ import zimablue as zb
 from zimablue.scenarios import bundled_scenarios, load_scenario, resolve_scenario
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# hatch_build.py lives at the repository root, outside the package.
+sys.path.insert(0, str(ROOT))
 
 
 def test_version_has_one_source():
@@ -84,3 +89,60 @@ def test_viz_hint_names_the_extra():
     from zimablue.replay import VIZ_HINT
 
     assert "zimablue[viz]" in VIZ_HINT
+
+
+def test_readme_urls_are_absolute_in_package_metadata():
+    """PyPI renders the description with no repository behind it.
+
+    Relative paths that work on GitHub are dead there: images fail silently
+    and links 404. The build hook rewrites them; this checks it did.
+    """
+    from hatch_build import absolutise
+
+    text = absolutise((ROOT / "README.md").read_text(), ref="v9.9.9")
+
+    images = re.findall(r'<img[^>]+src="([^"]+)"', text)
+    assert images, "expected the README to contain images"
+    relative = [u for u in images if not u.startswith("http")]
+    assert not relative, f"relative image sources survive: {relative}"
+
+    links = re.findall(r"\]\(([^)]+)\)", text)
+    dangling = [u for u in links if not u.startswith(("http", "mailto:", "#"))]
+    assert not dangling, f"relative links survive: {dangling}"
+
+    assert "/v9.9.9/" in text, "the ref should be substituted into the URLs"
+
+
+def test_the_animated_logo_is_swapped_for_a_still():
+    """PyPI only serves description images through its camo proxy, whose SVG
+    handling is not worth betting the hero image on."""
+    from hatch_build import absolutise
+
+    text = absolutise((ROOT / "README.md").read_text())
+    assert "logo-animated.svg" not in text
+    assert "docs/assets/logo.png" in text
+    assert not [u for u in re.findall(r'<img[^>]+src="([^"]+)"', text) if u.endswith(".svg")]
+
+
+def test_every_referenced_asset_exists():
+    """A rewritten URL still 404s if the file was never committed."""
+    from hatch_build import absolutise
+
+    text = absolutise((ROOT / "README.md").read_text())
+    prefix = "https://raw.githubusercontent.com/JGalego/ZimaBlue/main/"
+    for url in re.findall(r'<img[^>]+src="([^"]+)"', text):
+        if url.startswith(prefix):
+            asset = ROOT / url[len(prefix) :]
+            assert asset.exists(), f"README points at a missing file: {asset}"
+
+
+def test_description_renders_the_way_pypi_renders_it():
+    """`twine check` only asks whether it renders, not whether anything
+    survives the sanitiser. This asks the second question."""
+    renderer = pytest.importorskip("readme_renderer.markdown")
+    from hatch_build import absolutise
+
+    html = renderer.render(absolutise((ROOT / "README.md").read_text()))
+    assert html is not None, "PyPI would reject this description"
+    assert html.count("<img") >= 5, "images were stripped by the sanitiser"
+    assert "<table" in html and "<pre" in html

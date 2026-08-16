@@ -12,7 +12,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-0e6cb2?style=flat-square)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0e6cb2?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
 [![No GPU required](https://img.shields.io/badge/no%20GPU-required-3ddcff?style=flat-square)](docs/architecture.md)
-[![Tests: 207](https://img.shields.io/badge/tests-207%20passing-3fb950?style=flat-square)](tests)
+[![CI](https://img.shields.io/github/actions/workflow/status/JGalego/ZimaBlue/ci.yml?branch=main&style=flat-square&label=ci)](https://github.com/JGalego/ZimaBlue/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/JGalego/ZimaBlue/branch/main/graph/badge.svg)](https://codecov.io/gh/JGalego/ZimaBlue)
 [![Linted with Ruff](https://img.shields.io/badge/lint-ruff-261230?style=flat-square&logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 [![Typed: mypy](https://img.shields.io/badge/typing-mypy%20clean-0e6cb2?style=flat-square)](pyproject.toml)
 
@@ -44,7 +45,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 ```python
 import zimablue as zb
 
-pool = zb.make_pool("kidney")   # rectangular · sloped · l_shaped · oval · stairs
+pool = zb.make_pool("kidney")  # rectangular · sloped · l_shaped · oval · stairs
 ```
 
 Geometry is a Shapely polygon plus a pluggable depth model, so a sloped floor
