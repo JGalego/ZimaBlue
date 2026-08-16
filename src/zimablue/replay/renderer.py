@@ -162,9 +162,30 @@ class ReplayRenderer:
         self._build()
 
     # ------------------------------------------------------------------
+    def _build_debris(self) -> tuple[list[np.ndarray], list[str]]:
+        """Outlines and colours for every debris item, computed once.
+
+        Debris does not move once it has settled -- items are only removed as
+        they are collected -- so the geometry is built here and a frame does
+        nothing but choose which of them to show.
+        """
+        from zimablue.replay.debris_shapes import debris_colour, debris_polygons
+
+        first = self.recording.debris_at(0.0)
+        if not first.size:
+            return [], []
+
+        names = self.recording.debris_type_names()
+        types = np.clip(first[:, 5].astype(int), 0, max(len(names) - 1, 0))
+        kinds = [names[k] for k in types]
+        indices = np.arange(len(first))
+        polygons = debris_polygons(first[:, 0], first[:, 1], first[:, 3], kinds, indices)
+        return polygons, [debris_colour(kind, i) for i, kind in enumerate(kinds)]
+
+    # ------------------------------------------------------------------
     def _build(self) -> None:
         import matplotlib.patches as mpatches
-        from matplotlib.collections import LineCollection
+        from matplotlib.collections import LineCollection, PolyCollection
 
         scene = self.scene
         rec = self.recording
@@ -273,9 +294,15 @@ class ReplayRenderer:
                 )
 
         # --- debris -----------------------------------------------------------
-        self._debris = ax.scatter(
-            [], [], s=[], c="#a05a2c", edgecolors="#5d3316", linewidths=0.5, zorder=5
+        # Real silhouettes at true scale rather than markers. A marker is sized
+        # in points, so it stays the same size on screen while the pool is
+        # zoomed -- and a 9 cm leaf drawn the same size as a 25 cm frond tells
+        # you nothing about why one jams the intake and the other does not.
+        self._debris_polygons, self._debris_colours = self._build_debris()
+        self._debris = PolyCollection(
+            [], facecolors=[], edgecolors="#3d2412", linewidths=0.35, zorder=5
         )
+        ax.add_collection(self._debris)
 
         # --- trail ------------------------------------------------------------
         self._trail = LineCollection([], linewidths=0, zorder=6)
@@ -451,10 +478,12 @@ class ReplayRenderer:
         self._dirt_image.set_data(_dirt_alpha(rec.dirt_at(t), scene.navigable, self._dirt_max))
         self._covered_image.set_data(_covered_alpha(self._first_visit <= index, scene.navigable))
         debris = rec.debris_at(t)
-        if debris.size:
-            active = debris[:, 4] < 0.5
-            self._debris.set_offsets(debris[active, :2] if active.any() else np.zeros((0, 2)))
-            self._debris.set_sizes(debris[active, 3] * 900.0 if active.any() else np.zeros(0))
+        if debris.size and self._debris_polygons:
+            # The outlines never move, so a frame only decides which are still
+            # in the pool.
+            active = np.nonzero(debris[:, 4] < 0.5)[0]
+            self._debris.set_verts([self._debris_polygons[i] for i in active])
+            self._debris.set_facecolor([self._debris_colours[i] for i in active])
 
         # Trail: a fading window rather than the whole path, so the recent
         # behaviour stays legible on a long run.

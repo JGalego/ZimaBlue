@@ -76,6 +76,35 @@ def test_config_changes_the_geometry(recording):
     assert wide._distance[~wide.sky].max() <= 2.0 + 1e-9
 
 
+def test_debris_is_drawn_as_its_own_outline(cam, recording):
+    """Not a disc. A leaf and a twig have to be told apart."""
+    outlines = cam._outlines()
+    assert outlines, "the run should have debris"
+    first = recording.debris_at(0.0)
+    assert len(outlines) == len(first)
+    for polygon in outlines.values():
+        assert polygon.ndim == 2 and polygon.shape[1] == 2
+        assert len(polygon) >= 8, "an outline of three points is a triangle, not a leaf"
+
+    # True scale: an outline is about as long as the item it stands for.
+    for index, polygon in outlines.items():
+        span = float(np.hypot(*(polygon.max(axis=0) - polygon.min(axis=0))))
+        assert 0.5 * first[index, 3] < span < 2.0 * first[index, 3]
+
+
+def test_near_debris_is_bigger_on_screen_than_far_debris(recording):
+    """Foreshortening is the whole reason for projecting the outline."""
+    from zimablue.replay.dirtcam import DirtCam
+
+    cam = DirtCam(recording)
+    outline = next(iter(cam._outlines().values()))
+    extent = np.ptp(outline, axis=0).max()
+
+    near = cam._project(np.array([0.4, 0.4 + extent]), np.array([0.0, 0.0]))
+    far = cam._project(np.array([3.0, 3.0 + extent]), np.array([0.0, 0.0]))
+    assert abs(near[1][1] - near[1][0]) > abs(far[1][1] - far[1][0])
+
+
 def test_render_to_an_axes(recording):
     import matplotlib.pyplot as plt
 

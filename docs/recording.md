@@ -131,6 +131,13 @@ well under a milligram.
 Lookup takes the nearest keyframe at or *before* the requested time, with no
 interpolation — averaging two mass fields would invent dirt that never existed.
 
+Discrete debris is keyframed alongside the field, as an `(n, 6)` table of
+`x, y, mass, size, collected, type`. `type` indexes
+`manifest["dirt_types"]["debris"]`, and it is there because a leaf and a twig
+are not the same object: without it a replay can only draw both as the same
+anonymous blob. Recordings written before the column existed are padded rather
+than rejected, so every item in them reads as the first type.
+
 ## Size
 
 A 20-minute kidney run with the standard sensor suite is about 2–3 MB.

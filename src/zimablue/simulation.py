@@ -142,6 +142,13 @@ class Simulation:
             "pool_config": self.pool.to_dict(),
             "robot_config": self.robot.to_dict(),
             "dirt_config": self.dirt_spec.to_dict(),
+            # Column meanings for the keyframed rasters, so a replay can name
+            # what it is drawing instead of treating every layer and every
+            # debris item as anonymous.
+            "dirt_types": {
+                "layers": self.world.dirt.field.layer_names(),
+                "debris": self.world.dirt.debris.type_names(),
+            },
         }
 
     # ------------------------------------------------------------------

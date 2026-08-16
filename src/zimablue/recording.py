@@ -63,7 +63,7 @@ class Recording:
     events: list[dict[str, Any]] = field(default_factory=list)
     dirt_times: NDArray = field(default_factory=lambda: np.zeros(0, dtype=np.float32))
     dirt_keyframes: NDArray = field(default_factory=lambda: np.zeros((0, 0, 0, 0), np.float32))
-    debris_keyframes: NDArray = field(default_factory=lambda: np.zeros((0, 0, 5), np.float32))
+    debris_keyframes: NDArray = field(default_factory=lambda: np.zeros((0, 0, 6), np.float32))
     metrics: dict[str, Any] = field(default_factory=dict)
     spatial: dict[str, NDArray] = field(default_factory=dict)
 
@@ -128,15 +128,31 @@ class Recording:
         return self.dirt_keyframes[idx].sum(axis=0)
 
     def debris_at(self, t: float) -> NDArray:
-        """Debris snapshot ``(n, 5)`` -- ``x, y, mass, size, collected``."""
+        """Debris snapshot ``(n, 6)`` -- ``x, y, mass, size, collected, type``.
+
+        ``type`` indexes :meth:`debris_type_names`. Recordings written before
+        the column existed are padded with zeros rather than rejected, which
+        makes every item read as the first type -- wrong in the drawing, but
+        the alternative is refusing to open the file at all.
+        """
         if self.debris_keyframes.size == 0:
-            return np.zeros((0, 5), dtype=np.float32)
+            return np.zeros((0, 6), dtype=np.float32)
         idx = int(
             np.clip(
                 np.searchsorted(self.dirt_times, t, side="right") - 1, 0, len(self.dirt_times) - 1
             )
         )
-        return self.debris_keyframes[idx]
+        snapshot = self.debris_keyframes[idx]
+        if snapshot.shape[-1] >= 6:
+            return snapshot
+        pad = np.zeros((snapshot.shape[0], 6 - snapshot.shape[-1]), dtype=snapshot.dtype)
+        return np.concatenate([snapshot, pad], axis=1)
+
+    def debris_type_names(self) -> list[str]:
+        """Names for the ``type`` column, in index order."""
+        dirt = self.manifest.get("dirt_types", {})
+        names = dirt.get("debris") if isinstance(dirt, dict) else None
+        return list(names) if names else ["leaves"]
 
     def events_between(self, t0: float, t1: float) -> list[dict[str, Any]]:
         return [e for e in self.events if t0 <= e["time"] < t1]
@@ -186,7 +202,7 @@ class Recording:
             metrics=metrics,
             dirt_times=dirt.get("times", np.zeros(0, dtype=np.float32)),
             dirt_keyframes=dirt.get("field", np.zeros((0, 0, 0, 0), dtype=np.float32)),
-            debris_keyframes=dirt.get("debris", np.zeros((0, 0, 5), dtype=np.float32)),
+            debris_keyframes=dirt.get("debris", np.zeros((0, 0, 6), dtype=np.float32)),
             spatial=spatial,
         )
 
@@ -312,7 +328,7 @@ class Recorder:
             debris_keyframes=(
                 np.stack(self._debris)
                 if self._debris and self._debris[0].size
-                else np.zeros((0, 0, 5), dtype=np.float32)
+                else np.zeros((0, 0, 6), dtype=np.float32)
             ),
             metrics=metrics or {},
             spatial=spatial or {},

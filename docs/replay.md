@@ -43,12 +43,17 @@ coverage were painted on top it would hide exactly the failure worth seeing.
 Three unrelated things are drawn as dots, which is worth spelling out because
 at 260x playback they all read as flicker.
 
-**Brown-orange circles** are debris -- leaves and twigs -- sized by the item's
-own diameter and drawn dark-rimmed. They wink out as they are collected. The
-winking looks like flashing because debris is stored as keyframes every ten
-simulated seconds, not per frame: a leaf is there in one keyframe and gone in
-the next, with no fade between. A typical autumn kidney run starts with 60 and
-finishes with 19 still on the floor.
+**Rust-coloured flecks** are debris. Each is drawn as its own silhouette --
+an ovate leaf with a stem, or a twig with a side shoot -- at true scale, in a
+colour and orientation fixed to that item, so a drift of leaves does not read
+as one flat brown smear. At the whole-pool zoom a 9 cm leaf is a few pixels
+across, and that is the honest size of a 9 cm leaf in a 12 m pool; zoom in, or
+look at the dirt cam, and it is recognisably a leaf.
+
+They wink out as they are collected. The winking looks like flashing because
+debris is stored as keyframes every ten simulated seconds, not per frame: a
+leaf is there in one keyframe and gone in the next, with no fade between. A
+typical autumn kidney run starts with 60 and finishes with 19 still down.
 
 **A red star at the robot** is a bump: it appears on any frame where a contact
 switch is closed, and in a tight corner it can strobe for several seconds.

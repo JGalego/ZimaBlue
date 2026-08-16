@@ -324,11 +324,23 @@ class DebrisSet:
         return [t.name for t in self.types]
 
     def snapshot(self) -> FloatArray:
-        """``(n, 5)`` float32 array: ``x, y, mass, size, collected``."""
+        """``(n, 6)`` float32: ``x, y, mass, size, collected, type``.
+
+        ``type`` indexes :meth:`type_names`. It is here because a leaf and a
+        twig are not the same object to look at, and without it a replay can
+        only draw both as the same anonymous blob.
+        """
         if len(self) == 0:
-            return np.zeros((0, 5), dtype=np.float32)
+            return np.zeros((0, 6), dtype=np.float32)
         return np.column_stack(
-            [self.x, self.y, self.mass, self.size, self.collected.astype(float)]
+            [
+                self.x,
+                self.y,
+                self.mass,
+                self.size,
+                self.collected.astype(float),
+                self.type_index.astype(float),
+            ]
         ).astype(np.float32)
 
 

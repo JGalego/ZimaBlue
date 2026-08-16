@@ -102,6 +102,8 @@ class DirtCam:
         self.recording = recording
         self.config = config or DirtCamConfig()
         self.scene: Scene = load_scene(recording)
+        self._debris_outlines: dict[int, FloatArray] | None = None
+        self._debris_colours: dict[int, FloatArray] = {}
         self._build_rays()
 
         dirt0 = recording.dirt_at(0.0)
@@ -276,67 +278,127 @@ class DirtCam:
         ny = (ys / (cfg.height - 1) - 0.5) * 2
         return np.clip(1.15 - 0.45 * (nx**2 + ny**2), 0.0, 1.0)
 
+    def _project(self, ahead: FloatArray, lateral: FloatArray) -> tuple[FloatArray, FloatArray]:
+        """Ground points in the robot frame to pixel coordinates.
+
+        The exact inverse of :meth:`_build_rays`. Solving its two equations for
+        the ray parameter gives ``t = ahead*cos(pitch) + camera_height*sin
+        (pitch)``, and the screen coordinates fall out of that.
+        """
+        cfg = self.config
+        half_w = np.tan(cfg.fov / 2.0)
+        half_h = half_w * cfg.aspect()
+        cos_p, sin_p = np.cos(cfg.pitch), np.sin(cfg.pitch)
+
+        t = np.maximum(ahead * cos_p + cfg.camera_height * sin_p, 1e-6)
+        screen_x = lateral / t
+        screen_y = (sin_p - cfg.camera_height / t) / cos_p
+        cols = (screen_x / half_w * 0.5 + 0.5) * (cfg.width - 1)
+        rows = (0.5 - screen_y / half_h * 0.5) * (cfg.height - 1)
+        return cols, rows
+
     def _draw_debris(
         self, image: FloatArray, rec: Recording, t: float, x: float, y: float, heading: float
     ) -> None:
-        """Leaves and twigs, as discs sized by how close they are.
+        """Leaves and twigs, as their own outlines lying on the floor.
 
-        Debris is the part of the pool a top-down view renders as a small dot
-        and the bumper view renders as an obstacle the size of your head.
+        Each item's silhouette is built in world coordinates and every vertex
+        put through the same projection as the floor, so a leaf a hand's width
+        from the bumper is a foreshortened shape filling the frame and the same
+        leaf three metres out is a fleck. Drawing them as flat discs threw that
+        away and made a soaked oak leaf indistinguishable from a twig -- which
+        matters, because one of those is about to jam the intake.
         """
         debris = rec.debris_at(t)
         if not debris.size:
             return
-        active = debris[debris[:, 4] < 0.5]
-        if not active.size:
+        indices = np.nonzero(debris[:, 4] < 0.5)[0]
+        if not indices.size:
             return
 
         cfg = self.config
         cos_h, sin_h = np.cos(-heading), np.sin(-heading)
-        dx, dy = active[:, 0] - x, active[:, 1] - y
+        dx, dy = debris[indices, 0] - x, debris[indices, 1] - y
         ahead = dx * cos_h - dy * sin_h
-        lateral = dx * sin_h + dy * cos_h
 
-        visible = (ahead > 0.12) & (ahead < cfg.far)
+        visible = (ahead > 0.05) & (ahead < cfg.far)
         if not visible.any():
             return
         # Painter's algorithm: without it a leaf four metres out can be drawn
         # over one under the bumper.
         order = np.argsort(-ahead[visible])
-        ahead, lateral, sizes = (
-            ahead[visible][order],
-            lateral[visible][order],
-            (active[visible, 3][order]),
-        )
+        selected = indices[visible][order]
 
-        colour = np.array(_rgb("#a05a2c"))
-        half_w = np.tan(cfg.fov / 2.0)
-        half_h = half_w * cfg.aspect()
-        cos_p, sin_p = np.cos(cfg.pitch), np.sin(cfg.pitch)
-        height = cfg.camera_height
+        outlines = self._outlines()
+        for item in selected:
+            polygon = outlines.get(int(item))
+            if polygon is None:
+                continue
+            # World outline into the robot frame, then through the projection.
+            px, py = polygon[:, 0] - x, polygon[:, 1] - y
+            cols, rows = self._project(px * cos_h - py * sin_h, px * sin_h + py * cos_h)
+            distance = float(np.hypot(*(polygon.mean(axis=0) - (x, y))))
+            self._fill_polygon(image, cols, rows, self._debris_colours[int(item)], distance)
 
-        # Exact inverse of _build_rays. Solving its two equations for the ray
-        # parameter gives t = ahead*cos(pitch) + camera_height*sin(pitch), and
-        # everything else falls out of that.
-        for a, lat, size in zip(ahead, lateral, sizes, strict=True):
-            t = a * cos_p + height * sin_p
-            if t <= 1e-6:
-                continue
-            screen_x = lat / t
-            screen_y = (sin_p - height / t) / cos_p
-            col = round((screen_x / half_w * 0.5 + 0.5) * (cfg.width - 1))
-            row = round((0.5 - screen_y / half_h * 0.5) * (cfg.height - 1))
-            scale = (cfg.width - 1) / (2.0 * half_w)
-            radius = int(np.clip(size / (2.0 * t) * scale, 2, cfg.height // 2))
-            if not (0 <= col < cfg.width and 0 <= row < cfg.height):
-                continue
-            rr, cc = np.mgrid[
-                max(row - radius, 0) : min(row + radius + 1, cfg.height),
-                max(col - radius, 0) : min(col + radius + 1, cfg.width),
-            ]
-            mask = (rr - row) ** 2 + (cc - col) ** 2 <= radius**2
-            fade = 1.0 - min(a / cfg.far, 1.0) * 0.7
-            image[rr[mask], cc[mask]] = colour * fade + image[rr[mask], cc[mask]] * (1 - fade)
+    def _outlines(self) -> dict[int, FloatArray]:
+        """World-space outlines for every debris item, built once."""
+        if self._debris_outlines is not None:
+            return self._debris_outlines
+
+        from zimablue.replay.debris_shapes import debris_colour, debris_polygons
+
+        first = self.recording.debris_at(0.0)
+        self._debris_outlines = {}
+        self._debris_colours = {}
+        if first.size:
+            names = self.recording.debris_type_names()
+            types = np.clip(first[:, 5].astype(int), 0, max(len(names) - 1, 0))
+            kinds = [names[k] for k in types]
+            indices = np.arange(len(first))
+            polygons = debris_polygons(first[:, 0], first[:, 1], first[:, 3], kinds, indices)
+            for i, (polygon, kind) in enumerate(zip(polygons, kinds, strict=True)):
+                self._debris_outlines[i] = polygon
+                self._debris_colours[i] = np.array(_rgb(debris_colour(kind, i)))
+        return self._debris_outlines
+
+    def _fill_polygon(
+        self,
+        image: FloatArray,
+        cols: FloatArray,
+        rows: FloatArray,
+        colour: FloatArray,
+        distance: float,
+    ) -> None:
+        """Scanline-fill a screen polygon, faded by how far away it is.
+
+        An even-odd crossing test over the polygon's bounding box. Small enough
+        to keep the module free of a drawing library, and the boxes are a few
+        dozen pixels except for the item directly under the bumper.
+        """
+        cfg = self.config
+        c0 = int(np.floor(max(cols.min(), 0)))
+        c1 = int(np.ceil(min(cols.max(), cfg.width - 1)))
+        r0 = int(np.floor(max(rows.min(), 0)))
+        r1 = int(np.ceil(min(rows.max(), cfg.height - 1)))
+        if c1 < c0 or r1 < r0:
+            return
+
+        rr, cc = np.mgrid[r0 : r1 + 1, c0 : c1 + 1]
+        inside = np.zeros(rr.shape, dtype=bool)
+        n = len(cols)
+        for i in range(n):
+            j = (i + 1) % n
+            yi, yj = rows[i], rows[j]
+            straddles = (yi > rr) != (yj > rr)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                crossing = cols[i] + (rr - yi) / (yj - yi + 1e-12) * (cols[j] - cols[i])
+            inside ^= straddles & (cc < crossing)
+
+        if not inside.any():
+            return
+        fade = 1.0 - min(distance / cfg.far, 1.0) * 0.7
+        patch = image[r0 : r1 + 1, c0 : c1 + 1]
+        patch[inside] = colour * fade + patch[inside] * (1.0 - fade)
 
     def _draw_hull(self, image: FloatArray) -> None:
         """The robot's own brush housing, intruding at the bottom of frame.
