@@ -12,7 +12,13 @@ from __future__ import annotations
 
 from zimablue._version import __version__
 from zimablue.batch import BatchResult, run_batch
-from zimablue.controllers import CONTROLLERS, ControlInput, Controller
+from zimablue.controllers import (
+    CONTROLLERS,
+    ControlInput,
+    Controller,
+    OccupancyMap,
+    SystematicCoverage,
+)
 from zimablue.dirt import (
     DIRT_PRESETS,
     DIRT_TYPES,
@@ -24,6 +30,7 @@ from zimablue.dirt import (
     LayerSpec,
     make_dirt,
 )
+from zimablue.estimation import EstimatorConfig, PoseEstimate, PoseEstimator
 from zimablue.geometry import Grid
 from zimablue.metrics import Metrics, SpatialMetrics
 from zimablue.pool import (
@@ -110,6 +117,7 @@ __all__ = [
     "DriveCommand",
     "DriveUnit",
     "Encoder",
+    "EstimatorConfig",
     "Filter",
     "Grid",
     "LayerSpec",
@@ -117,9 +125,12 @@ __all__ = [
     "Metrics",
     "Motor",
     "Obstacle",
+    "OccupancyMap",
     "PlaneSlopeDepth",
     "Pool",
     "PoolFeature",
+    "PoseEstimate",
+    "PoseEstimator",
     "PowerSystem",
     "PressureSensor",
     "Pump",
@@ -141,6 +152,7 @@ __all__ = [
     "SpatialMetrics",
     "Stairs",
     "SurfaceMaterial",
+    "SystematicCoverage",
     "Water",
     "World",
     "__version__",

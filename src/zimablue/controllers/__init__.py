@@ -10,6 +10,12 @@ from zimablue.controllers.baseline import (
     Phase,
 )
 from zimablue.controllers.simple import LawnmowerOracle, RandomBounce
+from zimablue.controllers.systematic import (
+    MapCell,
+    OccupancyMap,
+    SystematicCoverage,
+    SystematicTuning,
+)
 
 __all__ = [
     "CONTROLLERS",
@@ -19,6 +25,10 @@ __all__ = [
     "Controller",
     "HeadingEstimator",
     "LawnmowerOracle",
+    "MapCell",
+    "OccupancyMap",
     "Phase",
     "RandomBounce",
+    "SystematicCoverage",
+    "SystematicTuning",
 ]

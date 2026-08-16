@@ -218,6 +218,14 @@ class Simulation:
             "cmd_brush": 1 if command.brush else 0,
             "cmd_pump": command.pump,
         }
+        # A controller may publish its own channels -- an estimated pose, a
+        # planner phase. Recording them next to ground truth is what lets
+        # replay show estimation error rather than merely assert it.
+        telemetry = getattr(self.controller, "telemetry", None)
+        if telemetry is not None:
+            for key, value in telemetry().items():
+                frame[f"ctl.{key}"] = float(value)
+
         for name, reading in observations.items():
             for channel, value in zip(
                 self.robot.sensors[name].channels, reading.values, strict=False

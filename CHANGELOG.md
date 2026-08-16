@@ -61,7 +61,7 @@ reproducible, scored replay.
 - CLI: `demo`, `run`, `replay`, `batch`, `inspect`, `list`.
 
 **Project**
-- 159 tests, `mypy` clean across 45 modules, `ruff` lint and format.
+- 190 tests, `mypy` clean across 45 modules, `ruff` lint and format.
 - Documentation: research notes, architecture, getting started, scenarios,
   recording, replay, roadmap.
 - A logo generated from the real `kidney` preset by `tools/make_logo.py`.

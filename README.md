@@ -13,7 +13,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0e6cb2?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-f59e0b?style=flat-square)](docs/roadmap.md)
 [![No GPU required](https://img.shields.io/badge/no%20GPU-required-3ddcff?style=flat-square)](docs/architecture.md)
-[![Tests: 159](https://img.shields.io/badge/tests-159%20passing-3fb950?style=flat-square)](tests)
+[![Tests: 190](https://img.shields.io/badge/tests-190%20passing-3fb950?style=flat-square)](tests)
 [![Linted with Ruff](https://img.shields.io/badge/lint-ruff-261230?style=flat-square&logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 [![Typed: mypy](https://img.shields.io/badge/typing-mypy%20clean-0e6cb2?style=flat-square)](pyproject.toml)
 
@@ -21,6 +21,11 @@
 
 <sub>25 simulated minutes in a kidney pool, replayed at 260×.<br>
 Watch the two left-hand meters diverge — that gap is what ZimaBlue exists to measure.</sub>
+
+<img src="docs/assets/estimation.gif" alt="The same run with the map-building controller: an amber ghost shows where the robot believes it is, drifting away from the truth" width="720">
+
+<sub>The same pool with the map-building controller. The amber ghost is where the robot<br>
+<i>thinks</i> it is; the dashed line is the error. Dead reckoning, honestly rendered.</sub>
 
 </div>
 
@@ -156,10 +161,17 @@ discrete items for leaves and twigs, some of which are too big for the intake.
 breaks the bond, so the brush advantage rises with adhesion: ~1.0× for sand,
 2.2× for algae, 3.5× for biofilm.
 
-**Three controllers** — a boustrophedon baseline, a random-bounce floor, and a
-ground-truth `lawnmower_oracle` upper bound that is explicitly *not*
-deployable. Yours needs one class with two methods, and it sees sensor readings
-only, never ground-truth pose.
+**Four controllers** — a boustrophedon baseline, a random-bounce floor, a
+map-building `systematic` controller with an EKF, and a ground-truth
+`lawnmower_oracle` upper bound that is explicitly *not* deployable. Yours needs
+one class with two methods, and it sees sensor readings only, never
+ground-truth pose.
+
+**State estimation.** `systematic` runs a four-state EKF over position, heading
+and **gyro bias**, fed by the encoders and IMU. The bias is only observable
+when the robot stops — a stationary gyro's reading *is* its bias — so
+zero-velocity updates are what keep heading from fanning out over half an hour.
+Replay draws the estimate as an amber ghost beside the true pose.
 
 **Recording and replay.** `.zbr` is a ZIP of a JSON manifest, columnar `npz`
 frames, sparse events and dirt keyframes. Unzip it and read it with
@@ -191,6 +203,26 @@ only coverage would rank these exactly backwards.
 The baseline is also, honestly, beaten by random bounce on coverage. It is a
 deliberately simple behaviour stack, not a contribution; better planners are
 [on the roadmap](docs/roadmap.md) and are an easy first contribution.
+
+## A result the testbed surfaced
+
+Better localisation does not currently help. Calibrating the odometry improves
+`systematic`'s position estimate five-fold and *halves* its coverage:
+
+| `encoder_scale` | position error | coverage |
+|---|---|---|
+| 1.00 (uncalibrated) | 13.7 m | **73.9%** |
+| 0.94 (calibrated) | **3.8 m** | 52.6% |
+
+The estimator is not at fault — 3.8 m after 340 m of travel with no absolute
+reference is respectable dead reckoning. The planner is: with a poor estimate
+the lane plan is effectively randomised and the robot wanders widely, covering
+ground the way random bounce does; with a good one it runs short disciplined
+lanes and spends its time turning. Coverage is being won by accident.
+
+That is the kind of thing a testbed is *for*, and it is why the top roadmap
+item is now a planner that can spend a good estimate — backed by a number
+rather than an intuition.
 
 ## Determinism
 

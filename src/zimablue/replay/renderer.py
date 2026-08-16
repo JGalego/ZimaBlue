@@ -121,6 +121,8 @@ class ReplayRenderer:
         self.show_sensors = show_sensors
         self.show_trail = show_trail
         self.trail_seconds = trail_seconds
+        self._frame_origin: tuple[float, float, float] | None = None
+        self._ghost_world: tuple[float, float] | None = None
 
         import matplotlib
 
@@ -287,6 +289,28 @@ class ReplayRenderer:
             [], [], marker="*", markersize=16, color=PALETTE["bad"], linestyle="none", zorder=11
         )[0]
 
+        # If the controller published a pose estimate, draw it as a ghost. Two
+        # marks that drift apart on screen say more about dead reckoning than a
+        # column of numbers ever does.
+        self._has_estimate = {"ctl.est_x", "ctl.est_y"} <= set(rec.frames)
+        self._ghost = ax.plot(
+            [],
+            [],
+            marker="o",
+            markersize=9,
+            markerfacecolor="none",
+            markeredgecolor=PALETTE["warn"],
+            markeredgewidth=1.6,
+            linestyle="none",
+            zorder=8,
+        )[0]
+        self._ghost_heading = ax.plot(
+            [], [], color=PALETTE["warn"], linewidth=1.4, alpha=0.8, zorder=8
+        )[0]
+        self._error_line = ax.plot(
+            [], [], color=PALETTE["warn"], linewidth=1.0, alpha=0.5, linestyle="--", zorder=8
+        )[0]
+
         self._title = ax.text(
             0.012,
             0.975,
@@ -423,12 +447,43 @@ class ReplayRenderer:
                 segments.append([(x, y), (x + np.cos(a) * r, y + np.sin(a) * r)])
             self._rays.set_segments(segments)
 
+        if self._has_estimate:
+            self._draw_estimate(index, x, y)
+
         contacts = int(f["contacts"][index]) if "contacts" in f else 0
         self._contact.set_data([x] if contacts else [], [y] if contacts else [])
 
         self._update_text(index, t)
 
     # ------------------------------------------------------------------
+    def _draw_estimate(self, index: int, x: float, y: float) -> None:
+        """Draw where the robot *thinks* it is, and the error to where it is.
+
+        The estimate lives in the controller's own frame, anchored at the start
+        pose, so it is rotated into world coordinates for display. Without that
+        the ghost would sit in the wrong place for reasons that have nothing to
+        do with estimation quality.
+        """
+        f = self.recording.frames
+        if self._frame_origin is None:
+            self._frame_origin = (float(f["x"][0]), float(f["y"][0]), float(f["heading"][0]))
+        ox, oy, oh = self._frame_origin
+        ex, ey = float(f["ctl.est_x"][index]), float(f["ctl.est_y"][index])
+        if not (np.isfinite(ex) and np.isfinite(ey)):
+            return
+        wx = ox + ex * np.cos(oh) - ey * np.sin(oh)
+        wy = oy + ex * np.sin(oh) + ey * np.cos(oh)
+        self._ghost.set_data([wx], [wy])
+        self._ghost_world = (wx, wy)
+
+        if "ctl.est_heading" in f:
+            heading = float(f["ctl.est_heading"][index]) + oh
+            nose = self.scene.robot_length * 0.7
+            self._ghost_heading.set_data(
+                [wx, wx + np.cos(heading) * nose], [wy, wy + np.sin(heading) * nose]
+            )
+        self._error_line.set_data([x, wx], [y, wy])
+
     def _update_trail(self, index: int, t: float) -> None:
         f = self.recording.frames
         times = f["time"]
@@ -493,10 +548,19 @@ class ReplayRenderer:
             bar.set_width(width * float(np.clip(value, 0.0, 1.0)))
             text.set_text(f"{value * 100:4.0f}%")
 
-        self._hud_note.set_text(
+        note = (
             f"controller {scenario.get('controller', '?')}   "
             f"frame {index + 1}/{self.recording.n_frames}"
         )
+        if self._has_estimate and self._ghost_world is not None:
+            error = float(
+                np.hypot(
+                    self._ghost_world[0] - float(f["x"][index]),
+                    self._ghost_world[1] - float(f["y"][index]),
+                )
+            )
+            note = f"estimate off by {error:4.2f} m   " + note
+        self._hud_note.set_text(note)
 
     def _build_first_visit(self) -> np.ndarray:
         """Frame index at which each cell was first covered, or a large sentinel.

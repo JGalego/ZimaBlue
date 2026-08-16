@@ -21,6 +21,8 @@ zimablue replay runs/kidney.zbr
 │        │  ● orange    = leaves and twigs  │                │
 │        │  ━ cyan      = the robot's trail │                │
 │        │  ⋯ dotted    = sonar beams       │                │
+│        │  ◌ amber     = where it thinks   │                │
+│        │              it is (if estimated)│                │
 │        ╰──────────────────────────────────╯                │
 ├────────────────────────────────────────────────────────────┤
 │ coverage 58%  dirt removed 34%  battery 88%  filter 49%    │
@@ -35,6 +37,18 @@ diverge over a run makes the argument better than any amount of prose.
 Layer order is deliberate: the cleaned wash is drawn *under* the dirt, so a
 patch the robot has driven over but failed to clean still shows as dirty. If
 coverage were painted on top it would hide exactly the failure worth seeing.
+
+### The amber ghost
+
+If the controller publishes a pose estimate -- `systematic` does -- replay
+draws it as an amber ring with a dashed line back to the true pose, and the HUD
+prints the error in metres. Watching the two drift apart is the clearest
+possible statement of what dead reckoning does over half an hour.
+
+The estimate lives in the controller's own frame, anchored at the start pose,
+so it is rotated into world coordinates for display. Any controller can join in
+by growing a `telemetry()` method returning `est_x`, `est_y` and `est_heading`;
+those become `ctl.*` channels in the recording.
 
 ## Controls
 
@@ -135,6 +149,4 @@ A headless batch of a thousand episodes never imports a plotting library, and
 ## Not yet
 
 - Playing two runs side by side (comparing controllers is currently two windows)
-- Plotting a state estimate against ground truth — the sensors already drift
-  correctly, but nothing consumes them yet; see [`roadmap.md`](roadmap.md)
 - A web viewer
