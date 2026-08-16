@@ -48,7 +48,9 @@ dev = [
     # between releases, and an unrelated upgrade should not turn CI red on a
     # branch that changed nothing. Bump deliberately.
     "ruff>=0.16,<0.17",
-    "mypy>=1.8",
+    # Pinned to a minor range for the same reason as ruff: type checkers
+    # get stricter between releases.
+    "mypy>=2.3,<2.5",
     "matplotlib>=3.7",
     "types-PyYAML",
 ]
@@ -108,7 +110,11 @@ ignore = [
 "examples/*" = ["E501"]
 
 [tool.mypy]
-python_version = "3.10"
+# No python_version pin. It applies to the *stubs* mypy reads as well as to our
+# code, and NumPy's stubs now use PEP 695 `type` statements, which mypy rejects
+# when told to analyse as 3.10 -- a third-party release turns CI red for a
+# syntax we never wrote. The 3.10 floor is enforced where it belongs: ruff's
+# target-version for our syntax, and the test matrix for real behaviour.
 files = ["src/zimablue"]
 ignore_missing_imports = true
 warn_unused_ignores = true
