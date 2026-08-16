@@ -33,6 +33,7 @@ from zimablue.dirt import (
 from zimablue.estimation import EstimatorConfig, PoseEstimate, PoseEstimator
 from zimablue.geometry import Grid
 from zimablue.metrics import Metrics, SpatialMetrics
+from zimablue.notebook import PoolPreview, preview
 from zimablue.pool import (
     MATERIALS,
     POOL_PRESETS,
@@ -129,6 +130,7 @@ __all__ = [
     "PlaneSlopeDepth",
     "Pool",
     "PoolFeature",
+    "PoolPreview",
     "PoseEstimate",
     "PoseEstimator",
     "PowerSystem",
@@ -161,5 +163,6 @@ __all__ = [
     "make_dirt",
     "make_pool",
     "make_robot",
+    "preview",
     "run_batch",
 ]
