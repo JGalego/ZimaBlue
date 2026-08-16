@@ -238,6 +238,14 @@ def replay(
         bool,
         typer.Option("--3d/--2d", help="Render the pool as a 3D basin (file output only)."),
     ] = False,
+    dirt_cam: Annotated[
+        bool,
+        typer.Option("--dirtcam", help="Render from the cleaner's bumper (file output only)."),
+    ] = False,
+    map_panel: Annotated[
+        bool,
+        typer.Option("--map/--no-map", help="Keep the top-down panel beside the dirt cam."),
+    ] = True,
 ) -> None:
     """Replay a recorded run -- interactively, or to a file."""
     from zimablue.recording import Recording
@@ -249,8 +257,33 @@ def replay(
             str(exc), "make one with: zimablue demo  or  zimablue run <scenario> --record out.zbr"
         )
 
+    if three_d and dirt_cam:
+        _fail(
+            "--3d and --dirtcam are two different cameras.",
+            "pick one: --3d looks down at the basin, --dirtcam looks out from the robot",
+        )
+
     if gif is not None or summary is not None or frames is not None or not three_d:
         _guard_viz()
+
+    if dirt_cam:
+        if gif is None and summary is None:
+            _fail(
+                "the dirt cam renders to a file, not an interactive window.",
+                "try: zimablue replay run.zbr --dirtcam --gif dirtcam.gif",
+            )
+        if gif is not None:
+            from zimablue.replay import export_dirtcam
+
+            with console.status(f"rendering {gif} from the bumper..."):
+                export_dirtcam(rec, gif, speed=max(speed * 10, 60.0), with_map=map_panel)
+            console.print(f"[green]wrote[/green] {gif}")
+        if summary is not None:
+            from zimablue.replay import export_dirtcam_frames
+
+            export_dirtcam_frames(rec, summary)
+            console.print(f"[green]wrote[/green] {summary}")
+        return
 
     if gif is not None:
         if three_d:
