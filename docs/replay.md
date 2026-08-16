@@ -250,8 +250,8 @@ A headless batch of a thousand episodes never imports a plotting library, and
 ```python
 import zimablue as zb
 
-zb.preview("kidney")   # drag to rotate, scroll to zoom
-zb.preview(result)     # ...tinted with the dirt left behind, path drawn on it
+zb.preview("kidney")  # drag to rotate, scroll to zoom
+zb.preview(result)  # ...tinted with the dirt left behind, path drawn on it
 ```
 
 This one does not go through matplotlib at all. The pool's geometry is built in
