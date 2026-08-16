@@ -27,7 +27,8 @@ Watch the coverage and dirt meters diverge — that gap is the point.</sub>
 
 Give ZimaBlue a pool, a cleaner, some dirt and a control algorithm. It
 simulates what happens, records the run, replays it, and scores how well the
-pool actually got cleaned.
+pool actually got cleaned — which is not the same question as how much of the
+floor the robot drove over, and that difference is why this exists.
 
 ```bash
 git clone https://github.com/JGalego/ZimaBlue
@@ -38,9 +39,68 @@ zimablue demo
 
 No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 
+## Build a pool
+
 ```python
 import zimablue as zb
 
+pool = zb.make_pool("kidney")   # rectangular · sloped · l_shaped · oval · stairs
+```
+
+Geometry is a Shapely polygon plus a pluggable depth model, so a sloped floor
+differs from a flat one by which model it holds rather than by a branch
+somewhere. Drains, returns, skimmers, stairs and obstacles hang off it; the
+blocking ones come out of the navigable area, so coverage is measured against
+the floor the robot can actually reach.
+
+The kidney boundary is a low-order Fourier curve, which makes it smooth
+everywhere — a wall follower meeting a corner behaves differently from one
+tracing a curve, and a real kidney pool has no corners.
+
+## Add a cleaner
+
+Composed from components, not subclassed:
+
+```python
+robot = zb.Cleaner(
+    chassis=zb.Chassis(length=0.45, mass=10.5),
+    cleaning=zb.CleaningSystem(
+        brush=zb.Brush(width=0.38, aggressiveness=1.2),
+        filter=zb.Filter(capacity=1200.0, mesh=45e-6),
+    ),
+    sensors=[zb.Encoder(), zb.IMU(), zb.Sonar(beam_angles=(0.0, 0.7, -0.7))],
+)
+```
+
+Encoders, IMU, pressure/depth, contact and sonar share one pipeline of sampling
+rate, noise, bias with random walk, latency, quantisation, saturation, dropout
+and stuck values. Encoders report *wheel* speed, so odometry drifts because of
+real slip rather than an injected error.
+
+Breaking a sensor on purpose is a first-class operation:
+
+```python
+robot.sensors.sonar.inject_fault(
+    bias=0.15,  # reads 15 cm long
+    dropout_probability=0.02,  # loses 2% of pings
+    start_time=300.0,  # ...starting five minutes in
+)
+```
+
+## Make it dirty
+
+Dirt carries density, particle size, adhesion and a settling velocity derived
+from the Ferguson–Church equation — 350 µm sand comes out at 47.6 mm/s against
+a measured ~45. Sediment and algae live in continuous rasters; leaves and twigs
+are discrete items, some too big for the intake to swallow.
+
+Removal is gated by how much agitation breaks the bond, so the brush matters
+more the more adhered the dirt is: ~1.0× for sand, 2.2× for algae, 3.5× for
+biofilm. Turn the brush off and a robot can drive over algae all day.
+
+## Run it
+
+```python
 sim = zb.Simulation(pool="kidney", robot="tracked", dirt="autumn", seed=42)
 result = sim.run(minutes=30)
 
@@ -60,121 +120,44 @@ result.save("runs/example.zbr")
   stuck                  0 events, 0.0 s
 ```
 
-```bash
-zimablue replay runs/example.zbr
-```
+Driving it is a boustrophedon baseline, a random-bounce floor, a map-building
+`systematic` controller, or a `lawnmower_oracle` upper bound that reads ground
+truth and is explicitly *not* deployable. Yours needs a class with `reset` and
+`step`, and sees sensor readings only.
 
-## Results
+`systematic` runs an EKF over position, heading and **gyro bias**. The bias is
+only observable when the robot stops — a stationary gyro's reading *is* its
+bias — so zero-velocity updates are what keep heading from fanning out over
+half an hour.
 
-Coverage is where the robot drove. Cleanliness is what it removed. They come
-apart, and most simulators will not tell you so.
+Same version, platform, scenario and seed give a bit-identical recording: fixed
+timestep, no wall-clock reads while stepping, and one seeded RNG tree whose
+named streams mean adding a sensor never shifts another's noise. `.zbr` is a
+ZIP of a JSON manifest, columnar `npz` frames, sparse events and dirt
+keyframes — unzip it and read it with `numpy.load`. Pool geometry and robot
+config are embedded, so a recording stays replayable after the preset it came
+from changes.
 
-The oracle makes it obvious. Over 30 minutes in a kidney pool:
-
-| controller | coverage | dirt removed | distance |
-|---|---|---|---|
-| `lawnmower_oracle` (ground truth) | **88.3%** | 33.3% | 180 m |
-| `baseline_coverage` | 78.2% | **44.5%** | 390 m |
-| `random_bounce` | 84.7% | 44.8% | 393 m |
-
-The oracle wins on coverage and *loses* on cleaning. It drives a perfect path,
-finishes early and stops, while the scrappier controllers keep going over the
-same adhered dirt — which is what actually removes it. Report only coverage and
-you rank these backwards.
-
-Another one, less comfortable: **better localisation currently makes things
-worse.** Calibrating the odometry improves the mapping controller's position
-estimate fivefold and halves its coverage.
-
-| `encoder_scale` | position error | coverage |
-|---|---|---|
-| 1.00 (uncalibrated) | 13.7 m | **73.9%** |
-| 0.94 (calibrated) | **3.8 m** | 52.6% |
-
-The estimator is not at fault — 3.8 m after 340 m of travel with no absolute
-reference is respectable dead reckoning. The planner is. With a poor estimate
-the lane plan is effectively randomised and the robot wanders widely, covering
-ground the way random bounce does; with a good one it runs short disciplined
-lanes and spends its time turning. Coverage is being won by accident, and
-fixing that is the top [roadmap](docs/roadmap.md) item.
-
-## In the box
-
-**Pool shapes** — rectangular, sloped, L-shaped, kidney, oval, and one with
-stairs and a ladder foot. Shapely polygons plus a pluggable depth model, with
-drains, returns, skimmers and obstacles.
-
-**Cleaners**, composed from components rather than subclassed:
-
-```python
-robot = zb.Cleaner(
-    chassis=zb.Chassis(length=0.45, mass=10.5),
-    cleaning=zb.CleaningSystem(
-        brush=zb.Brush(width=0.38, aggressiveness=1.2),
-        filter=zb.Filter(capacity=1200.0, mesh=45e-6),
-    ),
-    sensors=[zb.Encoder(), zb.IMU(), zb.Sonar(beam_angles=(0.0, 0.7, -0.7))],
-)
-```
-
-**Sensors, imperfect by default** — encoders, IMU, pressure/depth, contact and
-sonar share one pipeline of sampling rate, noise, bias with random walk,
-latency, quantisation, saturation, dropout and stuck values. Encoders report
-*wheel* speed, so odometry drifts because of real slip rather than an injected
-error.
-
-```python
-robot.sensors.sonar.inject_fault(
-    bias=0.15,  # reads 15 cm long
-    dropout_probability=0.02,  # loses 2% of pings
-    start_time=300.0,  # ...starting five minutes in
-)
-```
-
-**Dirt** with density, particle size, adhesion and settling velocity derived
-from the Ferguson–Church equation — 350 µm sand comes out at 47.6 mm/s against
-a measured ~45. Continuous rasters for sediment and algae, discrete items for
-leaves and twigs, some too big for the intake.
-
-**Cleaning that depends on the brush.** Removal is gated by how much agitation
-breaks the bond, so the brush advantage rises with adhesion: ~1.0× for sand,
-2.2× for algae, 3.5× for biofilm.
-
-**Controllers** — a boustrophedon baseline, a random-bounce floor, a
-map-building `systematic` controller, and a `lawnmower_oracle` upper bound that
-reads ground truth and is explicitly *not* deployable. Yours needs a class with
-`reset` and `step`, and sees sensor readings only.
-
-**State estimation.** `systematic` runs an EKF over position, heading and
-**gyro bias**, fed by the encoders and IMU. The bias is only observable when
-the robot stops — a stationary gyro's reading *is* its bias — so zero-velocity
-updates are what keep heading from fanning out over half an hour. Replay draws
-the estimate as an amber ghost beside the true pose.
-
-**Recording.** `.zbr` is a ZIP of a JSON manifest, columnar `npz` frames,
-sparse events and dirt keyframes. Unzip it and read it with `numpy.load`. Pool
-geometry and robot config are embedded, so a recording stays replayable after
-the preset it came from changes.
-
-Same version, platform, scenario and seed give a bit-identical recording —
-fixed timestep, no wall-clock reads while stepping, and one seeded RNG tree
-whose named streams mean adding a sensor never shifts another's noise.
-Asserted in `tests/test_determinism.py`.
-
-## Replay
+## Watch it
 
 <div align="center">
 <img src="docs/assets/summary.png" alt="Run summary: path driven, visit counts, dirt at start, dirt at end" width="760">
 </div>
 
+```bash
+zimablue replay runs/example.zbr
+```
+
 Playback runs at 0.25× to 25×, with pause, scrub, step and speed control. The
 cleaned swath is drawn *under* the dirt, so a patch the robot drove over but
 failed to clean still reads as dirty — exactly the failure worth seeing. Sonar
-beams, wall contacts, battery and filter fill are all on screen.
+beams, wall contacts, battery and filter fill are all on screen, and if the
+controller publishes a pose estimate it appears as an amber ghost drifting away
+from the true position.
 
 Headless? `zimablue replay run.zbr --gif out.gif`.
 
-### In three dimensions
+### In 3D
 
 <div align="center">
 <img src="docs/assets/3d-sloped.gif" alt="A sloped pool rendered as a 3D basin, the camera orbiting as the cleaner works the floor" width="700">
@@ -198,12 +181,57 @@ slowly for parallax, and vertical scale is exaggerated about 3.6× because a
 the 2D backend. A 3D *backend* — buoyancy, contact, wall climbing, cameras — is
 designed but not built, and the [roadmap](docs/roadmap.md) says so.
 
-## Why it exists
+## Measure it
+
+Coverage is where the robot drove. Cleanliness is what it removed. They come
+apart, and most simulators will not tell you so.
+
+The oracle makes it obvious. Over 30 minutes in a kidney pool:
+
+| controller | coverage | dirt removed | distance |
+|---|---|---|---|
+| `lawnmower_oracle` (ground truth) | **88.3%** | 33.3% | 180 m |
+| `baseline_coverage` | 78.2% | **44.5%** | 390 m |
+| `random_bounce` | 84.7% | 44.8% | 393 m |
+
+The oracle wins on coverage and *loses* on cleaning. It drives a perfect path,
+finishes early and stops, while the scrappier controllers keep going over the
+same adhered dirt — which is what actually removes it. Report only coverage and
+you rank these backwards.
+
+Another result, less comfortable: **better localisation currently makes things
+worse.** Calibrating the odometry improves the mapping controller's position
+estimate fivefold and halves its coverage.
+
+| `encoder_scale` | position error | coverage |
+|---|---|---|
+| 1.00 (uncalibrated) | 13.7 m | **73.9%** |
+| 0.94 (calibrated) | **3.8 m** | 52.6% |
+
+The estimator is not at fault — 3.8 m after 340 m of travel with no absolute
+reference is respectable dead reckoning. The planner is. With a poor estimate
+the lane plan is effectively randomised and the robot wanders widely, covering
+ground the way random bounce does; with a good one it runs short disciplined
+lanes and spends its time turning. Coverage is being won by accident, and
+fixing that is the top [roadmap](docs/roadmap.md) item.
+
+## Scale it
+
+```bash
+zimablue run   scenarios/autumn_kidney.yaml --record runs/autumn.zbr
+zimablue batch scenarios/kidney.yaml --episodes 100 --out results.json
+```
+
+A scenario is YAML: pool, robot, dirt, controller, seed, duration, termination.
+Batches vary the seed and aggregate, keeping enough metadata to reproduce any
+individual failure exactly.
+
+## Extend it
 
 Commercial pool cleaners are evaluated by driving them around a real pool with
-real dirt: slow, expensive, impossible to repeat exactly. Meanwhile Gazebo,
-MuJoCo and Isaac Sim each make *their engine* the API, so anything
-pool-specific you build cannot outlive the engine.
+real dirt: slow, expensive, impossible to repeat. Meanwhile Gazebo, MuJoCo and
+Isaac Sim each make *their engine* the API, so anything pool-specific you build
+cannot outlive the engine.
 
 ZimaBlue takes the opposite stance: **the domain model is the API.** Pools,
 dirt, cleaners, scenarios, recordings and metrics are ZimaBlue concepts. What
@@ -233,14 +261,13 @@ backend inherits them and cannot redefine how they are measured. The acceptance
 test for the 3D backend is deliberately strict: **a `.zbr` it produces must
 replay in the 2D viewer.**
 
-## Scenarios
+Pools, robots, dirt, controllers and backends are all registries, so adding one
+means writing a function rather than extending a branch. Issues and pull
+requests welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md), which is mostly
+about not breaking determinism and preferring a small real model to a large
+fake one.
 
-```bash
-zimablue run   scenarios/autumn_kidney.yaml --record runs/autumn.zbr
-zimablue batch scenarios/kidney.yaml --episodes 100 --out results.json
-```
-
-## Documentation
+## Read more
 
 | | |
 |---|---|
@@ -257,13 +284,6 @@ Examples: [`basic.py`](examples/basic.py) ·
 [`custom_controller.py`](examples/custom_controller.py) ·
 [`estimation_replay.py`](examples/estimation_replay.py) ·
 [`replay.py`](examples/replay.py)
-
-## Contributing
-
-Issues and pull requests welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
-The short version: extend through the registries rather than through
-conditionals, do not break determinism, and prefer a small real model to a
-large fake one.
 
 ## License
 
