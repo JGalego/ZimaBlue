@@ -37,7 +37,12 @@ from zimablue.pool import DEFAULT_CELL, POOL_PRESETS, Pool, make_pool
 from zimablue.robot import ROBOT_PRESETS, Cleaner, make_robot
 from zimablue.simulation import RunResult, Simulation
 
-__all__ = ["Scenario", "load_scenario"]
+__all__ = [
+    "Scenario",
+    "bundled_scenarios",
+    "load_scenario",
+    "resolve_scenario",
+]
 
 _TOP_LEVEL = {
     "name",
@@ -263,13 +268,55 @@ def _with_seed(scenario: Scenario, seed: int) -> Scenario:
     return replace(scenario, seed=seed)
 
 
+def bundled_scenarios() -> dict[str, Path]:
+    """Scenario files shipped inside the package, by bare name.
+
+    A pip install has no ``scenarios/`` directory next to it, so without this
+    every documented ``zimablue run`` command only works from a git clone.
+    """
+    for directory in _scenario_directories():
+        if directory.is_dir():
+            found = {path.stem: path for path in sorted(directory.glob("*.yaml"))}
+            if found:
+                return found
+    return {}
+
+
+def _scenario_directories() -> tuple[Path, ...]:
+    """Where bundled scenarios might live, best first.
+
+    An installed wheel has them under the package. An editable install from a
+    checkout does not -- the files are still in the repository's ``scenarios/``
+    directory -- so look there too, or every documented command would work for
+    users and fail for the people developing it.
+    """
+    here = Path(__file__).parent
+    return (here / "data" / "scenarios", here.parent.parent / "scenarios")
+
+
+def resolve_scenario(reference: str | Path) -> Path:
+    """Turn a path or a bare preset name into a scenario file.
+
+    Tries the literal path first, so a local file always wins over a bundled
+    one of the same name.
+    """
+    path = Path(reference)
+    if path.exists():
+        return path
+    bundled = bundled_scenarios()
+    key = path.stem if path.suffix == ".yaml" else str(reference)
+    if key in bundled:
+        return bundled[key]
+    known = ", ".join(bundled) or "none bundled"
+    raise FileNotFoundError(
+        f"no scenario at {reference}. Pass a path to a YAML file, "
+        f"or one of these built-in names: {known}"
+    )
+
+
 def load_scenario(path: str | Path) -> Scenario:
-    """Load and validate a scenario YAML file."""
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(
-            f"no scenario at {path}. Try one of the files in the scenarios/ directory."
-        )
+    """Load and validate a scenario, by path or by built-in name."""
+    path = resolve_scenario(path)
     try:
         data = yaml.safe_load(path.read_text())
     except yaml.YAMLError as exc:

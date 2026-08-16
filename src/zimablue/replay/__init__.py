@@ -6,6 +6,7 @@ package is cheap and only the functions that draw actually import it.
 
 from __future__ import annotations
 
+from zimablue.replay._deps import VIZ_HINT, require_matplotlib
 from zimablue.replay.player import (
     SPEEDS,
     ReplayPlayer,
@@ -24,6 +25,7 @@ from zimablue.replay.scene3d import (
 __all__ = [
     "PALETTE",
     "SPEEDS",
+    "VIZ_HINT",
     "ReplayPlayer",
     "ReplayRenderer",
     "Scene3D",
@@ -34,4 +36,5 @@ __all__ = [
     "export_summary",
     "load_scene",
     "render_3d",
+    "require_matplotlib",
 ]

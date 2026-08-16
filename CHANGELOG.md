@@ -11,6 +11,45 @@ understand.
 
 ## [Unreleased]
 
+### Added
+- EKF pose estimator (`PoseEstimator`) over position, heading and gyro bias,
+  with zero-velocity updates to make the bias observable.
+- `SystematicCoverage` controller: an occupancy map built from bump switches
+  and sonar in the estimated frame, boustrophedon lanes and nearest-frontier
+  recovery.
+- Controllers may publish `telemetry()`; it is recorded as `ctl.*` channels and
+  replay draws the estimated pose against ground truth.
+- 3D replay renderer: `zimablue replay run.zbr --3d`. Renders the pool as a
+  basin from its depth model. Geometry only -- the motion still comes from the
+  2D backend.
+- Scenarios ship inside the wheel, so `zimablue run kidney` works from a plain
+  `pip install` rather than only from a git clone.
+- `Recording.frame_dt`, taken from the timestamps rather than the manifest.
+
+### Changed
+- The `kidney` preset is a proper kidney: ellipse booleans resampled as a
+  low-order Fourier curve, so the boundary is smooth everywhere instead of
+  carrying cusps from the boolean operations.
+- The version lives only in `src/zimablue/_version.py`; `pyproject.toml` reads
+  it, so a tag can no longer disagree with what gets published.
+- Source distributions no longer carry the rendered GIFs: 4.4 MB to 170 KB.
+
+### Fixed
+- Drawing without matplotlib gave a traceback through the rendering internals.
+  It now names the extra to install, and the CLI prints one line instead of a
+  stack. Rich was also swallowing the `[viz]` in that advice as a style tag,
+  so the message read "pip install 'zimablue'" -- what the user had already
+  done.
+- The zero-velocity update judged stillness from average wheel speed, which is
+  zero for a robot spinning on the spot, so the filter charged the whole
+  rotation to the gyro bias.
+- The frontier search ignored the free/unknown boundary, so an accurate map
+  produced an empty search and the robot declared a mostly-unexplored pool
+  finished.
+- 3D wall panels were decimated by a fixed stride, which collapsed the
+  four-segment rectangular pool to a single degenerate panel and rendered it
+  with no walls.
+
 ## [0.1.0] — 2026-08-15
 
 The first working version: a complete path from a dirty pool to a watchable,
@@ -22,12 +61,12 @@ reproducible, scored replay.
 - `Pool`: Shapely boundary, pluggable depth models (constant, plane slope,
   composite), surface materials, and features split into blocking (obstacles,
   stairs) and hydraulic (drains, returns, skimmers).
-- Six pool presets: `rectangular`, `sloped`, `l_shaped`, `kidney`, `oval`,
+- Pool presets: `rectangular`, `sloped`, `l_shaped`, `kidney`, `oval`,
   `stairs`.
 - `Cleaner`: a composition of chassis, locomotion, cleaning system and power
-  components, so a custom robot needs no changes to ZimaBlue. Three presets:
+  components, so a custom robot needs no changes to ZimaBlue. Presets:
   `tracked`, `compact`, `heavy_duty`.
-- Seven dirt types with density, particle size, adhesion and pickup difficulty;
+- Dirt types with density, particle size, adhesion and pickup difficulty;
   a continuous mass raster plus discrete debris items.
 - Seven dirt scenarios from `clean` to `neglected_pool`.
 

@@ -14,6 +14,7 @@ from typing import Annotated, Any
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
@@ -43,10 +44,32 @@ _VIZ_MISSING = (
 _VIZ_HINT = "pip install 'zimablue\\[viz]' -- or render headless with --gif out.gif"
 
 
+def _guard_viz() -> None:
+    """Turn a missing optional dependency into a clean CLI error.
+
+    The library raises a perfectly good ModuleNotFoundError; what a CLI user
+    should see is one line telling them what to install, not a traceback
+    through our rendering internals.
+    """
+    from zimablue.replay import require_matplotlib
+
+    try:
+        require_matplotlib()
+    except ModuleNotFoundError as exc:
+        _fail(str(exc), "or install everything: pip install 'zimablue[dev]'")
+
+
 def _fail(message: str, hint: str | None = None) -> None:
-    console.print(f"[bold red]error[/bold red] {message}")
+    """Print an error and exit.
+
+    Both strings are escaped: they carry exception text and install commands,
+    and Rich reads square brackets as style tags. Unescaped, the advice
+    "pip install 'zimablue[viz]'" renders as "pip install 'zimablue'" -- which
+    is precisely what the user already did.
+    """
+    console.print(f"[bold red]error[/bold red] {escape(message)}")
     if hint:
-        console.print(f"[dim]hint:[/dim] {hint}")
+        console.print(f"[dim]hint:[/dim] {escape(hint)}")
     raise typer.Exit(code=1)
 
 
@@ -158,7 +181,9 @@ def demo(
 # ----------------------------------------------------------------------
 @app.command()
 def run(
-    scenario_file: Annotated[Path, typer.Argument(help="Scenario YAML file.")],
+    scenario_file: Annotated[
+        Path, typer.Argument(help="Scenario YAML file, or a built-in name like 'kidney'.")
+    ],
     seed: Annotated[int | None, typer.Option(help="Override the scenario seed.")] = None,
     record: Annotated[Path | None, typer.Option(help="Write a .zbr recording here.")] = None,
     minutes: Annotated[float | None, typer.Option(help="Override the duration.")] = None,
@@ -224,6 +249,9 @@ def replay(
             str(exc), "make one with: zimablue demo  or  zimablue run <scenario> --record out.zbr"
         )
 
+    if gif is not None or summary is not None or frames is not None or not three_d:
+        _guard_viz()
+
     if gif is not None:
         if three_d:
             from zimablue.replay import export_3d_movie
@@ -266,7 +294,9 @@ def replay(
 # ----------------------------------------------------------------------
 @app.command()
 def batch(
-    scenario_file: Annotated[Path, typer.Argument(help="Scenario YAML file.")],
+    scenario_file: Annotated[
+        Path, typer.Argument(help="Scenario YAML file, or a built-in name like 'kidney'.")
+    ],
     episodes: Annotated[int, typer.Option(help="How many seeded episodes.")] = 20,
     record_dir: Annotated[Path | None, typer.Option(help="Keep every episode's .zbr here.")] = None,
     out: Annotated[Path | None, typer.Option(help="Write aggregate JSON here.")] = None,

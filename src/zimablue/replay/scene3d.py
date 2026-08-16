@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from numpy.typing import NDArray
 
+from zimablue.replay._deps import require_matplotlib
 from zimablue.replay.renderer import PALETTE, Scene, load_scene
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -173,6 +174,7 @@ def render_3d(
     zoom: float = 1.18,
 ) -> Any:
     """Draw one frame in 3D onto ``ax`` (created if not supplied)."""
+    require_matplotlib()
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
@@ -283,6 +285,7 @@ def export_3d_movie(
     slow drift gives the eye parallax, which is what makes a rendered 3D scene
     read as solid rather than as a flat painting.
     """
+    require_matplotlib()
     import matplotlib
 
     matplotlib.use("Agg")
@@ -327,6 +330,7 @@ def export_3d_frames(
     elev: float = 34.0,
 ) -> Path:
     """A contact sheet of 3D views across the run."""
+    require_matplotlib()
     import matplotlib
 
     matplotlib.use("Agg")

@@ -42,3 +42,47 @@ jobs:
           zimablue run scenarios/rectangular.yaml --minutes 1 --record /tmp/ci.zbr
           zimablue inspect /tmp/ci.zbr
           zimablue replay /tmp/ci.zbr --summary /tmp/ci.png
+
+  package:
+    name: Build and install like a user
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+
+      - name: Check metadata
+        run: python -m twine check --strict dist/*
+
+      - name: Install the wheel with no extras
+        run: |
+          # The repo has a scenarios/ directory and the dev extras; a user has
+          # neither. Packaging bugs are invisible until you install this way.
+          python -m venv /tmp/fresh
+          /tmp/fresh/bin/pip install --quiet dist/*.whl
+
+      - name: Run it
+        run: |
+          cd /tmp
+          /tmp/fresh/bin/zimablue --version
+          /tmp/fresh/bin/zimablue list
+          /tmp/fresh/bin/zimablue run kidney --minutes 0.5 --quiet
+          /tmp/fresh/bin/python -c "import zimablue, sys; assert 'matplotlib' not in sys.modules"
+
+      - name: Drawing without the viz extra should advise, not crash
+        run: |
+          cd /tmp
+          /tmp/fresh/bin/zimablue run kidney --minutes 0.5 --quiet --record /tmp/ci.zbr
+          if /tmp/fresh/bin/zimablue replay /tmp/ci.zbr --summary /tmp/ci.png; then
+            echo "::error::expected a clean failure without matplotlib"
+            exit 1
+          fi
+          /tmp/fresh/bin/zimablue replay /tmp/ci.zbr --summary /tmp/ci.png 2>&1 \
+            | grep -q "zimablue\[viz\]"

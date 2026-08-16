@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from zimablue.recording import Recording
+from zimablue.replay._deps import require_matplotlib
 from zimablue.replay.renderer import PALETTE, ReplayRenderer
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -52,6 +53,7 @@ class ReplayPlayer:
         show_sensors: bool = True,
         start_paused: bool = False,
     ) -> None:
+        require_matplotlib()
         self.recording = recording
         self.renderer = ReplayRenderer(recording, show_sensors=show_sensors)
         self.speed = float(speed)
@@ -191,6 +193,7 @@ def export_movie(
     Chooses the writer from the file extension. MP4 needs ffmpeg; GIF works
     anywhere matplotlib does, which is why the CLI defaults to it.
     """
+    require_matplotlib()
     import matplotlib
 
     matplotlib.use("Agg", force=True)
@@ -224,6 +227,7 @@ def export_frames(
     dpi: int = 110,
 ) -> list[Path]:
     """Write ``count`` evenly-spaced stills -- handy for a README or an issue."""
+    require_matplotlib()
     import matplotlib
 
     matplotlib.use("Agg", force=True)
@@ -243,12 +247,13 @@ def export_frames(
 
 
 def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) -> Path:
-    """A four-panel post-run summary.
+    """A post-run summary.
 
     The panels are chosen to make the coverage-versus-cleanliness distinction
     impossible to miss: the path the robot drove, the cells it visited, the
     dirt it started with, and the dirt it left.
     """
+    require_matplotlib()
     import matplotlib
 
     matplotlib.use("Agg", force=True)

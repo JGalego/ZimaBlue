@@ -1,0 +1,135 @@
+name: Release
+
+# Publishing uses PyPI Trusted Publishing (OIDC), so there are no API tokens in
+# this repository. Each job asks GitHub for a short-lived identity token and
+# PyPI verifies it against the publisher configured on its side. See
+# RELEASING.md for the one-time setup.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Where to publish
+        required: true
+        default: testpypi
+        type: choice
+        options: [testpypi, pypi]
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+
+      - name: Check metadata
+        run: python -m twine check --strict dist/*
+
+      - name: Tag must match the package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          # A tag that disagrees with the version publishes the wrong thing
+          # under the right name, and PyPI will not let you take it back.
+          version=$(python -c "import re,pathlib; \
+            print(re.search(r'\"(.+)\"', \
+            pathlib.Path('src/zimablue/_version.py').read_text()).group(1))")
+          tag="${GITHUB_REF_NAME#v}"
+          echo "version=$version tag=$tag"
+          test "$version" = "$tag" || {
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version"
+            exit 1
+          }
+
+      - name: Install the wheel and smoke-test it
+        run: |
+          # A fresh venv with no dev extras: this is what a user gets, and it
+          # is the only place a missing package-data file shows up.
+          python -m venv /tmp/fresh
+          /tmp/fresh/bin/pip install --quiet dist/*.whl
+          /tmp/fresh/bin/zimablue --version
+          /tmp/fresh/bin/zimablue list
+          cd /tmp && /tmp/fresh/bin/zimablue run kidney --minutes 0.5 --quiet
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || inputs.target == 'testpypi'
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/zimablue
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # Re-running a workflow should not fail on an already-uploaded file.
+          skip-existing: true
+
+  verify-testpypi:
+    name: Install from TestPyPI
+    needs: testpypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install and run
+        run: |
+          # TestPyPI does not mirror the real index, so dependencies come from
+          # PyPI proper and only zimablue itself from TestPyPI.
+          for attempt in 1 2 3 4 5; do
+            pip install \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              zimablue && break
+            echo "index not caught up yet, retrying in 20s"
+            sleep 20
+          done
+          zimablue --version
+          cd /tmp && zimablue run kidney --minutes 0.5 --quiet
+
+  pypi:
+    name: Publish to PyPI
+    needs: [build, verify-testpypi]
+    runs-on: ubuntu-latest
+    # Tags publish for real; a manual run only reaches PyPI if you ask for it.
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.target == 'pypi'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/zimablue
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

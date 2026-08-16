@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zimablue"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Simulate, test, and replay robotic pool cleaners."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -50,14 +50,31 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/JGalego/ZimaBlue"
+Documentation = "https://github.com/JGalego/ZimaBlue/tree/main/docs"
+Changelog = "https://github.com/JGalego/ZimaBlue/blob/main/CHANGELOG.md"
 Repository = "https://github.com/JGalego/ZimaBlue"
 Issues = "https://github.com/JGalego/ZimaBlue/issues"
 
 [project.scripts]
 zimablue = "zimablue.cli:main"
 
+[tool.hatch.version]
+# Single source of truth. Duplicating the number in pyproject.toml is how a
+# release ends up tagged v0.2.0 and published as 0.1.0.
+path = "src/zimablue/_version.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/zimablue"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# Ship the example scenarios so `zimablue run kidney` works from a plain
+# `pip install`, not just from a git clone.
+"scenarios" = "zimablue/data/scenarios"
+
+[tool.hatch.build.targets.sdist]
+# The rendered GIFs are 4 MB and are only there for the README on GitHub.
+# Nobody needs them inside a source distribution.
+exclude = ["docs/assets", "runs", ".github"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

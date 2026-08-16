@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-0e6cb2?style=flat-square)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0e6cb2?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
 [![No GPU required](https://img.shields.io/badge/no%20GPU-required-3ddcff?style=flat-square)](docs/architecture.md)
-[![Tests: 198](https://img.shields.io/badge/tests-198%20passing-3fb950?style=flat-square)](tests)
+[![Tests: 207](https://img.shields.io/badge/tests-207%20passing-3fb950?style=flat-square)](tests)
 [![Linted with Ruff](https://img.shields.io/badge/lint-ruff-261230?style=flat-square&logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 [![Typed: mypy](https://img.shields.io/badge/typing-mypy%20clean-0e6cb2?style=flat-square)](pyproject.toml)
 
@@ -109,14 +109,14 @@ result.save("runs/example.zbr")
 ```
 
 ```
-  coverage            78.5 %   (walls 70 %)
-  dirt removed        57.1 %   (572 g of 1002 g)
-  uniformity          71.8 %
-  revisits             1.51   extra passes/cell
-  distance           318.6 m
-  runtime             25.0 min
-  energy              27.7 Wh   (battery 77 % left)
-  collisions           399
+  coverage            80.8 %   (walls 79 %)
+  dirt removed        58.0 %   (581 g of 1002 g)
+  uniformity          74.4 %
+  revisits            1.95   extra passes/cell
+  distance           384.9 m
+  runtime             30.0 min
+  energy              33.3 Wh   (battery 72 % left)
+  collisions           468
   stuck                  0 events, 0.0 s
 ```
 
@@ -191,13 +191,14 @@ The oracle makes it obvious. Over 30 minutes in a kidney pool:
 | controller | coverage | dirt removed | distance |
 |---|---|---|---|
 | `lawnmower_oracle` (ground truth) | **88.3%** | 33.3% | 180 m |
-| `baseline_coverage` | 78.2% | **44.5%** | 390 m |
 | `random_bounce` | 84.7% | 44.8% | 393 m |
+| `baseline_coverage` | 80.8% | **58.0%** | 385 m |
 
-The oracle wins on coverage and *loses* on cleaning. It drives a perfect path,
-finishes early and stops, while the scrappier controllers keep going over the
-same adhered dirt — which is what actually removes it. Report only coverage and
-you rank these backwards.
+The ranking inverts completely. Best coverage is worst cleaning, and worst
+coverage is best cleaning. The oracle drives a perfect path, finishes early and
+stops; the scrappier controllers keep going over the same adhered dirt, which
+is what actually removes it. Report only coverage and you get the order exactly
+backwards.
 
 Another result, less comfortable: **better localisation currently makes things
 worse.** Calibrating the odometry improves the mapping controller's position
@@ -218,8 +219,9 @@ fixing that is the top [roadmap](docs/roadmap.md) item.
 ## Scale it
 
 ```bash
-zimablue run   scenarios/autumn_kidney.yaml --record runs/autumn.zbr
-zimablue batch scenarios/kidney.yaml --episodes 100 --out results.json
+zimablue run   kidney --record runs/kidney.zbr        # a bundled scenario
+zimablue run   scenarios/autumn_kidney.yaml           # or your own file
+zimablue batch kidney --episodes 100 --out results.json
 ```
 
 A scenario is YAML: pool, robot, dirt, controller, seed, duration, termination.
@@ -278,6 +280,7 @@ fake one.
 | [Recording](docs/recording.md) | The `.zbr` format, channel by channel |
 | [Replay](docs/replay.md) | Controls, exporters, rendering notes |
 | [Roadmap](docs/roadmap.md) | Done, next, and deliberately not planned |
+| [Releasing](RELEASING.md) | Publishing to TestPyPI and PyPI |
 
 Examples: [`basic.py`](examples/basic.py) ·
 [`custom_robot.py`](examples/custom_robot.py) ·

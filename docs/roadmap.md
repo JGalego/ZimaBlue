@@ -12,9 +12,9 @@ rather than stubbed. **Shipped.**
 |---|---|---|
 | ✅ | Package, tooling, CI-ready layout | done |
 | ✅ | `RngTree` — named deterministic streams | done |
-| ✅ | Pool geometry, depth models, features, 6 presets | done |
-| ✅ | Cleaner components, 3 presets | done |
-| ✅ | Sensors + noise/fault pipeline (5 models) | done |
+| ✅ | Pool geometry, depth models, features, presets | done |
+| ✅ | Cleaner components and presets | done |
+| ✅ | Sensors and the shared noise/fault pipeline | done |
 | ✅ | Dirt types, dirt field, debris, generators | done |
 | ✅ | `Fast2DBackend` — diff-drive, slip, collisions, battery | done |
 | ✅ | Cleaning interaction (brush, suction, filter) | done |
@@ -36,7 +36,7 @@ rather than stubbed. **Shipped.**
 - **A planner that can spend a good estimate.** This is now the top item, and
   it is backed by a measurement rather than a hunch. Calibrating the odometry
   improves the `systematic` controller's position estimate five-fold (13.7 m
-  to 2.7 m of error over a 25-minute kidney run) and *halves* its coverage,
+  to 3.8 m of error over a 25-minute kidney run) and *halves* its coverage,
   because with a poor estimate the lane plan is effectively randomised and the
   robot wanders widely, while with a good one it executes short disciplined
   lanes and spends its time turning (182 m travelled against 340 m). Coverage
