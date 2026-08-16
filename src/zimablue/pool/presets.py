@@ -13,9 +13,10 @@ means adding a function, not extending a branch.
 from __future__ import annotations
 
 import numpy as np
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import Polygon
 from shapely.geometry import box as shapely_box
 
+from zimablue.geometry import smooth_ring
 from zimablue.pool.depth import CompositeDepth, ConstantDepth, PlaneSlopeDepth
 from zimablue.pool.features import Drain, Obstacle, Return, Skimmer, Stairs
 from zimablue.pool.pool import Pool
@@ -29,30 +30,6 @@ POOL_PRESETS: Registry[Pool] = Registry("pool")
 def _ellipse(cx: float, cy: float, rx: float, ry: float, n: int = 256) -> Polygon:
     t = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
     return Polygon(np.column_stack([cx + rx * np.cos(t), cy + ry * np.sin(t)]))
-
-
-def _smooth_ring(polygon: Polygon, harmonics: int = 12, n: int = 512) -> Polygon:
-    """Replace a boundary with a low-order Fourier curve through it.
-
-    Boolean operations on ellipses leave cusps where the operands cross, and a
-    buffer fillet only trades a corner for a curvature jump.  Resampling the
-    ring at uniform arc length and keeping the first ``harmonics`` Fourier
-    coefficients of x(s) and y(s) instead yields a curve that is smooth
-    everywhere by construction -- a trigonometric polynomial has no corners.
-
-    Free curvature also matters physically: a wall follower that meets a corner
-    behaves differently from one tracing a smooth curve, and a kidney pool
-    really is smooth.
-    """
-    ring = LineString(polygon.exterior.coords)
-    stations = np.linspace(0.0, ring.length, n, endpoint=False)
-    points = np.array([ring.interpolate(float(s)).coords[0] for s in stations])
-    smoothed = []
-    for axis in (0, 1):
-        spectrum = np.fft.rfft(points[:, axis])
-        spectrum[harmonics + 1 :] = 0.0
-        smoothed.append(np.fft.irfft(spectrum, n))
-    return Polygon(np.column_stack(smoothed))
 
 
 @POOL_PRESETS.register("rectangular")
@@ -123,7 +100,7 @@ def kidney() -> Pool:
     Composed from ellipse booleans rather than a hand-typed vertex list: a body
     ellipse, a lobe that fattens the deep end, a closing buffer to erase the
     waist where the two meet, and a large offset circle that scoops the shallow
-    side.  The result is then passed through :func:`_smooth_ring`, so the final
+    side.  The result is then passed through :func:`~zimablue.geometry.smooth_ring`, so the final
     boundary is a smooth curve with no cusps left over from the booleans.
 
     The concavity is the point: a boustrophedon planner that treats the pool as
@@ -135,7 +112,7 @@ def kidney() -> Pool:
     boundary = body.difference(scoop)
     if boundary.geom_type == "MultiPolygon":  # pragma: no cover - defensive
         boundary = max(boundary.geoms, key=lambda g: g.area)
-    boundary = _smooth_ring(Polygon(boundary.exterior), harmonics=12)
+    boundary = smooth_ring(Polygon(boundary.exterior), harmonics=12)
 
     return Pool(
         boundary=boundary,

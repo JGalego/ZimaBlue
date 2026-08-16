@@ -21,10 +21,40 @@ __all__ = [
     "closest_point_on_segments",
     "polygon_segments",
     "raycast",
+    "smooth_ring",
     "wrap_angle",
 ]
 
 FloatArray = NDArray[np.float64]
+
+
+def smooth_ring(polygon: Polygon, harmonics: int = 12, n: int = 512) -> Polygon:
+    """Replace a boundary with a low-order Fourier curve through it.
+
+    Boolean operations on ellipses leave cusps where the operands cross, and a
+    buffer fillet only trades a corner for a curvature jump.  Resampling the
+    ring at uniform arc length and keeping the first ``harmonics`` Fourier
+    coefficients of x(s) and y(s) instead yields a curve that is smooth
+    everywhere by construction -- a trigonometric polynomial has no corners.
+
+    Free curvature also matters physically: a wall follower that meets a corner
+    behaves differently from one tracing a smooth curve, and a kidney pool
+    really is smooth.
+
+    The same argument applies to an outline traced from a photograph, where the
+    corners are the pixel grid's rather than the pool's.
+    """
+    from shapely.geometry import LineString
+
+    ring = LineString(polygon.exterior.coords)
+    stations = np.linspace(0.0, ring.length, n, endpoint=False)
+    points = np.array([ring.interpolate(float(s)).coords[0] for s in stations])
+    smoothed = []
+    for axis in (0, 1):
+        spectrum = np.fft.rfft(points[:, axis])
+        spectrum[harmonics + 1 :] = 0.0
+        smoothed.append(np.fft.irfft(spectrum, n))
+    return Polygon(np.column_stack(smoothed))
 
 
 @dataclass(frozen=True)

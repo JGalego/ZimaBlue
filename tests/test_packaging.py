@@ -95,6 +95,26 @@ def test_viz_hint_names_the_extra():
     assert "zimablue[viz]" in VIZ_HINT
 
 
+def test_image_hint_names_the_extra():
+    from zimablue.imaging import IMAGE_HINT
+
+    assert "zimablue[image]" in IMAGE_HINT
+
+
+def test_importing_zimablue_does_not_import_pillow():
+    """Same contract as matplotlib: the optional extras stay optional.
+
+    ``zimablue.imaging`` is imported at package import, so its Pillow import
+    has to stay inside the functions that read a file.
+    """
+    import subprocess
+    import sys
+
+    code = "import zimablue, sys; print('PIL' in sys.modules)"
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "False"
+
+
 def test_readme_urls_are_absolute_in_package_metadata():
     """PyPI renders the description with no repository behind it.
 

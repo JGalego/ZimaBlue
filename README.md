@@ -58,6 +58,13 @@ The kidney boundary is a low-order Fourier curve, which makes it smooth
 everywhere — a wall follower meeting a corner behaves differently from one
 tracing a curve, and a real kidney pool has no corners.
 
+Have a photo instead of a spec? `zb.pool_from_image("backyard.jpg",
+sample=(640, 410), width=8.4)` finds the water, traces its edge and scales it.
+A photograph carries no scale of its own, so one real measurement is required;
+for a shot taken from the poolside, four points on a rectangle you can measure
+also undo the perspective, which is worth about 23% of the area. See
+[imaging](docs/imaging.md).
+
 In a notebook, `zb.preview(pool)` renders it in the browser — drag to rotate,
 scroll to zoom. The pool's geometry is shipped to the page as JSON and
 projected there, so it needs no widget extensions and keeps working in an
@@ -302,6 +309,7 @@ fake one.
 | | |
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, first run, common tasks |
+| [From a photo](docs/imaging.md) | Tracing a pool out of a picture, and what a picture cannot tell you |
 | [Architecture](docs/architecture.md) | Layering, backends, determinism contract |
 | [Research](docs/research.md) | Prior art, and which decision each finding drove |
 | [References](docs/references.md) | Verified bibliography, with what the code implements |
@@ -319,6 +327,7 @@ Every one takes `--minutes` if you want a shorter run.
 |---|---|
 | [`basic.py`](examples/basic.py) | The smallest useful program: pool in, metrics out |
 | [`custom_pool.py`](examples/custom_pool.py) | Build a pool from geometry, depth models and features, then read the spatial metrics |
+| [`pool_from_photo.py`](examples/pool_from_photo.py) | Trace a pool out of a photograph, check the trace, then clean it |
 | [`custom_robot.py`](examples/custom_robot.py) | Compose a cleaner from components and break a sensor on purpose |
 | [`custom_controller.py`](examples/custom_controller.py) | Write an autonomy stack and benchmark it against the shipped ones |
 | [`estimation_replay.py`](examples/estimation_replay.py) | The EKF controller, with the pose estimate drawn against ground truth |

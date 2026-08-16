@@ -71,6 +71,15 @@ def test_custom_controller_runs():
     assert result.returncode == 0, result.stderr[-2000:]
 
 
+def test_pool_from_photo_runs(tmp_path):
+    result = run("pool_from_photo.py", "--minutes", "2", "--out", str(tmp_path))
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "traced" in result.stdout
+    # It synthesises a photo of a known pool, so it can grade itself.
+    assert "came within" in result.stdout
+    assert (tmp_path / "trace_overlay.png").exists()
+
+
 def test_batch_experiment_runs_and_reproduces_its_worst_episode():
     result = run("batch_experiment.py", "--episodes", "3", "--minutes", "3")
     assert result.returncode == 0, result.stderr[-2000:]

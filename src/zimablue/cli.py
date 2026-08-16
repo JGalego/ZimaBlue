@@ -1,6 +1,6 @@
 """The ``zimablue`` command line.
 
-Six verbs: ``demo``, ``run``, ``replay``, ``batch``, ``inspect``, ``list``.
+Verbs: ``demo``, ``run``, ``replay``, ``trace``, ``batch``, ``inspect``, ``list``.
 
 Errors are meant to be actionable -- an unknown preset lists the valid ones, a
 missing recording says where to make one -- because the most common CLI failure
@@ -9,6 +9,7 @@ is a typo, and a stack trace is a poor answer to a typo.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -322,6 +323,74 @@ def replay(
         return
 
     _watch(rec, speed=speed, sensors=sensors)
+
+
+# ----------------------------------------------------------------------
+@app.command()
+def trace(
+    picture: Annotated[Path, typer.Argument(help="A photo of a pool.")],
+    width: Annotated[float | None, typer.Option(help="The pool's real width in metres.")] = None,
+    metres_per_pixel: Annotated[
+        float | None, typer.Option("--mpp", help="Ground resolution, for a top-down image.")
+    ] = None,
+    sample: Annotated[
+        str | None, typer.Option(help="'x,y' pixel inside the water. Use this for a photo.")
+    ] = None,
+    depth: Annotated[float, typer.Option(help="Flat depth in metres -- a photo cannot say.")] = 1.5,
+    name: Annotated[str, typer.Option(help="Name for the traced pool.")] = "traced",
+    check: Annotated[
+        Path | None, typer.Option(help="Write an overlay of what was found. Look at it.")
+    ] = None,
+    out: Annotated[Path | None, typer.Option(help="Write the pool as JSON.")] = None,
+) -> None:
+    """Trace a pool out of a photograph.
+
+    Needs a scale: a photograph does not carry one. For an oblique shot, use
+    the Python API's corners= to correct the perspective as well.
+    """
+    from zimablue.imaging import require_pillow, trace_pool
+
+    try:
+        require_pillow()
+    except ModuleNotFoundError as exc:
+        _fail(str(exc), "or install everything: pip install 'zimablue[dev]'")
+
+    if (width is None) == (metres_per_pixel is None):
+        _fail(
+            "give exactly one of --width or --mpp.",
+            "a photograph does not contain its own scale, so there is no default",
+        )
+
+    seed = None
+    if sample is not None:
+        try:
+            sx, sy = (int(part) for part in sample.replace(" ", "").split(","))
+        except ValueError:
+            _fail(f"could not read --sample {sample!r}", "it should look like --sample 640,410")
+        seed = (sx, sy)
+
+    try:
+        traced = trace_pool(picture, sample=seed, width=width, metres_per_pixel=metres_per_pixel)
+    except (FileNotFoundError, ValueError) as exc:
+        _fail(str(exc))
+
+    console.print(traced.summary())
+    pool = traced.pool(depth, name=name)
+
+    if check is not None:
+        _guard_viz()
+        traced.overlay(check)
+        console.print(f"[green]wrote[/green] {check}")
+    else:
+        console.print(
+            "[yellow]no --check given[/yellow]; segmenting a photo is a guess, "
+            "and the overlay is how you catch a wrong one"
+        )
+
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(pool.to_dict(), indent=2))
+        console.print(f"[green]wrote[/green] {out}")
 
 
 # ----------------------------------------------------------------------

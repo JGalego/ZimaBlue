@@ -38,7 +38,11 @@ dependencies = [
 
 [project.optional-dependencies]
 viz = ["matplotlib>=3.7"]
+# Reading a photograph to trace a pool out of it. Separate from viz because a
+# batch that builds pools from images has no reason to pull in a plotting stack.
+image = ["pillow>=10"]
 dev = [
+    "pillow>=10",
     # The build backend, so the tests can import the metadata hook in
     # hatch_build.py and check the README rewriting it does.
     "hatchling>=1.21",
