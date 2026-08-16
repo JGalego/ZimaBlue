@@ -276,6 +276,7 @@ fake one.
 | [Getting started](docs/getting-started.md) | Install, first run, common tasks |
 | [Architecture](docs/architecture.md) | Layering, backends, determinism contract |
 | [Research](docs/research.md) | Prior art, and which decision each finding drove |
+| [References](docs/references.md) | Verified bibliography, with what the code implements |
 | [Scenarios](docs/scenarios.md) | YAML experiments and batch sweeps |
 | [Recording](docs/recording.md) | The `.zbr` format, channel by channel |
 | [Replay](docs/replay.md) | Controls, exporters, rendering notes |

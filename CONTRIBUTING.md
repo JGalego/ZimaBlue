@@ -72,6 +72,15 @@ python tools/make_logo.py
 
 If you change that preset's geometry, regenerate and commit both SVGs.
 
+## Citing prior art
+
+New models should say where they come from. Add the reference to
+[`docs/references.md`](docs/references.md) with a resolving DOI, and verify it
+against Crossref rather than trusting a citation you copied -- doing exactly
+that to the first version of that file turned up a paper that does not exist, a
+journal attributed to the wrong title, and an author list belonging to a
+different group.
+
 ## Reporting a bug
 
 For simulation bugs, include the scenario YAML (or the constructing code) and

@@ -340,6 +340,10 @@ test** is the same distinction that motivates ZimaBlue.
 
 ## Sources
 
+Full bibliography with verified DOIs, author lists and page ranges:
+[`references.md`](references.md). The links below are the ones this argument
+leans on directly.
+
 - Galceran & Carreras, [A survey on coverage path planning for robotics](https://www.sciencedirect.com/science/article/abs/pii/S092188901300167X), RAS 2013
 - Choset & Pignon, [Coverage Path Planning: The Boustrophedon Cellular Decomposition](https://link.springer.com/chapter/10.1007/978-1-4471-1273-0_32)
 - [Optimising Robotic Pool-Cleaning with a Genetic Algorithm](https://dl.acm.org/doi/abs/10.1007/s10846-018-0953-y), JINT
