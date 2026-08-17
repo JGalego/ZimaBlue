@@ -399,3 +399,47 @@ def test_the_map_fractions_are_fractions_of_the_map():
     assert 0.0 < obs[-2] <= 1.0
     assert 0.0 < obs[-1] <= obs[-2], "covered floor cannot exceed explored floor"
     env.close()
+
+
+# ----------------------------------------------------------------------
+# Episode seeding
+# ----------------------------------------------------------------------
+def test_reset_without_a_seed_starts_a_new_episode(env):
+    """A training loop never passes a seed.
+
+    This env used to replay its construction seed on every unseeded reset, so
+    a policy would have been shown one episode for the whole run and taught to
+    memorise it. Nothing in the suite noticed, because every test seeded.
+    """
+    episodes = []
+    for _ in range(3):
+        obs, info = env.reset()
+        for _ in range(10):
+            obs, *_ = env.step(np.array([1.0, 0.7], dtype=np.float32))
+        episodes.append((info["seed"], obs.copy()))
+
+    seeds = [seed for seed, _ in episodes]
+    assert len(set(seeds)) == 3, f"three resets gave the seeds {seeds}"
+    assert not np.array_equal(episodes[0][1], episodes[1][1])
+    assert not np.array_equal(episodes[0][1], episodes[2][1])
+
+
+def test_the_sequence_of_episodes_is_reproducible():
+    """Unseeded does not mean unrepeatable: it is drawn, not arbitrary."""
+
+    def sequence(seed):
+        made = PoolCleaningEnv(pool="rectangular", minutes=0.5, seed=seed)
+        seeds = [made.reset()[1]["seed"] for _ in range(4)]
+        made.close()
+        return seeds
+
+    assert sequence(5) == sequence(5)
+    assert sequence(5) != sequence(6)
+
+
+def test_an_explicit_seed_still_pins_the_episode(env):
+    """And re-pins the sequence after it, so an evaluation is repeatable."""
+    first = [env.reset(seed=3)[1]["seed"]] + [env.reset()[1]["seed"] for _ in range(2)]
+    second = [env.reset(seed=3)[1]["seed"]] + [env.reset()[1]["seed"] for _ in range(2)]
+    assert first[0] == 3
+    assert first == second

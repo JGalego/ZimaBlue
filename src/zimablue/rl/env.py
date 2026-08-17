@@ -195,6 +195,11 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         self.extra_observations = extra_observations
         self.controller = _AgentController(extra_observations)
         self.sim: Simulation | None = None
+        # Draws the seed for each episode that is not given one. Seeded from
+        # the constructor so the whole *sequence* of episodes is reproducible,
+        # not just an individually seeded one.
+        self._episodes = np.random.default_rng(self.base_seed)
+        self.episode_seed = self.base_seed
         self.elapsed = 0
         self._collected = 0.0
         self._visited = 0
@@ -267,11 +272,29 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[FloatArray, dict[str, Any]]:
+        """Start an episode.
+
+        With a ``seed``, that exact episode -- twice with the same number and
+        you get the same run, which is what makes an evaluation repeatable.
+
+        Without one, the *next* episode, drawn from the env's own generator.
+        This is the Gymnasium convention and it matters more than it looks: a
+        training loop never passes a seed, so an env that replayed its
+        construction seed every time would show a policy one episode for the
+        length of the run and teach it to memorise that.
+        """
         super().reset(seed=seed)
+        if seed is not None:
+            self._episodes = np.random.default_rng(int(seed))
+            episode_seed = int(seed)
+        else:
+            episode_seed = int(self._episodes.integers(0, 2**31 - 1))
+
         if self.sim is not None and not self._saved:
             # save() already finished the run, which closes the backend.
             self.sim.backend.close()
-        self.sim = self._build(self.base_seed if seed is None else int(seed))
+        self.sim = self._build(episode_seed)
+        self.episode_seed = episode_seed
         self.elapsed = 0
         self._collected = 0.0
         self._saved = False
@@ -330,6 +353,7 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         navigable = self.sim.pool.navigable_mask(self.sim.world.cell)
         total = max(int(navigable.sum()), 1)
         return {
+            "seed": self.episode_seed,
             "time": self.sim.state.time,
             "coverage": self._visited_cells() / total,
             "dirt_removed": self.sim.world.dirt.removed_fraction,

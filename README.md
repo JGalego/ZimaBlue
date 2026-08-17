@@ -342,6 +342,7 @@ Every one takes `--minutes` if you want a shorter run.
 | [`pool_from_photo.py`](examples/pool_from_photo.py) | Trace a pool out of a photograph, check the trace, then clean it — `--sam` to segment with a model |
 | [`rl_env.py`](examples/rl_env.py) | The Gymnasium env, and the baseline a trained policy has to beat |
 | [`tune_controller.py`](examples/tune_controller.py) | Search the shipped controller's parameters, which is the cheap thing to try first |
+| [`train_policy.py`](examples/train_policy.py) | Train a controller with PPO, score it against the shipped ones, and replay it |
 | [`custom_robot.py`](examples/custom_robot.py) | Compose a cleaner from components and break a sensor on purpose |
 | [`custom_controller.py`](examples/custom_controller.py) | Write an autonomy stack and benchmark it against the shipped ones |
 | [`estimation_replay.py`](examples/estimation_replay.py) | The EKF controller, with the pose estimate drawn against ground truth |

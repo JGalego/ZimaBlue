@@ -37,7 +37,11 @@ understand.
   against the baseline's 18%, and is behind the baseline by twenty-five.
 - A controller may set `needs_truth = True`; scenarios and the CLI then turn
   `expose_truth` on for it.
-- `docs/ml.md`, `examples/rl_env.py` and `examples/tune_controller.py`.
+- `docs/ml.md`, `examples/rl_env.py`, `examples/tune_controller.py` and
+  `examples/train_policy.py` — the last trains a policy with PPO, scores it
+  against the shipped controllers on held-out seeds, and replays it.
+- `info["seed"]` on every env step, so an episode can be reproduced from what
+  it reported.
 - EKF pose estimator (`PoseEstimator`) over position, heading and gyro bias,
   with zero-velocity updates to make the bias observable.
 - `SystematicCoverage` controller: an occupancy map built from bump switches
@@ -61,6 +65,12 @@ understand.
 - Source distributions no longer carry the rendered GIFs: 4.4 MB to 170 KB.
 
 ### Fixed
+- `PoolCleaningEnv.reset()` with no seed replayed the env's construction seed,
+  so every episode was identical — and a training loop never passes a seed, so
+  a policy would have been shown one episode for the whole run. It draws the
+  next episode from the env's own generator now, which keeps the *sequence*
+  reproducible from the construction seed. Every test had passed a seed
+  explicitly, so none of them noticed; PPO did, immediately.
 - A scenario picked `expose_truth` by matching one hard-coded controller name,
   so the second oracle to be written crashed on its first tick when run from
   YAML. It now asks the controller.

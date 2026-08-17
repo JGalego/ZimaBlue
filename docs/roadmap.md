@@ -108,6 +108,8 @@ the domain model.
   the ladder, the steps, the skimmer or the drains, so `traced.pool()` comes
   back with no features. A detector would fix that and needs a labelled
   dataset of pool photographs, which as far as we can tell does not exist.
-- **A trained controller worth shipping.** The env is there and the baseline
-  to beat is measured; nobody has yet spent the compute. The result would
-  belong in the benchmark table above, not in the library.
+- **A trained controller worth shipping.** The env is there, the baseline to
+  beat is measured, and `examples/train_policy.py` will point PPO at it. Half
+  an hour of CPU buys a policy that drives forward, turns off walls and loses
+  to random bounce; somebody spending real compute is the open item. The
+  result would belong in the benchmark table above, not in the library.
