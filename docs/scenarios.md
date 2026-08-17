@@ -103,13 +103,13 @@ controller:
 
 A real cleaning cycle is 1.5–3 hours; the presets use 30 minutes so that a
 scenario runs in about a minute of wall clock. The fast 2D backend runs at
-roughly 50× real time on one core, so:
+25–30× real time on one core, so:
 
 | Simulated | Wall clock (approx) |
 |---|---|
-| 5 min | 6 s |
-| 30 min | 35 s |
-| 2 hours | 2.5 min |
+| 5 min | 10 s |
+| 30 min | 1 min |
+| 2 hours | 4 min |
 
 `--minutes` overrides the file without editing it, which is what you want while
 iterating.

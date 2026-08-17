@@ -60,7 +60,16 @@ class ControlInput:
 
 @runtime_checkable
 class Controller(Protocol):
-    """Turns sensor readings into drive commands."""
+    """Turns sensor readings into drive commands.
+
+    One optional attribute, not in the protocol body because adding a data
+    member to a ``runtime_checkable`` Protocol makes every class without it
+    fail ``isinstance``: set ``needs_truth = True`` on a controller that reads
+    :attr:`ControlInput.truth`, and running it from a scenario or the CLI will
+    turn ``expose_truth`` on for you. Both shipped oracles do. Without it the
+    controller raises on its first tick, which is the right failure but a
+    tedious one to hit from a YAML file.
+    """
 
     name: str
 

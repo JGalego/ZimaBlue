@@ -225,6 +225,26 @@ def test_the_policy_is_asked_at_its_own_rate():
     assert gaps == pytest.approx(0.2, abs=0.02)
 
 
+def test_a_policy_with_extra_observations_still_matches_the_env():
+    """The layout has to survive the round trip, extras included."""
+    import zimablue as zb
+    from zimablue.rl import EstimatedPose, PolicyController
+
+    made = PoolCleaningEnv(pool="rectangular", minutes=0.5, extra_observations=EstimatedPose())
+    obs, _ = made.reset(seed=5)
+    made.close()
+
+    seen = []
+    zb.Simulation(
+        pool="rectangular",
+        controller=PolicyController(
+            lambda o: (seen.append(o), np.zeros(2))[1], extra_observations=EstimatedPose()
+        ),
+        seed=5,
+    ).run(seconds=1)
+    assert seen[0].shape == obs.shape
+
+
 def test_a_policy_and_the_env_see_the_same_observation():
     """Training and deployment must not disagree about the input layout."""
     import zimablue as zb
@@ -243,3 +263,139 @@ def test_a_policy_and_the_env_see_the_same_observation():
 
     assert seen[0].shape == obs.shape
     assert len(channel_names(zb.make_robot("tracked"))) == obs.shape[0]
+
+
+# ----------------------------------------------------------------------
+# Extra observations
+# ----------------------------------------------------------------------
+def test_extra_observations_extend_the_vector_and_the_space():
+    from zimablue.rl import EstimatedPose
+
+    plain = PoolCleaningEnv(pool="rectangular", minutes=0.5)
+    extended = PoolCleaningEnv(pool="rectangular", minutes=0.5, extra_observations=EstimatedPose())
+    obs, _ = extended.reset(seed=2)
+
+    assert extended.channels[: len(plain.channels)] == plain.channels
+    assert extended.channels[-7:] == list(EstimatedPose.channels)
+    assert obs.shape == extended.observation_space.shape
+    assert extended.observation_space.contains(obs)
+    plain.close()
+    extended.close()
+
+
+def test_the_estimate_tracks_the_robot_it_cannot_see():
+    """A wiring check, not an estimator check.
+
+    Reading the wrong encoder channels or dropping dt would leave the estimate
+    somewhere unrelated to the robot. Drive straight and the estimated
+    displacement should be within a few percent of the true one -- over a
+    short run, before dead reckoning has had time to wander.
+    """
+    from zimablue.rl import EstimatedPose
+
+    env = PoolCleaningEnv(pool="rectangular", minutes=1.0, extra_observations=EstimatedPose())
+    env.reset(seed=4)
+    start = (env.sim.state.x, env.sim.state.y)
+    for _ in range(60):
+        obs, *_ = env.step(np.array([1.0, 1.0], dtype=np.float32))
+
+    estimated = float(np.hypot(obs[-7], obs[-6]))  # est.x, est.y from its own origin
+    travelled = float(np.hypot(env.sim.state.x - start[0], env.sim.state.y - start[1]))
+    env.close()
+    assert estimated == pytest.approx(travelled, rel=0.15), (
+        f"estimated {estimated:.2f} m against {travelled:.2f} m actually travelled"
+    )
+
+
+def test_extra_observations_never_get_ground_truth():
+    """The rule the controller interface has always had, extended to here."""
+    seen = []
+
+    class Peeker:
+        channels = ("peek",)
+        bounds = ((0.0,), (1.0,))
+
+        def reset(self, robot):
+            pass
+
+        def __call__(self, control_input):
+            seen.append(control_input.truth)
+            return np.zeros(1, dtype=np.float32)
+
+    env = PoolCleaningEnv(pool="rectangular", minutes=0.5, extra_observations=Peeker())
+    env.reset(seed=1)
+    env.step(np.zeros(2, dtype=np.float32))
+    env.close()
+    assert seen and all(truth is None for truth in seen)
+
+
+def test_extra_observations_run_every_tick_not_every_decision():
+    """An EKF fed one sample in ten is a different filter."""
+    calls = []
+
+    class Counter:
+        channels = ("n",)
+        bounds = ((0.0,), (np.inf,))
+
+        def reset(self, robot):
+            calls.clear()
+
+        def __call__(self, control_input):
+            calls.append(control_input.time)
+            return np.array([len(calls)], dtype=np.float32)
+
+    env = PoolCleaningEnv(pool="rectangular", minutes=0.5, extra_observations=Counter())
+    env.reset(seed=1)
+    before = len(calls)
+    env.step(np.zeros(2, dtype=np.float32))
+    env.close()
+    assert len(calls) - before == env.repeat
+
+
+# ----------------------------------------------------------------------
+def test_it_vectorises():
+    """The throughput claim in docs/ml.md assumes several of these at once."""
+    vector = gym.make_vec("ZimaBlue-v0", num_envs=3, pool="rectangular", minutes=0.5)
+    observations, _ = vector.reset(seed=0)
+    assert observations.shape[0] == 3
+
+    observations, rewards, terminated, truncated, _ = vector.step(
+        np.zeros((3, 2), dtype=np.float32)
+    )
+    assert rewards.shape == (3,)
+    assert terminated.shape == truncated.shape == (3,)
+    vector.close()
+
+
+def test_the_episode_is_over_once_it_is_saved(tmp_path):
+    made = PoolCleaningEnv(pool="rectangular", minutes=0.5, record=True)
+    rollout(made, steps=5)
+    made.save(str(tmp_path / "episode.zbr"))
+    with pytest.raises(RuntimeError, match="reset"):
+        made.step(np.zeros(2, dtype=np.float32))
+    # And a reset gets you a working env back.
+    made.reset(seed=1)
+    made.step(np.zeros(2, dtype=np.float32))
+    made.close()
+
+
+def test_the_map_fractions_are_fractions_of_the_map():
+    """They are divided by a cell count, and that count was once wrong.
+
+    Nothing downstream can tell a fraction that is four times too small from a
+    correct one, so it gets checked against the map's own array.
+    """
+    from zimablue.controllers.systematic import MapCell
+    from zimablue.rl import EstimatedPose
+
+    extra = EstimatedPose()
+    env = PoolCleaningEnv(pool="rectangular", minutes=0.5, extra_observations=extra)
+    env.reset(seed=3)
+    for _ in range(40):
+        obs, *_ = env.step(np.array([1.0, 0.85], dtype=np.float32))
+
+    known = float((extra.map.grid != MapCell.UNKNOWN).sum()) / extra.map.grid.size
+    assert obs[-2] == pytest.approx(known, rel=1e-6)
+    assert 0.0 < obs[-2] <= 1.0
+    assert 0.0 < obs[-1] <= obs[-2], "covered floor cannot exceed explored floor"
+    env.close()

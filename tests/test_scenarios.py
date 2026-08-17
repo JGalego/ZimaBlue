@@ -89,3 +89,34 @@ def test_seed_override_changes_the_run():
     scenario = load_scenario(SCENARIO_DIR / "rectangular.yaml")
     scenario.duration = 30.0
     assert scenario.run(seed=1).metrics.coverage != scenario.run(seed=2).metrics.coverage
+
+
+def test_a_scenario_turns_ground_truth_on_for_an_oracle():
+    """Both oracles, and anything else that declares itself one.
+
+    This used to match a single hard-coded name, so the second oracle to be
+    written crashed on its first tick when run from a scenario.
+    """
+    from zimablue.controllers.base import CONTROLLERS
+    from zimablue.scenarios import Scenario
+
+    oracles = [
+        name
+        for name in CONTROLLERS.names()
+        if getattr(CONTROLLERS.create(name), "needs_truth", False)
+    ]
+    assert oracles, "there should be at least one ground-truth controller"
+
+    for name in oracles:
+        scenario = Scenario(
+            name=f"check_{name}", pool="rectangular", controller=name, duration=20.0
+        )
+        assert scenario.simulation(record=False).expose_truth, name
+        scenario.run(record=False)  # would raise if truth were withheld
+
+
+def test_a_scenario_withholds_ground_truth_from_everything_else():
+    from zimablue.scenarios import Scenario
+
+    scenario = Scenario(name="check", pool="rectangular", controller="baseline_coverage")
+    assert not scenario.simulation(record=False).expose_truth

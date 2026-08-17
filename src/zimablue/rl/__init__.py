@@ -31,11 +31,14 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depends on the env
     raise ModuleNotFoundError(RL_HINT) from exc
 
 from zimablue.rl.env import REWARDS, PoolCleaningEnv, channel_names, observe  # noqa: E402
+from zimablue.rl.observations import EstimatedPose, ExtraObservations  # noqa: E402
 from zimablue.rl.policy import PolicyController  # noqa: E402
 
 __all__ = [
     "REWARDS",
     "RL_HINT",
+    "EstimatedPose",
+    "ExtraObservations",
     "PolicyController",
     "PoolCleaningEnv",
     "channel_names",

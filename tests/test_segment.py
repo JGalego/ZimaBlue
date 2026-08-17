@@ -285,3 +285,19 @@ def test_the_real_model_finds_a_synthetic_pool():
         rgb, sample=(320, 240), width=16.0, segmenter=SamSegmenter.from_env(), close_gaps=0.0
     )
     assert traced.area == pytest.approx(12.0, rel=0.15)
+
+
+# ----------------------------------------------------------------------
+def test_from_env_says_which_variables_to_set(monkeypatch):
+    monkeypatch.delenv("ZIMABLUE_SAM_ENCODER", raising=False)
+    monkeypatch.delenv("ZIMABLUE_SAM_DECODER", raising=False)
+    with pytest.raises(RuntimeError, match="ZIMABLUE_SAM_ENCODER"):
+        SamSegmenter.from_env()
+
+
+def test_an_image_already_at_sams_size_is_not_resampled():
+    """Resizing 1024 to 1024 would be a lossy no-op."""
+    from zimablue.segment import _resize_longest
+
+    rgb = photo((SIDE, 400))
+    assert _resize_longest(rgb, SIDE) is rgb

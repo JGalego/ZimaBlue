@@ -26,7 +26,18 @@ understand.
   interface, so it is scored, recorded, batched and replayed like any other.
 - `Simulation.termination_reason()`, public for anything driving `step()`
   itself.
-- `docs/ml.md` and `examples/rl_env.py`.
+- `PoolCleaningEnv(extra_observations=...)` and `EstimatedPose`: derived
+  channels appended to the observation, so a policy can be handed a pose
+  estimate and an occupancy map and learn the planner alone. Runs every
+  physics tick rather than every decision, and `PolicyController` takes the
+  same object so training and deployment cannot disagree about the layout.
+- `dirt_oracle`, a ground-truth controller that drives at whatever is
+  dirtiest. The cleaning-side counterpart to `lawnmower_oracle`, and greedy
+  rather than optimal: it removes 50% of a kidney pool's dirt in ten minutes
+  against the baseline's 18%, and is behind the baseline by twenty-five.
+- A controller may set `needs_truth = True`; scenarios and the CLI then turn
+  `expose_truth` on for it.
+- `docs/ml.md`, `examples/rl_env.py` and `examples/tune_controller.py`.
 - EKF pose estimator (`PoseEstimator`) over position, heading and gyro bias,
   with zero-velocity updates to make the bias observable.
 - `SystematicCoverage` controller: an occupancy map built from bump switches
@@ -50,6 +61,15 @@ understand.
 - Source distributions no longer carry the rendered GIFs: 4.4 MB to 170 KB.
 
 ### Fixed
+- A scenario picked `expose_truth` by matching one hard-coded controller name,
+  so the second oracle to be written crashed on its first tick when run from
+  YAML. It now asks the controller.
+- The tour notebook's *Coverage is not cleanliness* section printed "two
+  different controllers -- which is the point" above a table in which one
+  controller had won both columns. It races the two oracles now, which invert.
+- The documented backend throughput was about 50x real time; measured, it is
+  25-30x on one core. Corrected in the README, getting-started and scenarios,
+  including the wall-clock table.
 - Playback below 1x did not work. Advancing a whole number of frames per tick
   cannot go slower than one frame per tick, so 1x played at 1.2x and both 0.5x
   and 0.25x played at 0.6x. The position is tracked as a float now and rounded

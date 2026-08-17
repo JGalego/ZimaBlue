@@ -140,9 +140,10 @@ result.save("runs/example.zbr")
 ```
 
 Driving it is a boustrophedon baseline, a random-bounce floor, a map-building
-`systematic` controller, or a `lawnmower_oracle` upper bound that reads ground
-truth and is explicitly *not* deployable. Yours needs a class with `reset` and
-`step`, and sees sensor readings only.
+`systematic` controller, or one of two ground-truth oracles that are
+explicitly *not* deployable: `lawnmower_oracle` drives a perfect path and
+`dirt_oracle` heads for whatever is dirtiest. Yours needs a class with `reset`
+and `step`, and sees sensor readings only.
 
 Or train one. `zimablue[rl]` puts a Gymnasium env over the same loop, at 24×
 real time on one core with no GPU, and the reward is the experiment: pay for
@@ -284,7 +285,7 @@ cannot outlive the engine.
 Here the domain model is the API. Pools, dirt, cleaners, scenarios, recordings
 and metrics are ZimaBlue concepts. Whatever integrates the equations sits
 behind an interface and can be swapped — today it is a deterministic CPU-only
-2D backend running at about 50× real time.
+2D backend running at 25–30× real time on one core.
 
 ```
                          ZimaBlue domain API
@@ -340,6 +341,7 @@ Every one takes `--minutes` if you want a shorter run.
 | [`custom_pool.py`](examples/custom_pool.py) | Build a pool from geometry, depth models and features, then read the spatial metrics |
 | [`pool_from_photo.py`](examples/pool_from_photo.py) | Trace a pool out of a photograph, check the trace, then clean it — `--sam` to segment with a model |
 | [`rl_env.py`](examples/rl_env.py) | The Gymnasium env, and the baseline a trained policy has to beat |
+| [`tune_controller.py`](examples/tune_controller.py) | Search the shipped controller's parameters, which is the cheap thing to try first |
 | [`custom_robot.py`](examples/custom_robot.py) | Compose a cleaner from components and break a sensor on purpose |
 | [`custom_controller.py`](examples/custom_controller.py) | Write an autonomy stack and benchmark it against the shipped ones |
 | [`estimation_replay.py`](examples/estimation_replay.py) | The EKF controller, with the pose estimate drawn against ground truth |

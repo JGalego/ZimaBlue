@@ -99,6 +99,12 @@ class SimState:
     dirt_removed: float = 0.0
     """Mass taken out of the pool's dirt field this run, grams."""
 
+    # Attached by Simulation only when expose_truth is on, and only for oracle
+    # controllers. Not integrated by the backend and not recorded -- an oracle
+    # is a benchmark bound, not something you could build.
+    pool: Any = None
+    world: Any = None
+
     @property
     def pose(self) -> tuple[float, float, float]:
         return (self.x, self.y, self.heading)

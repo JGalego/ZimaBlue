@@ -140,8 +140,10 @@ class MyController:
 zb.Simulation(pool="kidney", controller=MyController(), seed=1).run(minutes=10)
 ```
 
-Benchmark it against the shipped `random_bounce` (a floor) and
-`lawnmower_oracle` (a ground-truth upper bound). See
+Benchmark it against the shipped `random_bounce` (a floor) and the two
+ground-truth oracles: `lawnmower_oracle` drives a perfect path and
+`dirt_oracle` heads for whatever is dirtiest. They do not agree about which
+run was better, which is the whole argument. See
 `examples/custom_controller.py`.
 
 ### Add a pool shape
@@ -160,10 +162,11 @@ It is now available everywhere, including in scenario YAML.
 
 ## Performance
 
-The 2D backend runs about **50× real time** on one core — a 30-minute clean in
-roughly 35 seconds. For sweeps, turn recording off (`record=False`, which
-`run_batch` does by default) and consider a coarser `cell` or a larger
-`timestep`.
+The 2D backend runs at **25–30× real time** on one core — a 30-minute clean in
+about a minute. The spread is the pool: a big rectangular one with light
+sediment is nearer 30×, a kidney with autumn debris and recording on nearer
+25×. For sweeps, turn recording off (`record=False`, which `run_batch` does by
+default) and consider a coarser `cell` or a larger `timestep`.
 
 ## Determinism
 

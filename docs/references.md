@@ -5,7 +5,8 @@ which findings drove which decisions; this is the bibliography.
 
 Every DOI here was resolved against the Crossref API on 2026-08-16, and author
 lists, years, volumes and page ranges were taken from what came back rather
-than from the citation as written. Entries that could not be machine-verified
+than from the citation as written. The arXiv-only entries were resolved the
+same way against the arXiv API. Entries that could not be machine-verified
 say so. Corrections made along the way are listed at the [end](#corrections).
 
 ## What the code actually implements
@@ -24,6 +25,8 @@ source file and follow line by line.
 | `sensors/base.py` | Noise, bias and drift terms of an inertial error model | IEEE Std 952-1997 |
 | `sensors/base.py` | Why idealised sensors break transfer | Tobin et al. (2017) |
 | `backends/` | Domain model as the API, engine as a strategy | Koenig & Howard (2004); Todorov et al. (2012) |
+| `segment.py` | Promptable segmentation, and the multi-mask output the chooser ranks | Kirillov et al. (2023); Zhang et al. (2023) |
+| `rl/env.py` | The environment interface | Towers et al. (2024) |
 
 ---
 
@@ -101,11 +104,25 @@ source file and follow line by line.
 
 31. Todorov, E., Erez, T., & Tassa, Y. (2012). [MuJoCo: A physics engine for model-based control](https://doi.org/10.1109/IROS.2012.6386109). *2012 IEEE/RSJ International Conference on Intelligent Robots and Systems*, 5026–5033.
 
+### Segmentation and learned control
+
+These are the two optional extras. Both are used as tools rather than
+reimplemented: ZimaBlue runs a published SAM checkpoint and implements a
+Gymnasium interface, and there is no algorithm from either paper in the source.
+
+32. Kirillov, A., Mintun, E., Ravi, N., Mao, H., Rolland, C., Gustafson, L., Xiao, T., Whitehead, S., Berg, A. C., Lo, W.-Y., Dollár, P., & Girshick, R. (2023). [Segment Anything](https://arxiv.org/abs/2304.02643). *arXiv:2304.02643*. The promptable-segmentation model behind `SamSegmenter`, and the source of the multi-mask output the chooser ranks.
+
+33. Zhang, C., Han, D., Qiao, Y., Kim, J. U., Bae, S.-H., Lee, S., & Hong, C. S. (2023). [Faster Segment Anything: Towards Lightweight SAM for Mobile Applications](https://arxiv.org/abs/2306.14289). *arXiv:2306.14289*. MobileSAM — the 45 MB distillation that makes running this on a CPU reasonable.
+
+34. Towers, M., Kwiatkowski, A., Terry, J., Balis, J. U., De Cola, G., Deleu, T., Goulão, M., Kallinteris, A., Krimmel, M., KG, A., Perez-Vicente, R., Pierré, A., Schulhoff, S., Tai, J. J., Tan, H., & Younis, O. G. (2024). [Gymnasium: A Standard Interface for Reinforcement Learning Environments](https://arxiv.org/abs/2407.17032). *arXiv:2407.17032*. The interface `PoolCleaningEnv` implements.
+
+35. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347). *arXiv:1707.06347*. Not implemented here — cited because it is what the throughput estimates in [`ml.md`](ml.md) assume you will point at the env.
+
 ### Sediment and settling
 
-32. Ferguson, R. I., & Church, M. (2004). [A simple universal equation for grain settling velocity](https://doi.org/10.1306/051204740933). *Journal of Sedimentary Research, 74*(6), 933–937.
+36. Ferguson, R. I., & Church, M. (2004). [A simple universal equation for grain settling velocity](https://doi.org/10.1306/051204740933). *Journal of Sedimentary Research, 74*(6), 933–937.
 
-33. Mendrik, F., Fernández, R., Hackney, C. R., Waller, C., & Parsons, D. R. (2023). [Non-buoyant microplastic settling velocity varies with biofilm growth and ambient water salinity](https://doi.org/10.1038/s43247-023-00690-z). *Communications Earth & Environment, 4*(1), 30.
+37. Mendrik, F., Fernández, R., Hackney, C. R., Waller, C., & Parsons, D. R. (2023). [Non-buoyant microplastic settling velocity varies with biofilm growth and ambient water salinity](https://doi.org/10.1038/s43247-023-00690-z). *Communications Earth & Environment, 4*(1), 30.
 
 ## Standards
 

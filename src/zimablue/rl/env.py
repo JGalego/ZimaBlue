@@ -96,21 +96,29 @@ class _AgentController:
 
     Also the env's window into the tick: the simulation hands a
     :class:`ControlInput` here and nowhere else, so this is where the
-    observation is captured from.
+    observation is captured from -- and where anything that has to integrate
+    over every tick, rather than every decision, gets run.
     """
 
     name = "rl_agent"
 
-    def __init__(self) -> None:
+    def __init__(self, extra: Any = None) -> None:
         self.command = DriveCommand.stop()
         self.last: ControlInput | None = None
+        self.extra = extra
+        self.extra_values: NDArray[np.float32] | None = None
 
     def reset(self, robot: Cleaner) -> None:
         self.command = DriveCommand.stop()
         self.last = None
+        self.extra_values = None
+        if self.extra is not None:
+            self.extra.reset(robot)
 
     def step(self, control_input: ControlInput) -> DriveCommand:
         self.last = control_input
+        if self.extra is not None:
+            self.extra_values = np.asarray(self.extra(control_input), dtype=np.float32)
         return self.command
 
 
@@ -136,9 +144,9 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
     freshness flag, the battery, the filter load and how much of the episode
     is gone. No pose, no map, no dirt field. A policy that needs to know where
     it is has to work it out, which is the same problem the shipped
-    ``systematic`` controller solves with an EKF; hand that estimate in
-    through ``extra_observations`` if you would rather learn the planner
-    alone.
+    ``systematic`` controller solves with an EKF; pass
+    ``extra_observations=EstimatedPose()`` to hand that estimate over and
+    learn the planner alone. See :mod:`zimablue.rl.observations`.
     """
 
     metadata = {"render_modes": []}
@@ -155,6 +163,7 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         seed: int = 0,
         timestep: float = 0.02,
         record: bool = False,
+        extra_observations: Any = None,
         **simulation_kwargs: Any,
     ) -> None:
         if reward not in REWARDS:
@@ -183,7 +192,8 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
 
         self.max_steps = max(round(self.minutes * 60.0 / (self.repeat * timestep)), 1)
 
-        self.controller = _AgentController()
+        self.extra_observations = extra_observations
+        self.controller = _AgentController(extra_observations)
         self.sim: Simulation | None = None
         self.elapsed = 0
         self._collected = 0.0
@@ -195,6 +205,8 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         # beats making the caller declare the layout twice.
         probe = self._build(self.base_seed)
         self.channels = channel_names(probe.robot)
+        if extra_observations is not None:
+            self.channels += list(extra_observations.channels)
         probe.backend.close()
 
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
@@ -233,6 +245,10 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
             low.extend([config.min_value] * width + [0.0])
             high.extend([config.max_value] * width + [1.0])
         probe.backend.close()
+        if self.extra_observations is not None:
+            extra_low, extra_high = self.extra_observations.bounds
+            low.extend(extra_low)
+            high.extend(extra_high)
         return (
             np.asarray(low, dtype=np.float32),
             np.asarray(high, dtype=np.float32),
@@ -242,14 +258,18 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         control = self.controller.last
         if control is None:  # pragma: no cover - reset() always ticks first
             return np.zeros(len(self.channels), dtype=np.float32)
-        return observe(control, elapsed=self.elapsed / self.max_steps)
+        base = observe(control, elapsed=self.elapsed / self.max_steps)
+        if self.controller.extra_values is None:
+            return base
+        return np.concatenate([base, self.controller.extra_values])
 
     # ------------------------------------------------------------------
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[FloatArray, dict[str, Any]]:
         super().reset(seed=seed)
-        if self.sim is not None:
+        if self.sim is not None and not self._saved:
+            # save() already finished the run, which closes the backend.
             self.sim.backend.close()
         self.sim = self._build(self.base_seed if seed is None else int(seed))
         self.elapsed = 0
@@ -264,6 +284,10 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
     def step(self, action: FloatArray) -> tuple[FloatArray, float, bool, bool, dict[str, Any]]:
         if self.sim is None:
             raise RuntimeError("call reset() before step()")
+        if self._saved:
+            # save() finishes the recording and closes the backend. Stepping
+            # on afterwards is undefined rather than merely wrong, so say so.
+            raise RuntimeError("this episode was saved and is over; call reset() for another")
 
         limit = self.sim.robot.locomotion.max_speed
         left, right = np.clip(np.asarray(action, dtype=float).ravel()[:2], -1.0, 1.0)

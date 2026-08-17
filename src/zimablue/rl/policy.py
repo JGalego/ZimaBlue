@@ -23,6 +23,7 @@ function is a perfectly good way to test the wiring.
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -39,20 +40,24 @@ Policy = Callable[[NDArray[np.float32]], "NDArray[np.float32] | tuple[float, flo
 class PolicyController:
     """A :class:`~zimablue.controllers.base.Controller` that asks a policy.
 
-    ``control_hz`` must match what the policy was trained at. The simulation
-    steps at 50 Hz whatever happens; between decisions the last command is
-    held, exactly as the env's frame skipping does. Getting this wrong is
-    quiet -- the policy still runs, it just acts ten times more often than it
-    learned to, and drives like it.
+    ``control_hz`` must match what the policy was trained at, and
+    ``extra_observations`` must be the same kind of object the env was given.
+    Both are quiet when wrong: the policy still runs, it is just being fed
+    something other than what it learned on. The simulation steps at 50 Hz
+    whatever happens, and between decisions the last command is held, exactly
+    as the env's frame skipping does.
     """
 
     name = "rl_policy"
 
-    def __init__(self, policy: Policy, *, control_hz: float = 5.0) -> None:
+    def __init__(
+        self, policy: Policy, *, control_hz: float = 5.0, extra_observations: Any = None
+    ) -> None:
         if control_hz <= 0:
             raise ValueError(f"control_hz must be positive, got {control_hz}")
         self.policy = policy
         self.control_hz = float(control_hz)
+        self.extra_observations = extra_observations
         self.run_duration = 1800.0
         """Set by :meth:`~zimablue.simulation.Simulation.run` so the elapsed
         channel means the same thing it did in training."""
@@ -65,13 +70,21 @@ class PolicyController:
         self._command = DriveCommand.stop()
         self._next_decision = 0.0
         self._limit = robot.locomotion.max_speed
+        if self.extra_observations is not None:
+            self.extra_observations.reset(robot)
 
     def step(self, control_input: ControlInput) -> DriveCommand:
+        observation = observe(
+            control_input, elapsed=control_input.time / max(self.run_duration, 1e-6)
+        )
+        if self.extra_observations is not None:
+            # Every tick, not every decision: an EKF integrating at 5 Hz when
+            # it was trained at 50 is a different filter.
+            extra = np.asarray(self.extra_observations(control_input), dtype=np.float32)
+            observation = np.concatenate([observation, extra])
+
         if control_input.time >= self._next_decision:
-            elapsed = control_input.time / max(self.run_duration, 1e-6)
-            action = np.asarray(
-                self.policy(observe(control_input, elapsed=elapsed)), dtype=float
-            ).ravel()
+            action = np.asarray(self.policy(observation), dtype=float).ravel()
             left, right = np.clip(action[:2], -1.0, 1.0)
             self._command = DriveCommand(left=left * self._limit, right=right * self._limit)
             self._next_decision = control_input.time + 1.0 / self.control_hz

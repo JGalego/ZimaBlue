@@ -190,9 +190,10 @@ class Simulation:
         return self.state
 
     def _truth_view(self) -> SimState:
-        """Ground truth, with the pool attached, for oracle controllers only."""
+        """Ground truth, with the pool and world attached, for oracles only."""
         state = self.state
         state.pool = self.pool
+        state.world = self.world
         return state
 
     def _record(self, state: SimState, command: DriveCommand, observations: dict[str, Any]) -> None:

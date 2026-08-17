@@ -76,6 +76,7 @@ def main() -> None:
         ("baseline_coverage", "baseline_coverage", False),
         ("spiral_out (ours)", SpiralOut(), False),
         ("lawnmower_oracle", "lawnmower_oracle", True),
+        ("dirt_oracle", "dirt_oracle", True),
     ]
     for label, controller, truth in contenders:
         result = zb.Simulation(
@@ -90,8 +91,9 @@ def main() -> None:
         print(f"{label:>18s}  {m.coverage:8.0%}  {m.dirt_removed_fraction:5.0%}  {m.revisits:9.2f}")
 
     print(
-        "\nlawnmower_oracle drives from ground truth, so it is an upper bound "
-        "rather than a competitor."
+        "\nBoth oracles read ground truth, so they are reference points rather "
+        "than competitors -- and they disagree: the lawnmower wins on coverage "
+        "and the greedy one wins on dirt."
     )
 
 

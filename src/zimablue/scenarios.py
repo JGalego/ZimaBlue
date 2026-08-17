@@ -234,17 +234,21 @@ class Scenario:
         """Construct a :class:`~zimablue.simulation.Simulation` for this scenario."""
         effective = self.seed if seed is None else seed
         scenario = self if seed is None else _with_seed(self, effective)
+        controller = scenario.build_controller()
         return Simulation(
             pool=scenario.build_pool(),
             robot=scenario.build_robot(),
             dirt=scenario.build_dirt(),
-            controller=scenario.build_controller(),
+            controller=controller,
             seed=effective,
             timestep=self.timestep,
             cell=self.cell,
             backend=self.backend,
             record=record,
-            expose_truth=self.controller == "lawnmower_oracle",
+            # The controller says whether it is an oracle, rather than this
+            # matching a list of names -- a list only ever has the oracles
+            # written before it on it, and your own would not be there.
+            expose_truth=getattr(controller, "needs_truth", False),
             coverage_target=self.coverage_target,
             dirt_target=self.dirt_target,
             stop_on_empty_battery=self.stop_on_empty_battery,

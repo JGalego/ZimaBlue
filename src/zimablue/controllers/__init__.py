@@ -9,7 +9,7 @@ from zimablue.controllers.baseline import (
     HeadingEstimator,
     Phase,
 )
-from zimablue.controllers.simple import LawnmowerOracle, RandomBounce
+from zimablue.controllers.simple import DirtOracle, LawnmowerOracle, RandomBounce
 from zimablue.controllers.systematic import (
     MapCell,
     OccupancyMap,
@@ -23,6 +23,7 @@ __all__ = [
     "BaselineTuning",
     "ControlInput",
     "Controller",
+    "DirtOracle",
     "HeadingEstimator",
     "LawnmowerOracle",
     "MapCell",

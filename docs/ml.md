@@ -160,6 +160,34 @@ limits rather than an invented normalisation, so wrapping in
 
 **Info**: coverage, dirt removed, grams collected, distance, battery.
 
+### Splitting estimation off from planning
+
+A policy fed raw sensors has to solve both at once, in a pool with no absolute
+reference, which means a recurrent policy and a long run. Handing it a pose
+estimate instead leaves only the planner to learn:
+
+```python
+from zimablue.rl import EstimatedPose, PoolCleaningEnv
+
+env = PoolCleaningEnv(extra_observations=EstimatedPose())
+```
+
+That adds seven channels — position and heading in the estimator's own drifting
+frame, the heading split into sine and cosine so it is continuous across the
+wrap, the filter's own uncertainty, and how much of the map is explored and
+swept. They come from the same EKF and occupancy map the `systematic`
+controller uses, and none of them reads ground truth.
+
+It is also the shape of a fix for the localisation result in the README, where
+a *better* position estimate halves coverage. The estimator is fine; the lane
+planner is brittle. Replacing the planner is the interesting move.
+
+Anything with `channels`, `bounds`, `reset` and `__call__` works — see
+`zimablue.rl.observations.ExtraObservations`. It runs every physics tick rather
+than every decision, because a filter fed one sample in ten is a different
+filter. Pass the same object to `PolicyController` when you deploy, or the
+policy gets an input it never trained on.
+
 ## Deciding slower than the physics
 
 The simulation integrates at 50 Hz. Asking a policy for a fresh command fifty
@@ -248,11 +276,41 @@ beat — worth knowing before spending a GPU-day discovering it.
 Two things likely to beat a from-scratch policy for a thousandth of the
 compute:
 
-- **Tune the baseline.** `baseline_coverage` has a handful of parameters.
-  CMA-ES over a seed batch will find a better setting of them in minutes.
-- **Imitate an oracle** — but not `lawnmower_oracle`. It is a good driver and a
-  poor cleaner, so imitating it teaches exactly the wrong lesson. A greedy
-  dirt-seeking oracle is the right teacher, and it does not exist yet.
+**Tune the baseline.**
+
+```bash
+python examples/tune_controller.py --minutes 10
+```
+
+Five of `BaselineCoverage`'s parameters, searched with a (1+1) evolution
+strategy over a batch of seeds. On a four-minute two-seed budget — a couple of
+CPU-minutes — it took dirt removed from 11.6% to 14.4% in ten iterations.
+Search for coverage instead and it finds a different setting, which is the same
+disagreement the reward section is about.
+
+**Imitate an oracle** — but not `lawnmower_oracle`. It is a good driver and a
+poor cleaner, so imitating it teaches the wrong lesson. `dirt_oracle` reads
+the dirt field and drives at whatever is dirtiest, which is the behaviour
+worth copying.
+
+Up to a point, and the point is interesting. Kidney pool, autumn dirt, seed 42,
+dirt removed:
+
+| minutes | 10 | 15 | 20 | 25 | 30 |
+|---|---|---|---|---|---|
+| `dirt_oracle` | **50.2%** | **53.9%** | **55.0%** | 55.5% | 55.6% |
+| `baseline_coverage` | 17.6% | 44.2% | 48.6% | **57.1%** | **58.0%** |
+
+Greedy is three times better at ten minutes and behind by twenty-five. It works
+the richest patch until the easy mass is gone and the returns flatten, while a
+systematic sweep is still finding fresh dirt. So `dirt_oracle` is an upper
+bound on nothing — it is the best *myopic* policy, which makes it a good
+teacher for the first half of a run and a bad one to copy for the whole thing.
+Both oracles need `Simulation(expose_truth=True)` and neither is deployable.
+
+That the horizon flips the ranking is the same shape of result as coverage
+versus cleanliness, one level down: a reward, an oracle and an episode length
+have to be chosen together or the answer means nothing.
 
 The genuinely interesting RL problem here is not driving. It is that the pool
 has no absolute reference, so a policy from raw sensors has to be recurrent.

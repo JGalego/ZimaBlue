@@ -69,16 +69,35 @@ tomorrow — is an implementation detail behind an interface.
 | `zimablue.physics` | Diff-drive kinematics, collision resolution, cleaning interaction |
 | `zimablue.backends` | `SimulationBackend` protocol, `Fast2DBackend`, registry |
 | `zimablue.simulation` | `Simulation`, `SimState`, `StepResult`, `RunResult` |
-| `zimablue.controllers` | `Controller` protocol, baseline coverage controller, registry |
+| `zimablue.controllers` | `Controller` protocol, the shipped controllers and oracles, registry |
+| `zimablue.estimation` | EKF over position, heading and gyro bias; ZUPT |
 | `zimablue.metrics` | Scalar metrics + spatial companions |
 | `zimablue.recording` | `.zbr` writer/reader, schema versioning |
 | `zimablue.replay` | Renderer, interactive player, headless exporters |
+| `zimablue.notebook` | `preview()` — the pool as a turnable page in a notebook |
 | `zimablue.scenarios` | YAML schema, loading, resolution, batch runner |
+| `zimablue.geometry` | Rasters, rings, angle helpers |
 | `zimablue.rng` | Named child-stream RNG tree |
 | `zimablue.cli` | Typer application |
 
 Dependencies point *down* this table, never up. `pool` knows nothing about
 `simulation`; `simulation` knows nothing about `cli`.
+
+Three modules sit outside it, each behind an optional extra, and each importing
+*into* the core rather than being imported by it.
+
+| Module | Extra | Responsibility |
+|---|---|---|
+| `zimablue.imaging` | `[image]` | Trace a pool out of a photograph |
+| `zimablue.segment` | `[ml]` | SAM over onnxruntime as an alternative water mask |
+| `zimablue.rl` | `[rl]` | Gymnasium env, extra observations, policy-as-controller |
+
+The extra is a *dependency* boundary, not an import one, and only `segment` and
+`rl` are both. `imaging` is imported at package import because `pool_from_image`
+lives in the top-level namespace, so what it defers is Pillow — the import sits
+inside the functions that read a file, and a test asserts that `import zimablue`
+leaves `PIL` out of `sys.modules`. The same test covers onnxruntime and
+gymnasium, which have the easier job of being in modules nothing imports.
 
 ## The stepping loop
 

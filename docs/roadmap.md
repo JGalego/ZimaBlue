@@ -29,6 +29,20 @@ rather than stubbed. **Shipped.**
 | ✅ | Estimate-vs-truth overlay in replay | done |
 | ✅ | 3D replay renderer (geometry, not physics) | done |
 
+## Since v0.1, unreleased
+
+Shipped on `main` and not yet tagged. Same bar: implemented, tested, runnable.
+
+| | Component | State |
+|---|---|---|
+| ✅ | Debris drawn as leaves and twigs rather than blobs | done |
+| ✅ | Dirt cam — the pool from the cleaner's own bumper | done |
+| ✅ | `zb.preview` — the pool turnable in a notebook | done |
+| ✅ | `trace_pool` — a pool from a photograph, with a pluggable mask | done |
+| ✅ | `SamSegmenter` — SAM over onnxruntime, `zimablue[ml]` | done |
+| ✅ | `zimablue.rl` — Gymnasium env, `PolicyController`, `zimablue[rl]` | done |
+| ✅ | `dirt_oracle` — the cleaning-side counterpart to the lawnmower | done |
+
 ## v0.2 — depth
 
 - **Wall and waterline cleaning** as a modelled behaviour rather than an
@@ -88,4 +102,12 @@ the domain model.
 - Energy-optimal coverage, following the genetic-algorithm framing in the
   pool-cleaning literature.
 - Filter-aware planning: return to the shallow end before the basket saturates.
-- Import a real pool outline from a photo or a DXF.
+- Import a real pool outline from a DXF. (From a photo is
+  [done](imaging.md).)
+- **Pool furniture detection.** `SamSegmenter` finds the water; nothing finds
+  the ladder, the steps, the skimmer or the drains, so `traced.pool()` comes
+  back with no features. A detector would fix that and needs a labelled
+  dataset of pool photographs, which as far as we can tell does not exist.
+- **A trained controller worth shipping.** The env is there and the baseline
+  to beat is measured; nobody has yet spent the compute. The result would
+  belong in the benchmark table above, not in the library.

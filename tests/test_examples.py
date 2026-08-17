@@ -96,6 +96,15 @@ def test_rl_env_runs_and_ranks_the_baseline_above_random():
     )
 
 
+def test_tune_controller_improves_on_the_defaults():
+    result = run("tune_controller.py", "--minutes", "2", "--episodes", "1", "--iterations", "4")
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "(defaults)" in result.stdout
+    # A search that cannot beat its own starting point on any objective is
+    # either broken or scoring noise.
+    assert "<-- kept" in result.stdout
+
+
 def test_batch_experiment_runs_and_reproduces_its_worst_episode():
     result = run("batch_experiment.py", "--episodes", "3", "--minutes", "3")
     assert result.returncode == 0, result.stderr[-2000:]
