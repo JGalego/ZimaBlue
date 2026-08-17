@@ -65,6 +65,11 @@ for a shot taken from the poolside, four points on a rectangle you can measure
 also undo the perspective, which is worth about 23% of the area. See
 [imaging](docs/imaging.md).
 
+Colour rules find the water by default. Point `segmenter=SamSegmenter.load(...)`
+at a SAM export and a model finds it instead — worth it for a black-bottomed
+pool, or one half in shade. On a drone photo the two agree to 3.7%, which is a
+reasonable amount of confidence in both. See [machine learning](docs/ml.md).
+
 In a notebook, `zb.preview(pool)` renders it in the browser — drag to rotate,
 scroll to zoom. The pool's geometry is shipped to the page as JSON and
 projected there, so it needs no widget extensions and keeps working in an
@@ -138,6 +143,11 @@ Driving it is a boustrophedon baseline, a random-bounce floor, a map-building
 `systematic` controller, or a `lawnmower_oracle` upper bound that reads ground
 truth and is explicitly *not* deployable. Yours needs a class with `reset` and
 `step`, and sees sensor readings only.
+
+Or train one. `zimablue[rl]` puts a Gymnasium env over the same loop, at 24×
+real time on one core with no GPU, and the reward is the experiment: pay for
+coverage and you get a policy that drives beautifully over dirt it never picks
+up. See [machine learning](docs/ml.md).
 
 `systematic` runs an EKF over position, heading and **gyro bias**. The bias is
 only observable when the robot stops — a stationary gyro's reading *is* its
@@ -310,6 +320,7 @@ determinism and preferring a small real model to a large fake one.
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, first run, common tasks |
 | [From a photo](docs/imaging.md) | Tracing a pool out of a picture, and what a picture cannot tell you |
+| [Machine learning](docs/ml.md) | SAM for the water mask, Gymnasium for the controller |
 | [Architecture](docs/architecture.md) | Layering, backends, determinism contract |
 | [Research](docs/research.md) | Prior art, and which decision each finding drove |
 | [References](docs/references.md) | Verified bibliography, with what the code implements |
@@ -327,7 +338,8 @@ Every one takes `--minutes` if you want a shorter run.
 |---|---|
 | [`basic.py`](examples/basic.py) | The smallest useful program: pool in, metrics out |
 | [`custom_pool.py`](examples/custom_pool.py) | Build a pool from geometry, depth models and features, then read the spatial metrics |
-| [`pool_from_photo.py`](examples/pool_from_photo.py) | Trace a pool out of a photograph, check the trace, then clean it |
+| [`pool_from_photo.py`](examples/pool_from_photo.py) | Trace a pool out of a photograph, check the trace, then clean it — `--sam` to segment with a model |
+| [`rl_env.py`](examples/rl_env.py) | The Gymnasium env, and the baseline a trained policy has to beat |
 | [`custom_robot.py`](examples/custom_robot.py) | Compose a cleaner from components and break a sensor on purpose |
 | [`custom_controller.py`](examples/custom_controller.py) | Write an autonomy stack and benchmark it against the shipped ones |
 | [`estimation_replay.py`](examples/estimation_replay.py) | The EKF controller, with the pose estimate drawn against ground truth |

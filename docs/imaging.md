@@ -121,6 +121,21 @@ like the neighbours that already belong rather than like the distant sample,
 and the hard edge stops it. Missing that rim cost about 20 cm all the way
 round, which on a 25 m pool is 9% of the floor. `grow=0` turns it off.
 
+### Or let a model find it
+
+```python
+from zimablue.segment import SamSegmenter
+
+seg = SamSegmenter.load("mobile_sam_image_encoder.onnx", "sam_mask_decoder_multi.onnx")
+traced = zb.trace_pool("pool.jpg", sample=(700, 800), width=25.0, segmenter=seg)
+```
+
+`segmenter` swaps out the colour rules and leaves everything else alone. Worth
+it for a pool the hue rule cannot lock onto — black-bottomed, green, half in
+shade — and for edges cluttered with things that happen to be pool-coloured.
+It needs `pip install "zimablue[ml]"` and a checkpoint you fetch yourself; the
+same `sample=(x, y)` becomes the prompt. See [machine learning](ml.md).
+
 ## Sun on the water
 
 A specular highlight is white, so no rule that looks for blue will find it.

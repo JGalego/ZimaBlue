@@ -41,8 +41,20 @@ viz = ["matplotlib>=3.7"]
 # Reading a photograph to trace a pool out of it. Separate from viz because a
 # batch that builds pools from images has no reason to pull in a plotting stack.
 image = ["pillow>=10"]
+# Running a SAM export to segment a pool out of a photograph. onnxruntime and
+# nothing else -- no torch, no CUDA, no 2 GB of wheels. Weights are yours to
+# fetch; see docs/ml.md.
+ml = ["pillow>=10", "onnxruntime>=1.17"]
+# Training a controller. Gymnasium only: the algorithm is whichever library
+# you already like, and pinning one here would be picking a side.
+rl = ["gymnasium>=1.0"]
 dev = [
     "pillow>=10",
+    # The RL env's tests run in CI. Gymnasium is small and pure Python, so
+    # this costs nothing; onnxruntime is deliberately absent, because the SAM
+    # tests run against fake sessions and checking arithmetic does not need a
+    # 45 MB checkpoint.
+    "gymnasium>=1.0",
     # The build backend, so the tests can import the metadata hook in
     # hatch_build.py and check the README rewriting it does.
     "hatchling>=1.21",

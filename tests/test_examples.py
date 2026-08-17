@@ -80,6 +80,22 @@ def test_pool_from_photo_runs(tmp_path):
     assert (tmp_path / "trace_overlay.png").exists()
 
 
+def test_rl_env_runs_and_ranks_the_baseline_above_random():
+    pytest.importorskip("gymnasium")
+    result = run("rl_env.py", "--minutes", "2")
+    assert result.returncode == 0, result.stderr[-2000:]
+
+    scores = {}
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] in ("random", "straight", "baseline_coverage"):
+            scores[parts[0]] = float(parts[1])
+    assert scores["baseline_coverage"] > scores["random"], (
+        "the shipped controller should beat a random policy, or the example is "
+        "not measuring what it says it is"
+    )
+
+
 def test_batch_experiment_runs_and_reproduces_its_worst_episode():
     result = run("batch_experiment.py", "--episodes", "3", "--minutes", "3")
     assert result.returncode == 0, result.stderr[-2000:]

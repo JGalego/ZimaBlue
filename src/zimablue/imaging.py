@@ -72,7 +72,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
@@ -84,7 +84,15 @@ from zimablue.pool import ConstantDepth, Pool
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from zimablue.pool.depth import DepthModel
 
-__all__ = ["IMAGE_HINT", "PoolTrace", "Region", "pool_from_image", "require_pillow", "trace_pool"]
+__all__ = [
+    "IMAGE_HINT",
+    "PoolTrace",
+    "Region",
+    "Segmenter",
+    "pool_from_image",
+    "require_pillow",
+    "trace_pool",
+]
 
 FloatArray = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
@@ -98,6 +106,26 @@ A pool outline has no detail that survives past this, and everything here is
 either per-pixel or a flood fill, so halving the side quarters the work. The
 scale arguments are still given in the original image's pixels.
 """
+
+
+class Segmenter(Protocol):
+    """Anything that can say which pixels are water.
+
+    The colour rules below are the default and need nothing installed. They
+    are also the weakest link: they know what water looks like in the middle
+    of a pool and have to be argued into following it out to the coping. A
+    learned segmenter knows where a thing *stops*, which is the opposite
+    strength, so the two are worth swapping between -- see
+    :mod:`zimablue.segment`.
+
+    ``rgb`` is the working-resolution image, ``sample`` the seed pixel in that
+    same resolution, and the return value a boolean mask of the same height and
+    width. Everything downstream -- picking the region the seed landed in,
+    filling holes, tracing, scaling -- is unchanged, so a segmenter only has to
+    answer the one question.
+    """
+
+    def __call__(self, rgb: NDArray[np.uint8], sample: tuple[int, int] | None) -> BoolArray: ...
 
 
 def require_pillow() -> None:
@@ -628,7 +656,8 @@ def trace_pool(
     hue_tolerance: float = 16.0,
     saturation_ratio: float = 0.22,
     saturation_floor: float = 0.07,
-    grow: int = 8,
+    segmenter: Segmenter | None = None,
+    grow: int | None = None,
     grow_tolerance: float = 40.0,
     hue: tuple[float, float] = (150.0, 250.0),
     saturation: float = 0.16,
@@ -668,6 +697,12 @@ def trace_pool(
     harmonics, which has no scale -- it suits a shape that genuinely is a curve
     and turns straight sides into curves to pay for the corners on one that is
     not. Both are off by default; reach for ``smooth_edges=0.15`` first.
+
+    ``segmenter`` replaces the colour rules with something else that can say
+    which pixels are water -- see :class:`Segmenter` and
+    :class:`zimablue.segment.SamSegmenter`. ``grow`` then defaults to off,
+    since a mask that already reaches the coping will happily be grown across
+    the deck.
     """
     scales = [
         metres_per_pixel is not None,
@@ -687,9 +722,21 @@ def trace_pool(
     seed: tuple[int, int] | None = None
     if sample is not None:
         seed = (round(sample[0] * factor), round(sample[1] * factor))
+
+    if segmenter is not None:
+        mask = np.asarray(segmenter(rgb, seed), dtype=bool)
+        if mask.shape != rgb.shape[:2]:
+            raise ValueError(
+                f"the segmenter returned a {mask.shape} mask for a {rgb.shape[:2]} image"
+            )
+        if grow is None:
+            grow = 0
+    elif seed is not None:
         mask = _water_by_sample(rgb, seed, hue_tolerance, saturation_ratio, saturation_floor)
     else:
         mask = _water_by_colour(rgb, hue, saturation, value)
+    if grow is None:
+        grow = 8
 
     if not mask.any():
         raise ValueError(

@@ -12,6 +12,21 @@ understand.
 ## [Unreleased]
 
 ### Added
+- `trace_pool(..., segmenter=...)`: the water mask is pluggable. The colour
+  rules stay the default and need nothing installed.
+- `zimablue.segment.SamSegmenter`, a segmenter backed by a SAM ONNX export
+  over onnxruntime — `pip install "zimablue[ml]"`, no torch, no GPU, weights
+  not bundled. SAM proposes candidate masks and the colour rule picks between
+  them, weighting recall so the shallow end is not clipped off the pool.
+- `zimablue.rl`: a Gymnasium environment over `Simulation`, with a decimated
+  control rate, an observation built only from what a controller can see, and
+  a choice between rewarding dirt removed or coverage —
+  `pip install "zimablue[rl]"`.
+- `PolicyController` runs a trained policy through the ordinary controller
+  interface, so it is scored, recorded, batched and replayed like any other.
+- `Simulation.termination_reason()`, public for anything driving `step()`
+  itself.
+- `docs/ml.md` and `examples/rl_env.py`.
 - EKF pose estimator (`PoseEstimator`) over position, heading and gyro bias,
   with zero-velocity updates to make the bias observable.
 - `SystematicCoverage` controller: an occupancy map built from bump switches
@@ -35,6 +50,11 @@ understand.
 - Source distributions no longer carry the rendered GIFs: 4.4 MB to 170 KB.
 
 ### Fixed
+- Playback below 1x did not work. Advancing a whole number of frames per tick
+  cannot go slower than one frame per tick, so 1x played at 1.2x and both 0.5x
+  and 0.25x played at 0.6x. The position is tracked as a float now and rounded
+  only when a frame is drawn; `export_movie(..., speed=1.0)` writes a file
+  exactly as long as the run.
 - Drawing without matplotlib gave a traceback through the rendering internals.
   It now names the extra to install, and the CLI prints one line instead of a
   stack. Rich was also swallowing the `[viz]` in that advice as a style tag,

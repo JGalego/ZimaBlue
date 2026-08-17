@@ -281,6 +281,15 @@ class Simulation:
 
         return self.finish()
 
+    def termination_reason(self) -> str | None:
+        """Why the run should stop now, or ``None`` to keep going.
+
+        :meth:`run` consults this every tick. It is public because anything
+        driving :meth:`step` itself -- a notebook, the Gymnasium env -- needs
+        the same answer and should not have to re-derive it.
+        """
+        return self._check_termination()
+
     def _check_termination(self) -> str | None:
         state = self.state
         if self.stop_on_empty_battery and state.battery_fraction <= self.robot.power.battery.cutoff:

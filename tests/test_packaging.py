@@ -101,6 +101,27 @@ def test_image_hint_names_the_extra():
     assert "zimablue[image]" in IMAGE_HINT
 
 
+def test_ml_hints_name_their_extras():
+    from zimablue.segment import ONNX_HINT
+
+    assert "zimablue[ml]" in ONNX_HINT
+
+    # zimablue.rl raises on import without gymnasium, so read the constant out
+    # of the source rather than importing the package to find out.
+    text = (ROOT / "src" / "zimablue" / "rl" / "__init__.py").read_text()
+    assert "zimablue[rl]" in text
+
+
+def test_importing_zimablue_does_not_import_a_model_runtime():
+    """The core install has no machine learning in it and should prove it."""
+    import subprocess
+    import sys
+
+    code = "import zimablue, sys; print(sorted({'onnxruntime', 'gymnasium'} & set(sys.modules)))"
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "[]"
+
+
 def test_importing_zimablue_does_not_import_pillow():
     """Same contract as matplotlib: the optional extras stay optional.
 

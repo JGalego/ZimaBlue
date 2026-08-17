@@ -81,6 +81,11 @@ def main() -> None:
     parser.add_argument("--depth", type=float, default=1.6)
     parser.add_argument("--minutes", type=float, default=20.0)
     parser.add_argument("--out", type=Path, default=Path("runs"))
+    parser.add_argument(
+        "--sam",
+        metavar="ENCODER,DECODER",
+        help="Two SAM .onnx files to segment with instead of the colour rules.",
+    )
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -98,9 +103,24 @@ def main() -> None:
             seed = (sx, sy)
 
     # ------------------------------------------------------------------
-    traced = trace_pool(photo, sample=seed, width=width)
+    segmenter = None
+    if args.sam:
+        from zimablue.segment import SamSegmenter
+
+        encoder, decoder = args.sam.split(",")
+        segmenter = SamSegmenter.load(encoder.strip(), decoder.strip())
+        if seed is None:
+            raise SystemExit("--sam needs --sample: SAM has to be prompted with a point")
+
+    traced = trace_pool(photo, sample=seed, width=width, segmenter=segmenter)
     print()
     print(traced.summary())
+
+    if segmenter is not None:
+        print(f"\nSAM offered {len(segmenter.candidates)} masks, ranked by {segmenter.ranked_by}:")
+        for candidate in segmenter.candidates:
+            mark = "  <-- taken" if candidate.index == segmenter.chosen else ""
+            print(f"  {candidate}{mark}")
 
     overlay = args.out / "trace_overlay.png"
     traced.overlay(overlay)
