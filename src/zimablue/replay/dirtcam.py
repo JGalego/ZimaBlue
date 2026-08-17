@@ -473,9 +473,12 @@ def export_dirtcam_frames(
     last is tile, and nothing in between required a 3D engine.
     """
     require_matplotlib()
-    import matplotlib
-
-    matplotlib.use("Agg")
+    # Deliberately not switching the global backend to Agg. Writing a file
+    # never needed it -- savefig renders through Agg whichever backend is
+    # selected -- and matplotlib.use() is process-wide, so exporting one image
+    # from a notebook silently unplugged the inline backend and every figure
+    # after it came out blank. Nothing here calls plt.show(), so no window
+    # opens on a machine that has a display.
     import matplotlib.pyplot as plt
 
     path = Path(path)
@@ -526,9 +529,12 @@ def export_dirtcam(
     interesting part.
     """
     require_matplotlib()
-    import matplotlib
-
-    matplotlib.use("Agg")
+    # Deliberately not switching the global backend to Agg. Writing a file
+    # never needed it -- savefig renders through Agg whichever backend is
+    # selected -- and matplotlib.use() is process-wide, so exporting one image
+    # from a notebook silently unplugged the inline backend and every figure
+    # after it came out blank. Nothing here calls plt.show(), so no window
+    # opens on a machine that has a display.
     import matplotlib.pyplot as plt
     from matplotlib.animation import FuncAnimation, PillowWriter
 

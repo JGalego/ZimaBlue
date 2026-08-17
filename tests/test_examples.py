@@ -100,7 +100,10 @@ namespace = {"__name__": "__main__"}
 for index, cell in enumerate(cells):
     if cell["cell_type"] != "code":
         continue
-    source = "".join(cell["source"])
+    # Magics are notebook syntax, not Python. The tour needs %matplotlib
+    # inline so its figures become outputs when it is executed for real; here
+    # the Agg backend is already set, so dropping the line is exactly right.
+    source = "".join(line for line in cell["source"] if not line.lstrip().startswith("%"))
     try:
         exec(compile(source, f"<cell {index}>", "exec"), namespace)
     except Exception:
@@ -113,15 +116,35 @@ def test_the_notebook_is_listed_in_the_readme():
     assert NOTEBOOK.name in (ROOT / "README.md").read_text()
 
 
-def test_the_notebook_is_valid_and_has_no_stored_output():
-    """Committed outputs make every rerun a diff and bloat the repository."""
+def test_the_notebook_is_valid_and_executed():
+    """The tour is committed with its outputs.
+
+    A tour whose plots only appear if you run it is a worse tour, and GitHub
+    renders a stored notebook directly.
+    """
     notebook = json.loads(NOTEBOOK.read_text())
     assert notebook["nbformat"] == 4
     code_cells = [c for c in notebook["cells"] if c["cell_type"] == "code"]
     assert len(code_cells) > 10, "the tour should actually cover the library"
-    for cell in code_cells:
-        assert cell["outputs"] == [], "clear outputs before committing"
-        assert cell["execution_count"] is None
+
+    executed = [c for c in code_cells if c["outputs"]]
+    assert len(executed) >= len(code_cells) - 2, "commit the notebook with its outputs"
+    images = sum(1 for c in code_cells for o in c["outputs"] if "image/png" in o.get("data", {}))
+    assert images >= 5, f"only {images} figures stored -- was %matplotlib inline dropped?"
+
+
+def test_notebook_source_lines_end_in_newlines():
+    """Otherwise every renderer runs the markdown together.
+
+    nbformat stores a cell as a list of lines, each keeping its own line
+    ending. Without them a heading and the paragraph under it are displayed as
+    one sentence, which is how the tour first shipped.
+    """
+    notebook = json.loads(NOTEBOOK.read_text())
+    for index, cell in enumerate(notebook["cells"]):
+        lines = cell["source"]
+        for line in lines[:-1]:
+            assert line.endswith("\n"), f"cell {index} has a line with no newline: {line!r}"
 
 
 def test_every_notebook_cell_runs(tmp_path):

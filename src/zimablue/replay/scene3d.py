@@ -286,9 +286,12 @@ def export_3d_movie(
     read as solid rather than as a flat painting.
     """
     require_matplotlib()
-    import matplotlib
-
-    matplotlib.use("Agg")
+    # Deliberately not switching the global backend to Agg. Writing a file
+    # never needed it -- savefig renders through Agg whichever backend is
+    # selected -- and matplotlib.use() is process-wide, so exporting one image
+    # from a notebook silently unplugged the inline backend and every figure
+    # after it came out blank. Nothing here calls plt.show(), so no window
+    # opens on a machine that has a display.
     import matplotlib.pyplot as plt
     from matplotlib.animation import FuncAnimation, PillowWriter
 
@@ -331,9 +334,12 @@ def export_3d_frames(
 ) -> Path:
     """A contact sheet of 3D views across the run."""
     require_matplotlib()
-    import matplotlib
-
-    matplotlib.use("Agg")
+    # Deliberately not switching the global backend to Agg. Writing a file
+    # never needed it -- savefig renders through Agg whichever backend is
+    # selected -- and matplotlib.use() is process-wide, so exporting one image
+    # from a notebook silently unplugged the inline backend and every figure
+    # after it came out blank. Nothing here calls plt.show(), so no window
+    # opens on a machine that has a display.
     import matplotlib.pyplot as plt
 
     path = Path(path)

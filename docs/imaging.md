@@ -77,19 +77,50 @@ to go on, the largest blue-ish region wins. That is usually the pool and is
 sometimes the sky: in a poolside photo the pool is foreshortened and the sky is
 not, so the sky can genuinely be bigger.
 
-**For a photograph, pass `sample=(x, y)`** — any pixel inside the water. Two
+**For a photograph, pass `sample=(x, y)`** — any pixel inside the water. Three
 things change:
 
 - The water's colour is read off the water instead of assumed, which matters
   because pools go green and tiles go navy.
 - The region **containing that pixel** is taken rather than the biggest one.
+- The region is then **grown outward until it meets an edge**.
 
-The second part is what settles the sky, and no colour rule could: a pool and a
-summer sky are close enough in hue to be indistinguishable. They are not joined
-to each other, though, so connectivity decides it.
+The second point is what settles the sky, and no colour rule could: a pool and
+a summer sky are close enough in hue to be indistinguishable. They are not
+joined to each other, though, so connectivity decides it.
 
 Every candidate is listed on the trace, and `region=1` picks by size instead if
 you would rather.
+
+### Why hue and not colour
+
+Depth changes a pool's colour enormously and its hue barely at all — it is the
+same water over the same plaster, with more or less of it in between. Measured
+on one drone photo:
+
+| | hue | saturation |
+|---|---|---|
+| deep end | 183° | 0.83 |
+| outermost step | 181° | 0.23 |
+| coping | 202° | 0.14 |
+| deck | 208° | 0.10 |
+
+In RGB the deep end and the top step are 100 apart out of 255, so any distance
+wide enough to hold both swallows the coping on the way — and the outermost
+step and the coping differ by **twelve**, which is less than two patches of
+open water differ from each other. Hue separates them cleanly and saturation
+confirms it, since wet plaster is vivid and dry stone is not. Brightness is
+ignored, which is what keeps sunlit and shaded water in one region.
+
+### Why grow at all
+
+A pool does not end where a threshold ends. The last stretch before the coping
+is very shallow water grading continuously out of the water beside it — no
+step in it anywhere — while the coping arrives as a 36° jump. So the mask
+creeps outward a bounded number of pixels, taking each one only if it looks
+like the neighbours that already belong rather than like the distant sample,
+and the hard edge stops it. Missing that rim cost about 20 cm all the way
+round, which on a 25 m pool is 9% of the floor. `grow=0` turns it off.
 
 ## Sun on the water
 
@@ -113,6 +144,29 @@ sliding a pixel along the grey axis without changing its hue, so plain RGB
 distance rejects the lit half of a pool. Splitting the difference into its grey
 part and the rest, and thresholding only the rest, keeps sunlit and shaded
 water in one region.
+
+## Tidying the outline
+
+A traced edge carries two kinds of roughness and they want different
+treatments.
+
+```python
+traced = zb.trace_pool("pool.jpg", sample=(700, 800), width=25.0, smooth_edges=0.20)
+```
+
+`smooth_edges` is a radius in metres. It first collapses any wobble smaller
+than that radius, so an edge that should be one straight run stops being thirty
+segments a pixel out of line; then it rolls a ball of that radius along the
+outline in both directions, which rounds the convex corners and the concave
+ones by exactly that much. **Straight edges, curved vertices** — which is what
+a real pool is, since its corners are struck with a radius rather than mitred
+to a point. On the drone photo it took a 65-vertex outline to 18 and moved the
+area by 0.6%.
+
+`smooth` is the other one: a count of Fourier harmonics. It has no scale, so it
+cannot spend its smoothing locally — on a pool with straight sides, sixteen
+harmonics turned the sides into curves to pay for the corners. Keep it for a
+pool that genuinely is a curve and came out ragged. Both are off by default.
 
 ## What it cannot do
 

@@ -245,6 +245,62 @@ def _close(mask: BoolArray, radius: int) -> BoolArray:
     return ~_dilate(~_dilate(mask, radius), radius)
 
 
+def _box3(a: FloatArray) -> FloatArray:
+    """Sum over each pixel's 3x3 neighbourhood, edges included."""
+    pad = ((1, 1), (1, 1)) + ((0, 0),) * (a.ndim - 2)
+    p = np.pad(a, pad)
+    out = np.zeros_like(a, dtype=float)
+    for dy in range(3):
+        for dx in range(3):
+            out += p[dy : dy + a.shape[0], dx : dx + a.shape[1]]
+    return out
+
+
+def _grow_to_edges(
+    mask: BoolArray, rgb: NDArray[np.uint8], *, passes: int, tolerance: float, floor: float
+) -> BoolArray:
+    """Creep the water outward while the colour keeps changing gradually.
+
+    A pool does not end where a colour threshold ends. The last stretch before
+    the coping is a hand's width of very shallow water over the edge, and it
+    grades continuously from the water beside it: on the photo this was tuned
+    against, hue runs 182 degrees in the middle to 161 at the rim without a
+    single step worth calling an edge. Any global rule wide enough to hold both
+    ends of that ramp is also wide enough to hold the coping, whose hue sits
+    between them at 201.
+
+    What separates the rim from the coping is not colour but *gradient*. The
+    ramp is gradual and the coping arrives as a 36 degree jump, so a pixel is
+    taken when it looks like the neighbours that already belong -- rather than
+    like a sample taken metres away -- and the hard edge stops it dead. Missing
+    that rim cost about 20 cm all the way round, which on a 25 m pool is 9% of
+    the floor.
+
+    ``passes`` bounds how far it can creep, so a leak through a gap in the
+    coping costs a few pixels rather than the whole patio.
+    """
+    if passes <= 0:
+        return mask
+
+    colours = rgb.astype(np.float64)
+    saturation = _to_hsv(rgb)[..., 1]
+    grown = mask
+    for _ in range(passes):
+        frontier = _dilate(grown) & ~grown
+        if not frontier.any():
+            break
+        count = _box3(grown.astype(float))
+        neighbourhood = _box3(colours * grown[..., None])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            local = neighbourhood / np.maximum(count, 1.0)[..., None]
+        difference = np.linalg.norm(colours - local, axis=-1)
+        accepted = frontier & (count > 0) & (difference <= tolerance) & (saturation >= floor)
+        if not accepted.any():
+            break
+        grown = grown | accepted
+    return grown
+
+
 def _absorb_glare(
     mask: BoolArray, rgb: NDArray[np.uint8], *, value: float | None, surround: float
 ) -> BoolArray:
@@ -320,20 +376,33 @@ def _water_by_colour(
 
 
 def _water_by_sample(
-    rgb: NDArray[np.uint8], sample: tuple[int, int], tolerance: float, brightness: float = 150.0
+    rgb: NDArray[np.uint8],
+    sample: tuple[int, int],
+    hue_tolerance: float,
+    saturation_ratio: float,
+    saturation_floor: float,
 ) -> BoolArray:
-    """Everything the same *colour* as a patch around ``sample``.
+    """Everything the same *hue* as a patch around ``sample``, and as vivid.
 
     Reading the water's colour off the water beats asserting what colour water
     is. Pools go green, tiles go navy, and evening light moves everything.
 
-    The comparison discounts brightness. Sunlight on water adds white -- it
-    slides the pixel along the grey axis without changing its hue -- so plain
-    RGB distance rejects the lit half of a pool while accepting nothing useful
-    in exchange. Splitting the difference into its grey component and what is
-    left, and thresholding only the remainder, keeps sunlit water and shaded
-    water in the same region. ``brightness`` still caps how far along that axis
-    a pixel may be, or every grey surface in the photograph would qualify.
+    Matching on hue and saturation rather than on the colour as a whole is what
+    lets one sample cover a pool from the deep end to the top step. Depth
+    changes a pool's colour enormously in RGB -- on the photo this was tuned
+    against, the deep end and the shallowest step are 100 apart out of 255 --
+    while barely moving the hue, because it is the same water over the same
+    plaster with more or less of it in between. Any distance measured in RGB
+    therefore has to be opened up so far to reach the steps that it swallows
+    the stone coping on the way, and no amount of tuning fixes that: on that
+    photo the outermost step and the coping differ by *twelve*, which is less
+    than two patches of open water differ from each other.
+
+    Hue separates them cleanly -- water 181 degrees, coping 202 -- and
+    saturation confirms it, since wet plaster is vivid and dry stone is not.
+    Both are read off the sample rather than fixed, so a green pool or a navy
+    one works the same way, and brightness is ignored entirely, which is what
+    keeps sunlit and shaded water together in one region.
     """
     x, y = int(sample[0]), int(sample[1])
     rows, cols = rgb.shape[:2]
@@ -344,13 +413,18 @@ def _water_by_sample(
     patch = rgb[
         max(y - half, 0) : y + half + 1,
         max(x - half, 0) : x + half + 1,
-    ].reshape(-1, 3)
-    reference = np.median(patch.astype(np.float64), axis=0)
+    ]
+    reference = _to_hsv(np.median(patch.reshape(-1, 3), axis=0).reshape(1, 1, 3).astype(np.uint8))
 
-    difference = rgb.astype(np.float64) - reference
-    grey = difference.mean(axis=-1, keepdims=True)
-    chroma = np.linalg.norm(difference - grey, axis=-1)
-    return (chroma <= tolerance) & (np.abs(grey[..., 0]) <= brightness)
+    hsv = _to_hsv(rgb)
+    # Hue is an angle, so 359 and 1 are two degrees apart.
+    delta = np.abs(hsv[..., 0] - reference[0, 0, 0])
+    delta = np.minimum(delta, 360.0 - delta)
+
+    # A near-grey pixel has no meaningful hue at all, so the saturation test
+    # has to stand on its own rather than merely support the hue one.
+    floor = max(saturation_floor, float(reference[0, 0, 1]) * saturation_ratio)
+    return (delta <= hue_tolerance) & (hsv[..., 1] >= floor)
 
 
 # ----------------------------------------------------------------------
@@ -551,7 +625,11 @@ def trace_pool(
     # -- where the water is ------------------------------------------------
     sample: tuple[int, int] | None = None,
     region: int | None = None,
-    tolerance: float = 70.0,
+    hue_tolerance: float = 16.0,
+    saturation_ratio: float = 0.22,
+    saturation_floor: float = 0.07,
+    grow: int = 8,
+    grow_tolerance: float = 40.0,
     hue: tuple[float, float] = (150.0, 250.0),
     saturation: float = 0.16,
     value: float = 0.12,
@@ -570,6 +648,7 @@ def trace_pool(
     glare_surround: float = 0.55,
     closing: int = 2,
     close_gaps: float = 0.35,
+    smooth_edges: float = 0.0,
     # -- how smooth ---------------------------------------------------------
     simplify: float = 1.5,
     smooth: int | None = None,
@@ -582,12 +661,13 @@ def trace_pool(
     inventing one would put every area and coverage number downstream quietly
     out by a factor nobody could see.
 
-    ``smooth`` is off by default. Fourier smoothing suits a shape that really
-    is smooth, and rounds the corners off one that is not: on a hotel pool with
-    straight sides and a mitred corner, sixteen harmonics returned a blob.
-    ``simplify`` already removes the pixel grid's staircase, so the outline you
-    get is the pool you photographed. Turn ``smooth`` on for a genuinely curved
-    pool where the segmentation came out ragged.
+    Two ways to tidy the outline, and they are not interchangeable.
+    ``smooth_edges`` is a radius in metres: a rolling ball that shaves the
+    pixel staircase and fillets the corners by exactly that much, which is what
+    a real pool's corners are anyway. ``smooth`` is a count of Fourier
+    harmonics, which has no scale -- it suits a shape that genuinely is a curve
+    and turns straight sides into curves to pay for the corners on one that is
+    not. Both are off by default; reach for ``smooth_edges=0.15`` first.
     """
     scales = [
         metres_per_pixel is not None,
@@ -607,7 +687,7 @@ def trace_pool(
     seed: tuple[int, int] | None = None
     if sample is not None:
         seed = (round(sample[0] * factor), round(sample[1] * factor))
-        mask = _water_by_sample(rgb, seed, tolerance)
+        mask = _water_by_sample(rgb, seed, hue_tolerance, saturation_ratio, saturation_floor)
     else:
         mask = _water_by_colour(rgb, hue, saturation, value)
 
@@ -630,13 +710,23 @@ def trace_pool(
             if at_seed == 0:
                 raise ValueError(
                     f"sample {sample} did not land on water -- it matched no region. "
-                    "Check the pixel, or raise tolerance="
+                    "Check the pixel, or raise hue_tolerance="
                 )
             region = at_seed - 1
     if region >= len(regions):
         raise ValueError(f"asked for region {region} but only {len(regions)} were found")
 
     mask = labels == region + 1
+    if grow and seed is not None:
+        # Only with a seed: without one the colour rule is a guess already, and
+        # growing a guess just makes a bigger one.
+        # Only the absolute floor here, not the ratio-derived one the global
+        # rule uses. Growth is already bounded twice over -- by the pass count
+        # and by the local gradient -- so it can afford to reach into water too
+        # shallow to be vivid, which is exactly the rim it is here to recover.
+        mask = _grow_to_edges(
+            mask, rgb, passes=grow, tolerance=grow_tolerance, floor=saturation_floor
+        )
     if glare:
         # Before hole filling, because a highlight against the pool edge is a
         # bite out of the outline rather than a hole in it.
@@ -674,7 +764,7 @@ def trace_pool(
     ring = np.asarray(pixel_polygon.exterior.coords, dtype=float)[:-1]
     boundary, scale = _to_metres(ring, factor, rows, metres_per_pixel, width, reference, corners)
 
-    if close_gaps > 0 and pixel_polygon.area > 0:
+    if (close_gaps > 0 or smooth_edges > 0) and pixel_polygon.area > 0:
         # Closing belongs in metres -- see _close_notches -- but it is applied
         # to the pixel outline so that what the overlay draws is what was used.
         # The radius converts through the average linear scale, which for a
@@ -682,6 +772,12 @@ def trace_pool(
         # not matter at the size of the slots being removed.
         metres_per_px = float(np.sqrt(boundary.area / pixel_polygon.area))
         pixel_polygon = _close_notches(pixel_polygon, close_gaps / metres_per_px)
+        if smooth_edges > 0:
+            pixel_polygon = _round_edges(pixel_polygon, smooth_edges / metres_per_px)
+        if simplify > 0:
+            # Buffering replaces every corner with an arc of vertices; without
+            # this the outline leaves with twice as many points as it arrived.
+            pixel_polygon = pixel_polygon.simplify(simplify)
         ring = np.asarray(pixel_polygon.exterior.coords, dtype=float)[:-1]
         boundary, scale = _to_metres(
             ring, factor, rows, metres_per_pixel, width, reference, corners
@@ -738,6 +834,48 @@ def _close_notches(boundary: Polygon, radius: float) -> Polygon:
     if closed.geom_type == "MultiPolygon":
         closed = max(closed.geoms, key=lambda g: g.area)
     return Polygon(closed.exterior)
+
+
+def _round_edges(boundary: Polygon, radius: float) -> Polygon:
+    """Fillet the outline with a rolling ball of ``radius`` metres.
+
+    The companion to :func:`_close_notches`. That one fills intrusions; this
+    one shaves protrusions and rounds convex corners, and between them they are
+    a morphological smoothing at a stated physical scale.
+
+    Worth having because a traced outline carries two kinds of roughness that
+    Fourier smoothing cannot tell apart. One is the pixel grid's staircase and
+    the ragged pixel or two where the water meets the coping, which is noise.
+    The other is the pool's actual corners. A rolling ball removes the first
+    -- nothing survives that is smaller than the ball -- and merely *rounds*
+    the second, by exactly the radius asked for, which is what a real pool's
+    corners are anyway: struck with a radius, not mitred to a point.
+
+    Fourier smoothing is global instead, so it has no scale and no way to spend
+    its budget locally. Sixteen harmonics on a pool with straight sides turned
+    the sides into curves to pay for the corners.
+    """
+    if radius <= 0:
+        return boundary
+
+    # Straighten first. A rolling ball rounds corners but rides over every
+    # wobble on the way between them, and a traced edge that should be one
+    # straight run arrives as thirty segments each a pixel out of line.
+    # Collapsing anything smaller than the ball is the same judgement the ball
+    # makes, applied to the runs instead of the corners.
+    result = boundary.simplify(radius)
+
+    # Then round both ways: opening takes the convex corners, closing takes the
+    # concave ones. One without the other rounds half the outline and leaves
+    # the rest mitred, which looks like a mistake rather than a finish.
+    for op in (-radius, radius):
+        stepped = result.buffer(op, join_style=1).buffer(-op, join_style=1)
+        if stepped.is_empty:  # a pool thinner than the ball; leave it alone
+            return boundary
+        if stepped.geom_type == "MultiPolygon":
+            stepped = max(stepped.geoms, key=lambda g: g.area)
+        result = Polygon(stepped.exterior)
+    return result
 
 
 def _to_metres(

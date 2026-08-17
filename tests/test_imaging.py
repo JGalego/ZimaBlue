@@ -285,6 +285,48 @@ def test_metres_per_pixel_is_read_at_the_original_resolution():
     assert coarse.area == pytest.approx(fine.area, rel=0.05)
 
 
+def test_smooth_edges_rounds_without_moving_the_shape():
+    """A rolling ball takes the pixel staircase off and leaves the pool."""
+    image, project = _scene()
+    minx, _, maxx, _ = TRUTH.boundary.bounds
+    seed = _seed_pixel(project)
+
+    raw = trace_pool(image, sample=seed, width=maxx - minx)
+    rounded = trace_pool(image, sample=seed, width=maxx - minx, smooth_edges=0.2)
+    assert rounded.area == pytest.approx(raw.area, rel=0.04)
+    # Filleting only ever removes material, and only a little of it.
+    assert rounded.area <= raw.area
+
+
+def test_smooth_edges_keeps_a_corner_a_corner():
+    """The failure Fourier smoothing had: straight sides turning into curves.
+
+    A square traced at a 0.15 m fillet must still be square -- four long
+    straight runs -- rather than a circle.
+    """
+    # Its own image rather than _scene(), whose sun glare lands inside the
+    # rectangle and eats a corner of the very thing being measured.
+    image = Image.new("RGB", (800, 600), (196, 186, 168))
+    ImageDraw.Draw(image).rectangle([150, 150, 650, 450], fill=(38, 122, 176))
+
+    traced = trace_pool(image, sample=(400, 300), width=10.0, smooth_edges=0.15)
+    minx, miny, maxx, maxy = traced.boundary.bounds
+    # A rectangle fills its own bounding box; a circle fills 79% of one.
+    assert traced.area / ((maxx - minx) * (maxy - miny)) > 0.94
+    assert (maxx - minx) / (maxy - miny) == pytest.approx(500 / 300, rel=0.05)
+
+
+def test_a_ball_wider_than_the_pool_is_refused_quietly():
+    """smooth_edges is in metres, so a wrong scale makes it enormous.
+
+    Eroding by more than the half-width would erase the pool; returning the
+    unsmoothed outline beats returning nothing.
+    """
+    image, project = _scene()
+    traced = trace_pool(image, sample=_seed_pixel(project), width=2.0, smooth_edges=5.0)
+    assert traced.area > 0
+
+
 def test_the_overlay_draws_something():
     matplotlib = pytest.importorskip("matplotlib")
     matplotlib.use("Agg")

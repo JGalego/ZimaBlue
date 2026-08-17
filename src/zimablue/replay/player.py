@@ -194,9 +194,12 @@ def export_movie(
     anywhere matplotlib does, which is why the CLI defaults to it.
     """
     require_matplotlib()
-    import matplotlib
-
-    matplotlib.use("Agg", force=True)
+    # Deliberately not switching the global backend to Agg. Writing a file
+    # never needed it -- savefig renders through Agg whichever backend is
+    # selected -- and matplotlib.use() is process-wide, so exporting one image
+    # from a notebook silently unplugged the inline backend and every figure
+    # after it came out blank. Nothing here calls plt.show(), so no window
+    # opens on a machine that has a display.
     from matplotlib.animation import FFMpegWriter, PillowWriter
 
     path = Path(path)
@@ -228,9 +231,12 @@ def export_frames(
 ) -> list[Path]:
     """Write ``count`` evenly-spaced stills -- handy for a README or an issue."""
     require_matplotlib()
-    import matplotlib
-
-    matplotlib.use("Agg", force=True)
+    # Deliberately not switching the global backend to Agg. Writing a file
+    # never needed it -- savefig renders through Agg whichever backend is
+    # selected -- and matplotlib.use() is process-wide, so exporting one image
+    # from a notebook silently unplugged the inline backend and every figure
+    # after it came out blank. Nothing here calls plt.show(), so no window
+    # opens on a machine that has a display.
     import matplotlib.pyplot as plt
 
     directory = Path(directory)
@@ -254,9 +260,12 @@ def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) ->
     dirt it started with, and the dirt it left.
     """
     require_matplotlib()
-    import matplotlib
-
-    matplotlib.use("Agg", force=True)
+    # Deliberately not switching the global backend to Agg. Writing a file
+    # never needed it -- savefig renders through Agg whichever backend is
+    # selected -- and matplotlib.use() is process-wide, so exporting one image
+    # from a notebook silently unplugged the inline backend and every figure
+    # after it came out blank. Nothing here calls plt.show(), so no window
+    # opens on a machine that has a display.
     import matplotlib.pyplot as plt
 
     from zimablue.replay.renderer import _dirt_alpha, _dirt_cmap, load_scene
