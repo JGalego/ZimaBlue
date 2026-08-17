@@ -227,3 +227,37 @@ def test_the_version_is_a_release_number():
     assert match, "expected a single __version__ assignment on its own line"
     assert re.fullmatch(r"\d+\.\d+\.\d+([ab]\d+|rc\d+)?", match.group(1)), match.group(1)
     assert match.group(1) == zb.__version__
+
+
+def test_every_publish_path_can_actually_publish():
+    """A skipped job whose dependant is also skipped is a green tick and no upload.
+
+    ``target: pypi`` used to skip the TestPyPI job, which skipped the verify
+    job that needed it, which skipped the PyPI upload that needed *that* --
+    so the option did nothing and reported success. Job conditions compose in
+    a direction that is easy to get wrong and impossible to notice.
+    """
+    import yaml
+
+    jobs = yaml.safe_load((ROOT / ".github" / "workflows" / "release.yml").read_text())["jobs"]
+
+    def reachable(name: str, *, tag: bool, target: str) -> bool:
+        """Would this job run, given how GitHub skips dependants of skips?"""
+        condition = jobs[name].get("if")
+        if condition is not None:
+            fires = ("startsWith(github.ref, 'refs/tags/v')" in condition and tag) or (
+                f"inputs.target == '{target}'" in condition
+            )
+            if not fires:
+                return False
+        needs = jobs[name].get("needs") or []
+        needs = [needs] if isinstance(needs, str) else needs
+        return all(reachable(n, tag=tag, target=target) for n in needs)
+
+    assert reachable("pypi", tag=True, target=""), "a tag should reach PyPI"
+    assert reachable("pypi", tag=False, target="pypi"), "target=pypi should reach PyPI"
+    assert not reachable("pypi", tag=False, target="testpypi"), "a dry run must not"
+    assert reachable("testpypi", tag=False, target="testpypi")
+    # Every path rehearses on TestPyPI first.
+    for tag, target in ((True, ""), (False, "pypi"), (False, "testpypi")):
+        assert reachable("testpypi", tag=tag, target=target)
