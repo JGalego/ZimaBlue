@@ -49,13 +49,28 @@ jobs:
         run: |
           # A tag that disagrees with the version publishes the wrong thing
           # under the right name, and PyPI will not let you take it back.
-          version=$(python -c "import re,pathlib; \
-            print(re.search(r'\"(.+)\"', \
-            pathlib.Path('src/zimablue/_version.py').read_text()).group(1))")
+          #
+          # Read off the built wheel rather than out of _version.py: it is the
+          # filename that decides what lands on PyPI, and a source file can
+          # agree with the tag while hatch computes something else. The
+          # version this replaces parsed _version.py with the regex "(.+)",
+          # which matched the module docstring's opening triple quote and
+          # compared the tag against a single " character. It would have
+          # failed every tag, and did -- on the first one ever pushed, since
+          # 0.1.0 went out through workflow_dispatch, where this step is
+          # skipped.
+          built=$(python - <<'PY'
+          import pathlib
+          wheels = sorted(pathlib.Path("dist").glob("zimablue-*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected exactly one wheel, found {[w.name for w in wheels]}")
+          print(wheels[0].name.split("-")[1])
+          PY
+          )
           tag="${GITHUB_REF_NAME#v}"
-          echo "version=$version tag=$tag"
-          test "$version" = "$tag" || {
-            echo "::error::tag $GITHUB_REF_NAME does not match version $version"
+          echo "built=$built tag=$tag"
+          test "$built" = "$tag" || {
+            echo "::error::tag $GITHUB_REF_NAME does not match the built version $built"
             exit 1
           }
 

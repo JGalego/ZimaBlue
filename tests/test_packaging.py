@@ -191,3 +191,39 @@ def test_description_renders_the_way_pypi_renders_it():
     assert html is not None, "PyPI would reject this description"
     assert html.count("<img") >= 5, "images were stripped by the sanitiser"
     assert "<table" in html and "<pre" in html
+
+
+def test_the_release_guard_reads_the_version_it_will_publish():
+    """The tag check has one job and got it wrong the first time it ran.
+
+    It parsed ``_version.py`` with the regex ``"(.+)"``, which matches the
+    module docstring's opening triple quote long before it reaches
+    ``__version__`` -- so it compared the tag against a single ``"`` and
+    failed. Nothing caught it because the step only runs on a tag push, and
+    0.1.0 was published through workflow_dispatch.
+
+    It reads the built wheel's filename now. That is also the better source:
+    the filename is what lands on PyPI, and it cannot disagree with the
+    artefact the way a re-parse of the source can.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
+    guard = workflow[workflow.index("Tag must match the package version") :]
+    guard = guard[: guard.index("- name:", 10)]
+
+    assert "dist" in guard and ".whl" in guard, "the guard should read the built wheel"
+    assert "_version.py" not in guard.split('"""')[0] or "regex" in guard, (
+        "re-parsing the source is what broke; if it comes back, it needs a comment "
+        "saying why it is safe this time"
+    )
+    assert "GITHUB_REF_NAME" in guard
+
+
+def test_the_version_is_a_release_number():
+    """Not a docstring quote, which is what the guard used to extract."""
+    import re
+
+    text = (ROOT / "src" / "zimablue" / "_version.py").read_text()
+    match = re.search(r'^__version__ = "([^"]+)"$', text, re.M)
+    assert match, "expected a single __version__ assignment on its own line"
+    assert re.fullmatch(r"\d+\.\d+\.\d+([ab]\d+|rc\d+)?", match.group(1)), match.group(1)
+    assert match.group(1) == zb.__version__

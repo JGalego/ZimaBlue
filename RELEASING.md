@@ -87,8 +87,9 @@ $EDITOR CHANGELOG.md
 git commit -am "chore: release v0.2.0"
 git push
 
-# 4. Tag. The workflow checks the tag against _version.py and stops if they
-#    disagree, so this cannot publish 0.1.0 under a v0.2.0 tag.
+# 4. Tag. The workflow checks the tag against the version on the wheel it just
+#    built and stops if they disagree, so this cannot publish 0.1.0 under a
+#    v0.2.0 tag.
 git tag -a v0.2.0 -m "v0.2.0"
 git push origin v0.2.0
 ```
