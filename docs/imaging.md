@@ -6,10 +6,9 @@ import zimablue as zb
 pool = zb.pool_from_image("backyard.jpg", sample=(640, 410), width=8.4, depth=1.6)
 ```
 
-Point a phone at a pool, get something you can run a cleaner in. Three steps
-happen — find the water, trace its edge, turn pixels into metres — and each can
-be wrong in a way the next cannot detect, so the module is built to be
-**checked** rather than trusted.
+Point a phone at a pool, get something you can run a cleaner in. Finding the
+water, tracing its edge and turning pixels into metres can each go wrong in a
+way the next step will not notice, so check the result before you trust it.
 
 ```python
 traced = zb.trace_pool("backyard.jpg", sample=(640, 410), width=8.4)
@@ -19,7 +18,7 @@ pool = traced.pool(depth=1.6)
 ```
 
 `overlay` draws the outline and the mask over your photo and labels the regions
-it rejected. It is as much the deliverable as the polygon is.
+it rejected. It matters as much as the polygon does.
 
 ## Scale is not optional
 

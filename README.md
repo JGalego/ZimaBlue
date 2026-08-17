@@ -20,16 +20,16 @@
 <img src="docs/assets/replay.gif" alt="Replay of a cleaning run: the robot traces the pool while the cleaned swath and remaining dirt update live" width="720">
 
 <sub>25 simulated minutes in a kidney pool, replayed at 260×.<br>
-Watch the coverage and dirt meters diverge — that gap is the point.</sub>
+Watch the coverage and dirt meters drift apart.</sub>
 
 </div>
 
 ---
 
 Give ZimaBlue a pool, a cleaner, some dirt and a control algorithm. It
-simulates what happens, records the run, replays it, and scores how well the
-pool actually got cleaned — which is not the same question as how much of the
-floor the robot drove over, and that difference is why this exists.
+simulates the run, records it, replays it, and scores how clean the pool
+actually got. That is a different question from how much of the floor the
+robot drove over, and the gap between the two is what this is for.
 
 ```bash
 git clone https://github.com/JGalego/ZimaBlue
@@ -49,10 +49,10 @@ pool = zb.make_pool("kidney")  # rectangular · sloped · l_shaped · oval · st
 ```
 
 Geometry is a Shapely polygon plus a pluggable depth model, so a sloped floor
-differs from a flat one by which model it holds rather than by a branch
-somewhere. Drains, returns, skimmers, stairs and obstacles hang off it; the
-blocking ones come out of the navigable area, so coverage is measured against
-the floor the robot can actually reach.
+and a flat one differ only in which model they hold. Drains, returns,
+skimmers, stairs and obstacles hang off it; the blocking ones come out of the
+navigable area, so coverage is measured against the floor the robot can
+actually reach.
 
 The kidney boundary is a low-order Fourier curve, which makes it smooth
 everywhere — a wall follower meeting a corner behaves differently from one
@@ -73,7 +73,7 @@ dirt left behind and draws the path that was driven.
 
 ## Add a cleaner
 
-Composed from components, not subclassed:
+Cleaners are built from components:
 
 ```python
 robot = zb.Cleaner(
@@ -88,10 +88,10 @@ robot = zb.Cleaner(
 
 Encoders, IMU, pressure/depth, contact and sonar share one pipeline of sampling
 rate, noise, bias with random walk, latency, quantisation, saturation, dropout
-and stuck values. Encoders report *wheel* speed, so odometry drifts because of
-real slip rather than an injected error.
+and stuck values. Encoders report *wheel* speed, so odometry drifts because
+the wheels really do slip; no error is injected to make it happen.
 
-Breaking a sensor on purpose is a first-class operation:
+You can break a sensor on purpose:
 
 ```python
 robot.sensors.sonar.inject_fault(
@@ -144,7 +144,8 @@ only observable when the robot stops — a stationary gyro's reading *is* its
 bias — so zero-velocity updates are what keep heading from fanning out over
 half an hour.
 
-Same version, platform, scenario and seed give a bit-identical recording: fixed
+Run the same version on the same platform, with the same scenario and seed,
+and you get the exact same recording every time. That comes from a fixed
 timestep, no wall-clock reads while stepping, and one seeded RNG tree whose
 named streams mean adding a sensor never shifts another's noise. `.zbr` is a
 ZIP of a JSON manifest, columnar `npz` frames, sparse events and dirt
@@ -162,12 +163,12 @@ from changes.
 zimablue replay runs/example.zbr
 ```
 
-Playback runs at 0.25× to 25×, with pause, scrub, step and speed control. The
-cleaned swath is drawn *under* the dirt, so a patch the robot drove over but
-failed to clean still reads as dirty — exactly the failure worth seeing. Sonar
-beams, wall contacts, battery and filter fill are all on screen, and if the
-controller publishes a pose estimate it appears as an amber ghost drifting away
-from the true position.
+Playback runs at 0.25× to 25×, with pause, scrub, step and speed control; 1×
+plays the run at the speed it happened. The cleaned swath is drawn *under* the
+dirt, so a patch the robot drove over but failed to clean still looks dirty.
+Sonar beams, wall contacts, battery and filter fill are all on screen, and if
+the controller publishes a pose estimate it appears as an amber ghost drifting
+away from the true position.
 
 Headless? `zimablue replay run.zbr --gif out.gif`.
 
@@ -184,9 +185,9 @@ zimablue replay runs/example.zbr --dirtcam --gif out.gif
 ```
 
 Watching from above is calming. From 18 cm off the floor the same pool is a
-silt plain with leaves in it, which is a fair impression of what a cleaner is
-actually driving through. From above you see where the robot went; from down
-here you see what it left behind.
+silt plain with leaves in it, which is closer to what a cleaner is driving
+through. From above you see where the robot went; from down here you see what
+it left behind.
 
 It is inverse perspective mapping over the same dirt raster the metrics are
 computed from — one NumPy expression per frame across a grid of rays, no 3D
@@ -212,7 +213,7 @@ a sloped pool it really is metres lower at the deep end. The camera orbits
 slowly for parallax, and vertical scale is exaggerated about 3.6× because a
 12 m pool 2 m deep is otherwise a pancake.
 
-**This renders in 3D; it does not simulate in 3D.** The motion still comes from
+This renders in 3D; it does not simulate in 3D. The motion still comes from
 the 2D backend. A 3D *backend* — buoyancy, contact, wall climbing, cameras — is
 designed but not built, and the [roadmap](docs/roadmap.md) says so.
 
@@ -235,9 +236,9 @@ stops; the scrappier controllers keep going over the same adhered dirt, which
 is what actually removes it. Report only coverage and you get the order exactly
 backwards.
 
-Another result, less comfortable: **better localisation currently makes things
-worse.** Calibrating the odometry improves the mapping controller's position
-estimate fivefold and halves its coverage.
+Better localisation currently makes things worse. Calibrating the odometry
+improves the mapping controller's position estimate fivefold and halves its
+coverage.
 
 | `encoder_scale` | position error | coverage |
 |---|---|---|
@@ -270,10 +271,10 @@ real dirt: slow, expensive, impossible to repeat. Meanwhile Gazebo, MuJoCo and
 Isaac Sim each make *their engine* the API, so anything pool-specific you build
 cannot outlive the engine.
 
-ZimaBlue takes the opposite stance: **the domain model is the API.** Pools,
-dirt, cleaners, scenarios, recordings and metrics are ZimaBlue concepts. What
-integrates the equations is a swappable backend behind an interface — today a
-deterministic CPU-only 2D backend at ~50× real time.
+Here the domain model is the API. Pools, dirt, cleaners, scenarios, recordings
+and metrics are ZimaBlue concepts. Whatever integrates the equations sits
+behind an interface and can be swapped — today it is a deterministic CPU-only
+2D backend running at about 50× real time.
 
 ```
                          ZimaBlue domain API
@@ -294,15 +295,14 @@ deterministic CPU-only 2D backend at ~50× real time.
 
 A backend owns dynamics and sensing, nothing else. Dirt accounting, metrics and
 recording are computed by shared code from the state it returns, so a new
-backend inherits them and cannot redefine how they are measured. The acceptance
-test for the 3D backend is deliberately strict: **a `.zbr` it produces must
-replay in the 2D viewer.**
+backend inherits them and cannot redefine how they are measured. A `.zbr`
+written by the 3D backend will have to replay in the 2D viewer; that is the
+acceptance test.
 
 Pools, robots, dirt, controllers and backends are all registries, so adding one
-means writing a function rather than extending a branch. Issues and pull
-requests welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md), which is mostly
-about not breaking determinism and preferring a small real model to a large
-fake one.
+means writing a function. Issues and pull requests welcome — see
+[`CONTRIBUTING.md`](CONTRIBUTING.md), which is mostly about not breaking
+determinism and preferring a small real model to a large fake one.
 
 ## Read more
 
@@ -334,6 +334,18 @@ Every one takes `--minutes` if you want a shorter run.
 | [`batch_experiment.py`](examples/batch_experiment.py) | Run a scenario across seeds, then reproduce its worst episode exactly |
 | [`replay.py`](examples/replay.py) | Replay a recording flat, in 3D, from the bumper, or interactively |
 | [`tour.ipynb`](examples/tour.ipynb) | All of the above in one notebook, with the pool turnable in the browser |
+
+## Did you know?
+
+That sharp "chlorine" smell at a busy pool is mostly not chlorine, and the red
+stinging eyes are not chlorine's fault either. Chlorine reacts with what
+swimmers bring in with them — sweat, skin cells, sunscreen, and yes, pee — and
+the chloramines that come out of the reaction are what you smell and what
+stings. A pool that reeks is a pool that has been swum in. So shower first,
+and use the toilet before you get in.
+
+ZimaBlue models sand, algae, biofilm and leaves. Swimmers are out of scope.
+([CDC](https://www.cdc.gov/healthy-swimming/prevention/preventing-eye-irritation-from-pool-chemicals.html))
 
 ## License
 

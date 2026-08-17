@@ -160,11 +160,18 @@ Speeds: **0.25×, 0.5×, 1×, 2×, 5×, 10×, 25×**. Drag the slider to scrub;
 scrubbing pauses so the frame stays where you put it.
 
 A 30-minute run at 1× is thirty minutes of watching, so the player starts at
-8×. 25× exists because sometimes you only want the shape of the path.
+8×. Press `↓` to get down to 1× and the run plays at the speed it happened.
+25× exists because sometimes you only want the shape of the path.
 
-Speed changes the number of recorded frames consumed per rendered frame, not
-the render rate — 10× is genuinely ten times faster rather than ten times
-choppier.
+Speed changes how many recorded frames are consumed per rendered frame, so 10×
+is ten times faster and not ten times choppier. The position is tracked as a
+float and rounded only when a frame is drawn, which is what lets 0.25× be four
+times slower than real time instead of bottoming out at one frame per tick.
+
+The clock is the display's, not the wall's: if a frame takes longer than 33 ms
+to draw, playback slips behind. Exports do not have that problem, so
+`export_movie(rec, "out.gif", speed=1.0)` gives you a file exactly as long as
+the run — and, for half an hour of pool cleaning, exactly as long to watch.
 
 ## Headless
 

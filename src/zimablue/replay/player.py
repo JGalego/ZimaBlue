@@ -63,6 +63,7 @@ class ReplayPlayer:
         self._timer: Any = None
 
         self.dt = float(recording.manifest.get("timestep", 0.02))
+        self._cursor = 0.0
         self._build_controls()
 
     # ------------------------------------------------------------------
@@ -137,6 +138,7 @@ class ReplayPlayer:
 
     def _seek(self, index: int) -> None:
         self.index = int(np.clip(index, 0, self.recording.n_frames - 1))
+        self._cursor = float(self.index)
         self._scrubbing = True
         self.slider.set_val(self.index)
         self._scrubbing = False
@@ -148,16 +150,20 @@ class ReplayPlayer:
 
     # ------------------------------------------------------------------
     def _tick(self) -> None:
-        if not self.paused:
-            # Advance by however many recorded frames fit in one wall-clock
-            # frame at the current speed, so 10x really is ten times faster
-            # rather than ten times choppier.
-            step = max(1, round(self.speed / (TARGET_FPS * self.dt)))
-            nxt = self.index + step
-            if nxt >= self.recording.n_frames:
-                nxt = 0
-            self._seek(nxt)
-            self._refresh_status()
+        if self.paused:
+            return
+        # The position is kept as a float and only rounded when a frame is
+        # drawn.  Advancing by a whole number of frames per tick cannot go
+        # slower than one frame per tick, which used to make 1x play at 1.2x
+        # and everything below it play at 0.6x.
+        cursor = self._cursor + self.speed / (TARGET_FPS * self.dt)
+        if cursor >= self.recording.n_frames:
+            cursor = 0.0
+        index = int(cursor)
+        if index != self.index:
+            self._seek(index)
+        self._cursor = cursor
+        self._refresh_status()
 
     def show(self) -> None:
         """Open the window and block until it is closed."""
@@ -174,9 +180,17 @@ class ReplayPlayer:
 # Headless exporters
 # ----------------------------------------------------------------------
 def _frame_indices(recording: Recording, speed: float, fps: float) -> Sequence[int]:
+    """Which recorded frames to draw so the file plays back at ``speed``.
+
+    The stride is a float and is rounded once per frame, so ``speed=1.0``
+    yields a file as long as the run itself even when the stride is not a
+    whole number.  It cannot go below one recorded frame per drawn frame:
+    asking for slow motion gets you real time.
+    """
     dt = float(recording.manifest.get("timestep", 0.02))
-    step = max(1, round(speed / (fps * dt)))
-    return range(0, recording.n_frames, step)
+    stride = max(speed / (fps * dt), 1.0)
+    count = max(int(recording.n_frames / stride), 1)
+    return [int(i * stride) for i in range(count)]
 
 
 def export_movie(

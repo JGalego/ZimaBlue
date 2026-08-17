@@ -121,6 +121,26 @@ def test_faster_playback_takes_bigger_steps(player):
     assert player.index > slow
 
 
+@pytest.mark.parametrize("speed", [0.25, 0.5, 1.0, 2.0, 10.0])
+def test_a_second_of_ticks_advances_a_second_of_recording(player, speed):
+    """1x has to mean 1x, and the slow speeds have to be slower than it.
+
+    Ticking a whole number of frames at a time cannot advance less than one
+    frame per tick, so every speed at or below 1x used to play at the same
+    0.6x. The position is a float now and only rounds when a frame is drawn.
+    """
+    from zimablue.replay.player import TARGET_FPS
+
+    player.paused = False
+    player.speed = speed
+    player._seek(0)
+    for _ in range(int(TARGET_FPS)):
+        player._tick()
+
+    expected = speed / player.dt  # frames of recording in one second of wall clock
+    assert player.index == pytest.approx(expected, rel=0.02, abs=1)
+
+
 def test_scrubbing_the_slider_pauses_and_moves(player):
     player.paused = False
     player._on_scrub(120.0)
