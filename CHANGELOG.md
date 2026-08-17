@@ -11,6 +11,10 @@ understand.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] — 2026-08-17
+
 ### Added
 - `trace_pool(..., segmenter=...)`: the water mask is pluggable. The colour
   rules stay the default and need nothing installed.
@@ -165,5 +169,6 @@ reproducible, scored replay.
 - Wall climbing is not simulated; wall coverage is tracked as an unrolled
   perimeter visit record.
 
-[Unreleased]: https://github.com/JGalego/ZimaBlue/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/JGalego/ZimaBlue/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/JGalego/ZimaBlue/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JGalego/ZimaBlue/releases/tag/v0.1.0

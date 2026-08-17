@@ -103,9 +103,10 @@ packages = ["src/zimablue"]
 "scenarios" = "zimablue/data/scenarios"
 
 [tool.hatch.build.targets.sdist]
-# The rendered GIFs are 4 MB and are only there for the README on GitHub.
-# Nobody needs them inside a source distribution.
-exclude = ["docs/assets", "runs", ".github"]
+# The rendered GIFs are 4 MB and the executed tour notebook is 1.5 MB of
+# stored plot images -- together, most of a source distribution, for files
+# nobody reads out of a tarball. Both are one click away on GitHub.
+exclude = ["docs/assets", "runs", ".github", "examples/tour.ipynb"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
