@@ -12,6 +12,23 @@ understand.
 ## [Unreleased]
 
 ### Added
+- **Pools from drawings**: `zb.pool_from_sketch("napkin.jpg", width=9.0)`. A
+  `SketchSegmenter` that satisfies the existing `Segmenter` protocol, so
+  everything downstream of "which pixels are pool" -- region picking, hole
+  filling, tracing, scale, simplify, smooth -- is the same code the photograph
+  path uses.
+
+  Three things make a drawing hard and each is handled: a lifted pen leaves
+  gaps in the outline (the stroke is dilated to bridge them), sketches have
+  arrows and labels inside the outline (filling inward from the page border
+  includes them, which is correct), and a phone photo of paper has a shadow
+  across it (the threshold is local).
+
+  Filling from the border rather than from a seed also decides *how it fails*.
+  A seed fill leaks through an unclosed gap and returns the whole page as one
+  enormous pool. A border fill returns almost nothing instead -- and that is
+  detectable, so an outline that did not close is an error naming the setting
+  to raise rather than a pool the size of the photograph.
 - **`zimablue.dynamics`**: analysis of how a controller *behaves*, rather than
   what a run achieved. Reads finished recordings; needs nothing installed.
   - `return_map` — the Poincaré section on the pool wall, and the periodic

@@ -88,6 +88,7 @@ from zimablue.sensors import (
     Sonar,
 )
 from zimablue.simulation import RunResult, Simulation
+from zimablue.sketch import SketchSegmenter, pool_from_sketch, trace_sketch
 from zimablue.world import World
 
 __all__ = [
@@ -151,6 +152,7 @@ __all__ = [
     "SensorFault",
     "SensorSuite",
     "Simulation",
+    "SketchSegmenter",
     "Skimmer",
     "Sonar",
     "SpatialMetrics",
@@ -166,7 +168,9 @@ __all__ = [
     "make_pool",
     "make_robot",
     "pool_from_image",
+    "pool_from_sketch",
     "preview",
     "run_batch",
     "trace_pool",
+    "trace_sketch",
 ]

@@ -46,6 +46,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 |---|---|---|
 | 🏊 | **Pools** | Eight presets, or your own Shapely outline with a pluggable depth model. Drains, skimmers, stairs and obstacles come out of the navigable area. |
 | 📷 | **Pools from photographs** | Point it at a picture of a real pool and get a model. Colour rules by default, or [SAM](docs/ml.md) if you have a checkpoint. |
+| ✏️ | **Pools from drawings** | Sketch one on a napkin or in a paint program and trace it. Copes with a lifted pen, notes scribbled inside the outline, and the shadow across a photo of paper. |
 | 🤖 | **Cleaners** | Composed from chassis, drive, cleaning head and power. Three presets; a custom robot needs no changes to ZimaBlue. |
 | 🎨 | **Cleaner designs** | Seven silhouettes so a domed suction unit does not look like a quad-brush commercial machine. Drawing only — the physics is the chassis. |
 | 📡 | **Sensors that lie** | Encoders, IMU, pressure, bump switches, sonar, all through one noise, bias, latency, dropout and saturation pipeline. Faults on a schedule. |
