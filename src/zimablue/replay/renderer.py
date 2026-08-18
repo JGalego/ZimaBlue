@@ -12,7 +12,7 @@ and ``import zimablue`` never pulls in a GUI stack.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -20,6 +20,7 @@ import numpy as np
 from zimablue.geometry import Grid
 from zimablue.pool import Pool
 from zimablue.recording import Recording
+from zimablue.robot.design import CleanerDesign, make_design
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from matplotlib.axes import Axes
@@ -59,6 +60,11 @@ class Scene:
     swath: float
     sonar_angles: tuple[float, ...]
     sonar_max_range: float
+    design: CleanerDesign = field(default_factory=lambda: make_design(None))
+    """How the cleaner is drawn. Recordings written before designs existed do
+    not carry one and get the default."""
+
+    robot_height: float = 0.26
 
 
 def load_scene(recording: Recording) -> Scene:
@@ -97,15 +103,18 @@ def load_scene(recording: Recording) -> Scene:
             max_range = float(sensor.get("params", {}).get("max_range", 3.0))
             break
 
+    design_cfg = robot_cfg.get("design")
     return Scene(
         pool=pool,
         grid=pool.grid(cell),
         navigable=pool.navigable_mask(cell),
         robot_length=float(chassis.get("length", 0.42)),
         robot_width=float(chassis.get("width", 0.38)),
+        robot_height=float(chassis.get("height", 0.26)),
         swath=float(swath),
         sonar_angles=angles,
         sonar_max_range=max_range,
+        design=CleanerDesign.from_dict(design_cfg) if design_cfg else make_design(None),
     )
 
 
@@ -326,17 +335,35 @@ class ReplayRenderer:
         ax.add_collection(self._rays)
 
         # --- robot -------------------------------------------------------------
-        self._body = mpatches.FancyBboxPatch(
-            (-scene.robot_length / 2, -scene.robot_width / 2),
-            scene.robot_length,
-            scene.robot_width,
-            boxstyle="round,pad=0,rounding_size=0.08",
-            facecolor=PALETTE["hull"],
-            edgecolor="#05090e",
-            linewidth=1.2,
-            zorder=9,
-        )
-        ax.add_patch(self._body)
+        # Drawn from the cleaner's design rather than as a generic box, so a
+        # domed suction unit and a quad-brush commercial machine are telling
+        # apart at a glance. Every piece is one patch in the robot's own frame,
+        # moved by a single affine transform per frame.
+        design = scene.design
+        scale = np.array([scene.robot_length, scene.robot_width])
+        self._parts = []
+        hull_patch = None
+        for part in design.drawable():
+            patch = mpatches.Polygon(
+                np.asarray(part.outline, dtype=float) * scale,
+                closed=True,
+                facecolor=part.colour,
+                edgecolor="#05090e" if part.name == "hull" else "none",
+                linewidth=1.2 if part.name == "hull" else 0.0,
+                alpha=part.alpha,
+                zorder=9 + 0.01 * (part.z + 100),
+            )
+            ax.add_patch(patch)
+            # Parts are clipped to the hull, so a brush bar drawn a little wide
+            # reads as reaching the edge of the machine rather than floating
+            # off it. It also means a design can be written with round numbers
+            # instead of solving for where the hull curve is at each station.
+            if hull_patch is None:
+                hull_patch = patch
+            else:
+                patch.set_clip_path(hull_patch)
+            self._parts.append(patch)
+
         self._nose = ax.plot([], [], color=PALETTE["accent"], linewidth=2.4, zorder=10)[0]
         self._brush = ax.plot([], [], marker="o", markersize=6, color=PALETTE["accent"], zorder=10)[
             0
@@ -505,7 +532,8 @@ class ReplayRenderer:
         import matplotlib.transforms as mtransforms
 
         transform = mtransforms.Affine2D().rotate(heading).translate(x, y) + self.ax.transData
-        self._body.set_transform(transform)
+        for patch in self._parts:
+            patch.set_transform(transform)
         nose = scene.robot_length * 0.62
         self._nose.set_data([x, x + np.cos(heading) * nose], [y, y + np.sin(heading) * nose])
         self._brush.set_data(

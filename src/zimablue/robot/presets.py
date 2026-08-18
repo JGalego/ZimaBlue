@@ -55,6 +55,7 @@ def tracked() -> Cleaner:
     motor = Motor(max_speed=0.32, max_accel=0.9, efficiency=0.72, idle_power=0.6)
     return Cleaner(
         name="tracked",
+        design="tracked",
         chassis=Chassis(length=0.42, width=0.38, height=0.26, mass=9.5, displacement=0.0075),
         locomotion=Locomotion(
             left=DriveUnit(name="left", motor=motor, tracked=True, contact_length=0.22),
@@ -83,6 +84,7 @@ def compact() -> Cleaner:
     motor = Motor(max_speed=0.26, max_accel=1.2, efficiency=0.65, idle_power=0.4, stall_force=28.0)
     return Cleaner(
         name="compact",
+        design="compact",
         chassis=Chassis(length=0.33, width=0.30, height=0.22, mass=6.0, displacement=0.0048),
         locomotion=Locomotion(
             left=DriveUnit(name="left", motor=motor, tracked=False, contact_length=0.10),
@@ -112,6 +114,7 @@ def heavy_duty() -> Cleaner:
     motor = Motor(max_speed=0.36, max_accel=0.7, efficiency=0.78, idle_power=1.0, stall_force=80.0)
     return Cleaner(
         name="heavy_duty",
+        design="heavy_duty",
         chassis=Chassis(length=0.55, width=0.48, height=0.32, mass=16.0, displacement=0.0125),
         locomotion=Locomotion(
             left=DriveUnit(name="left", motor=motor, tracked=True, contact_length=0.30),

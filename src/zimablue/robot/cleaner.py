@@ -27,6 +27,7 @@ from zimablue.robot.components import (
     Locomotion,
     PowerSystem,
 )
+from zimablue.robot.design import CleanerDesign, make_design
 from zimablue.sensors.base import Sensor
 from zimablue.sensors.suite import SensorSuite
 
@@ -45,12 +46,17 @@ class Cleaner:
         cleaning: CleaningSystem | None = None,
         power: PowerSystem | None = None,
         sensors: list[Sensor] | tuple[Sensor, ...] | SensorSuite | None = None,
+        design: CleanerDesign | str | None = None,
     ) -> None:
         self.name = name
         self.chassis = chassis if chassis is not None else Chassis()
         self.locomotion = locomotion if locomotion is not None else Locomotion()
         self.cleaning = cleaning if cleaning is not None else CleaningSystem()
         self.power = power if power is not None else PowerSystem()
+        # Cosmetic only. Nothing downstream of here reads it except the
+        # renderers -- collision uses the chassis rectangle, cleaning uses
+        # the swath width. A drawing that changed the metrics would be a trap.
+        self.design = make_design(design)
         if isinstance(sensors, SensorSuite):
             self.sensors = sensors
         else:
@@ -117,6 +123,7 @@ class Cleaner:
             "cleaning": self.cleaning.to_dict(),
             "power": self.power.to_dict(),
             "sensors": self.sensors.specs(),
+            "design": self.design.to_dict(),
         }
 
     @classmethod
@@ -128,6 +135,9 @@ class Cleaner:
             cleaning=CleaningSystem.from_dict(data["cleaning"]),
             power=PowerSystem.from_dict(data["power"]),
             sensors=SensorSuite.from_specs(data.get("sensors", [])),
+            # Recordings written before designs existed simply have no key,
+            # and get the default rather than failing to open.
+            design=CleanerDesign.from_dict(data["design"]) if data.get("design") else None,
         )
 
     def describe(self) -> str:

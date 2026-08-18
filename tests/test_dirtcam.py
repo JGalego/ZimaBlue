@@ -100,8 +100,8 @@ def test_near_debris_is_bigger_on_screen_than_far_debris(recording):
     outline = next(iter(cam._outlines().values()))
     extent = np.ptp(outline, axis=0).max()
 
-    near = cam._project(np.array([0.4, 0.4 + extent]), np.array([0.0, 0.0]))
-    far = cam._project(np.array([3.0, 3.0 + extent]), np.array([0.0, 0.0]))
+    near = cam.project(np.array([0.4, 0.4 + extent]), np.array([0.0, 0.0]))
+    far = cam.project(np.array([3.0, 3.0 + extent]), np.array([0.0, 0.0]))
     assert abs(near[1][1] - near[1][0]) > abs(far[1][1] - far[1][0])
 
 

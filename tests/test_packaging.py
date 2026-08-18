@@ -136,6 +136,30 @@ def test_importing_zimablue_does_not_import_pillow():
     assert out.stdout.strip() == "False"
 
 
+def test_every_readme_anchor_points_at_a_real_heading():
+    """A table of contents rots the first time a heading is renamed.
+
+    GitHub silently scrolls nowhere for a dead anchor, so nothing complains
+    except the reader.
+    """
+    text = (ROOT / "README.md").read_text()
+
+    def slug(heading: str) -> str:
+        cleaned = re.sub(r"[^\w\s-]", "", heading.lower().strip())
+        return re.sub(r"\s+", "-", cleaned)
+
+    headings = {slug(m.group(2)) for m in re.finditer(r"^(#{2,3})\s+(.*)$", text, re.M)}
+    dead = [a for a in re.findall(r"\]\(#([^)]+)\)", text) if a not in headings]
+    assert not dead, f"README links to headings that do not exist: {dead}"
+
+
+def test_the_readme_lists_every_replay_camera():
+    """Four cameras now. A view nobody can find is a view nobody uses."""
+    text = (ROOT / "README.md").read_text()
+    for flag in ("--chase", "--dirtcam", "--3d"):
+        assert flag in text, f"{flag} is not mentioned in the README"
+
+
 def test_the_hardware_module_needs_nothing_installed():
     """It runs on a robot. A robot is the last place you want a dependency tree.
 

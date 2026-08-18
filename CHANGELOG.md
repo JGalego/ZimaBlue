@@ -12,6 +12,28 @@ understand.
 ## [Unreleased]
 
 ### Added
+- **Chase cam**: `zimablue replay run.zbr --chase`. A metre behind the robot
+  and half a metre up — the view that shows the machine *and* what it is
+  leaving behind, which neither the top-down view nor the dirt cam does. The
+  camera's heading lags the robot's, so a turn reads as the robot swinging
+  across frame rather than as the pool rotating.
+- **Cleaner designs**: `CleanerDesign`, `Part`, and seven archetypes —
+  `tracked`, `compact`, `heavy_duty`, `domed`, `flat_scrubber`, `quad_brush`,
+  `suction_disc`. Both the top-down view and the chase cam draw the robot from
+  its design, so a domed suction unit no longer looks like a quad-brush
+  commercial machine. Coordinates are normalised and scaled by the chassis, so
+  any design fits any robot, and the design rides inside the `.zbr`.
+
+  Purely cosmetic, and tested to be: a run scores identically whichever design
+  it wears. Physics reads `Chassis` and only `Chassis`.
+- `zimablue.replay.floorcam.FloorCamera`, the inverse-perspective renderer both
+  underwater cameras share. They differ in where the camera sits and in nothing
+  else — two cameras that disagreed about how far away a leaf was would be two
+  simulators wearing one name.
+- `FloorCamera.project(..., height=)` projects points off the floor, which is
+  what lets the chase cam draw a robot with thickness. At `height=0` it reduces
+  exactly to the floor-only form it replaces, and there is a test that says so.
+- `zimablue list` includes the designs.
 - `zimablue.hardware`: the control loop with no simulator underneath it. A
   controller written against `Simulation` runs on a robot unmodified, because
   `ControlInput` and `DriveCommand` were always the entire contract. Standard

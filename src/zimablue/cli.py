@@ -243,6 +243,10 @@ def replay(
         bool,
         typer.Option("--dirtcam", help="Render from the cleaner's bumper (file output only)."),
     ] = False,
+    chase_cam: Annotated[
+        bool,
+        typer.Option("--chase", help="Render from behind the cleaner (file output only)."),
+    ] = False,
     map_panel: Annotated[
         bool,
         typer.Option("--map/--no-map", help="Keep the top-down panel beside the dirt cam."),
@@ -258,31 +262,48 @@ def replay(
             str(exc), "make one with: zimablue demo  or  zimablue run <scenario> --record out.zbr"
         )
 
-    if three_d and dirt_cam:
+    # Four cameras and counting, so check them as a set rather than pairwise:
+    # the ad-hoc "if a and b" grew a hole the moment a third one arrived.
+    cameras = {"--3d": three_d, "--dirtcam": dirt_cam, "--chase": chase_cam}
+    chosen = [flag for flag, on in cameras.items() if on]
+    if len(chosen) > 1:
         _fail(
-            "--3d and --dirtcam are two different cameras.",
-            "pick one: --3d looks down at the basin, --dirtcam looks out from the robot",
+            f"{' and '.join(chosen)} are different cameras.",
+            "pick one: --3d looks down at the basin, --chase follows from behind, "
+            "--dirtcam looks out from the robot itself",
         )
 
     if gif is not None or summary is not None or frames is not None or not three_d:
         _guard_viz()
 
-    if dirt_cam:
+    if dirt_cam or chase_cam:
+        which = "--dirtcam" if dirt_cam else "--chase"
+        where = "from the bumper" if dirt_cam else "from behind"
         if gif is None and summary is None:
             _fail(
-                "the dirt cam renders to a file, not an interactive window.",
-                "try: zimablue replay run.zbr --dirtcam --gif dirtcam.gif",
+                f"{which} renders to a file, not an interactive window.",
+                f"try: zimablue replay run.zbr {which} --gif out.gif",
             )
         if gif is not None:
-            from zimablue.replay import export_dirtcam
+            with console.status(f"rendering {gif} {where}..."):
+                if dirt_cam:
+                    from zimablue.replay import export_dirtcam
 
-            with console.status(f"rendering {gif} from the bumper..."):
-                export_dirtcam(rec, gif, speed=max(speed * 10, 60.0), with_map=map_panel)
+                    export_dirtcam(rec, gif, speed=max(speed * 10, 60.0), with_map=map_panel)
+                else:
+                    from zimablue.replay import export_chasecam
+
+                    export_chasecam(rec, gif, speed=max(speed * 10, 60.0))
             console.print(f"[green]wrote[/green] {gif}")
         if summary is not None:
-            from zimablue.replay import export_dirtcam_frames
+            if dirt_cam:
+                from zimablue.replay import export_dirtcam_frames
 
-            export_dirtcam_frames(rec, summary)
+                export_dirtcam_frames(rec, summary)
+            else:
+                from zimablue.replay import export_chasecam_frames
+
+                export_chasecam_frames(rec, summary)
             console.print(f"[green]wrote[/green] {summary}")
         return
 
@@ -525,7 +546,7 @@ def list_presets() -> None:
     from zimablue.controllers.base import CONTROLLERS
     from zimablue.dirt import DIRT_PRESETS
     from zimablue.pool import POOL_PRESETS
-    from zimablue.robot import ROBOT_PRESETS
+    from zimablue.robot import DESIGNS, ROBOT_PRESETS
 
     console.print(Panel(BANNER, border_style="cyan"))
     table = Table(box=None)
@@ -534,6 +555,7 @@ def list_presets() -> None:
     for label, registry in (
         ("pools", POOL_PRESETS),
         ("robots", ROBOT_PRESETS),
+        ("designs", DESIGNS),
         ("dirt", DIRT_PRESETS),
         ("controllers", CONTROLLERS),
         ("backends", BACKENDS),

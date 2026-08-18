@@ -40,6 +40,39 @@ zimablue demo
 
 No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 
+## What's in it
+
+| | | |
+|---|---|---|
+| 🏊 | **Pools** | Six presets, or your own Shapely outline with a pluggable depth model. Drains, skimmers, stairs and obstacles come out of the navigable area. |
+| 📷 | **Pools from photographs** | Point it at a picture of a real pool and get a model. Colour rules by default, or [SAM](docs/ml.md) if you have a checkpoint. |
+| 🤖 | **Cleaners** | Composed from chassis, drive, cleaning head and power. Three presets; a custom robot needs no changes to ZimaBlue. |
+| 🎨 | **Cleaner designs** | Seven silhouettes so a domed suction unit does not look like a quad-brush commercial machine. Drawing only — the physics is the chassis. |
+| 📡 | **Sensors that lie** | Encoders, IMU, pressure, bump switches, sonar, all through one noise, bias, latency, dropout and saturation pipeline. Faults on a schedule. |
+| 🍂 | **Dirt that behaves** | Density, grain size, adhesion and pickup difficulty, settling by Ferguson & Church rather than Stokes. Seven scenarios from `clean` to `neglected_pool`. |
+| 🧭 | **Controllers** | Boustrophedon coverage, random bounce, an EKF-and-occupancy-map planner, and two ground-truth oracles to bound the problem. |
+| 📊 | **Metrics that disagree** | Coverage and cleanliness scored separately, each with a spatial companion. The whole point is that they rank controllers differently. |
+| 🎬 | **Four ways to watch** | Top down, [chase cam](docs/replay.md), the [dirt cam](docs/replay.md) from the robot's own bumper, and a 3D basin. GIF, MP4 or an interactive window. |
+| 💾 | **Reproducible recordings** | The `.zbr` format: same version, platform, scenario and seed gives a bit-identical run. Inspect it with `np.load` and no ZimaBlue. |
+| 🧪 | **Experiments** | YAML scenarios, batch sweeps across seeds, aggregate stats, worst-episode reproduction, CSV and JSON out. |
+| 🕹️ | **A Gymnasium environment** | Train a policy against the same simulator, then run it as an ordinary controller so it is scored like every other one. |
+| 🔌 | **Runs on real hardware** | The control loop with no simulator underneath: sensor adapters, a wheel-speed loop, a watchdog. Writes the same `.zbr`. See [on a robot](docs/hardware.md). |
+| 📈 | **Checked against a real robot** | The pose estimator scored against a Pioneer 3-DX's logged trajectory, not only against motion we generated ourselves. |
+
+## Contents
+
+- [Build a pool](#build-a-pool)
+- [Add a cleaner](#add-a-cleaner) — [make it look like yours](#make-it-look-like-yours)
+- [Make it dirty](#make-it-dirty)
+- [Run it](#run-it)
+- [Watch it](#watch-it) — [from behind](#from-behind), [from the bumper](#from-the-bumper), [in 3D](#in-3d)
+- [Measure it](#measure-it)
+- [Check it against a real robot](#check-it-against-a-real-robot)
+- [Scale it](#scale-it)
+- [Extend it](#extend-it)
+- [Read more](#read-more)
+- [Did you know?](#did-you-know)
+
 ## Build a pool
 
 ```python
@@ -105,6 +138,42 @@ robot.sensors.sonar.inject_fault(
     start_time=300.0,  # ...starting five minutes in
 )
 ```
+
+### Make it look like yours
+
+<div align="center">
+<img src="docs/assets/designs.png" alt="Seven cleaner silhouettes seen from above: compact, domed, flat scrubber, heavy duty, quad brush, suction disc and tracked" width="820">
+</div>
+
+```python
+robot = zb.make_robot("tracked")
+robot.design = zb.make_design("quad_brush")
+```
+
+Seven archetypes, named by form rather than by product, because the form is
+the useful abstraction and a library has no business shipping traced outlines
+of somebody's industrial design. To match a specific machine, measure it:
+
+```python
+from zimablue.robot import CleanerDesign, Part
+from zimablue.robot.design import ellipse, bar
+
+mine = zb.Cleaner(
+    name="mine",
+    design=CleanerDesign(
+        name="mine",
+        body=ellipse(0.5, 0.44),
+        parts=(Part(bar(0.34, 0.30, 0.09), colour="#3ddcff", lift=0.05, name="brush"),),
+    ),
+)
+```
+
+Coordinates run −0.5 to 0.5 and are scaled by the chassis, so any design fits
+any robot. **It is a drawing and nothing else.** Collision uses the chassis
+rectangle, cleaning uses the swath width, traction uses the mass — swapping a
+design changes every rendered pixel and not one number in the metrics. A
+drawing that quietly moved the results would be the worst kind of bug, so
+there is a test that a run scores identically whichever design it wears.
 
 ## Make it dirty
 
@@ -182,6 +251,29 @@ the controller publishes a pose estimate it appears as an amber ghost drifting
 away from the true position.
 
 Headless? `zimablue replay run.zbr --gif out.gif`.
+
+### From behind
+
+<div align="center">
+<img src="docs/assets/chase.gif" alt="Chase cam: the cleaner seen from a metre behind, working across a tiled pool floor with dirt ahead of it" width="720">
+
+<sub>Chase cam. Close enough to see the brushes, far enough to see the swath.</sub>
+</div>
+
+```bash
+zimablue replay runs/example.zbr --chase --gif out.gif
+```
+
+The other two views each hide something. From above the robot is a postage
+stamp, so you read the path and lose the machine. From the bumper you never see
+the machine at all. A metre back and half a metre up you get both, and because
+the robot is now in front of the camera it has to be drawn — from its own
+design, so a domed suction unit and a quad-brush commercial machine look like
+different machines.
+
+The camera follows with lag. Bolt it rigidly and a turn reads as the *pool*
+rotating, which is disorienting and wrong; let its heading chase the robot's
+and the turn reads as the robot swinging across frame.
 
 ### From the bumper
 

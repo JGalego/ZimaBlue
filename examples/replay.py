@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Record a run, then replay it -- flat, in 3D, from the bumper, or interactively.
+"""Record a run, then replay it from every camera the library has.
 
     python examples/replay.py            # summary image
     python examples/replay.py --gif      # animated GIF too
     python examples/replay.py --3d       # the pool as a basin with real depth
+    python examples/replay.py --chase    # from a metre behind the cleaner
     python examples/replay.py --dirtcam  # the view from the cleaner itself
     python examples/replay.py --watch    # open the interactive player
 
@@ -22,6 +23,8 @@ from zimablue.recording import Recording
 from zimablue.replay import (
     export_3d_frames,
     export_3d_movie,
+    export_chasecam,
+    export_chasecam_frames,
     export_dirtcam,
     export_dirtcam_frames,
     export_movie,
@@ -38,6 +41,11 @@ def main() -> None:
         dest="three_d",
         action="store_true",
         help="render the pool as a 3D basin built from its depth model",
+    )
+    parser.add_argument(
+        "--chase",
+        action="store_true",
+        help="render from a metre behind the cleaner, with the cleaner in shot",
     )
     parser.add_argument(
         "--dirtcam",
@@ -87,6 +95,18 @@ def main() -> None:
             print("rendering the 3D animation (slower -- it rebuilds the floor each frame)...")
             export_3d_movie(recording, gif3d, speed=200.0, fps=12, dpi=54)
             print(f"3d gif   {gif3d}")
+
+    if args.chase:
+        # The camera unbolted from the robot and floated behind it, so the
+        # machine itself is in shot -- drawn from its own design.
+        sheet = args.out / "replay_example_chase.png"
+        export_chasecam_frames(recording, sheet, count=3)
+        print(f"chase    {sheet}")
+        if args.gif:
+            chase_gif = args.out / "replay_example_chase.gif"
+            print("rendering the chase cam...")
+            export_chasecam(recording, chase_gif, speed=120.0)
+            print(f"chase gif {chase_gif}")
 
     if args.dirtcam:
         # Same recording, same dirt field, a camera 18 cm off the floor. The

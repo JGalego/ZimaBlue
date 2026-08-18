@@ -225,6 +225,7 @@ robot has to replay in the ordinary viewer.
 | a pool shape | a function returning `Pool` | `@pool_preset("name")` |
 | a robot | compose `Cleaner(...)` | `@robot_preset("name")` |
 | a sensor | subclass `Sensor` | pass into `Cleaner(sensors=[...])` |
+| how a cleaner looks | build a `CleanerDesign` | `@DESIGNS.register("name")` |
 | a dirt scenario | a function returning `DirtSpec` | `@dirt_preset("name")` |
 | a controller | satisfy `Controller` | `@controller_preset("name")` |
 | a backend | satisfy `SimulationBackend` | `@backend("name")` |

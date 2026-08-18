@@ -44,6 +44,8 @@ Shipped on `main` and not yet tagged. Same bar: implemented, tested, runnable.
 | ✅ | `dirt_oracle` — the cleaning-side counterpart to the lawnmower | done |
 | ✅ | `zimablue.hardware` — the control loop with no simulator under it | done |
 | ✅ | Estimator scored against a real robot's logged trajectory | done |
+| ✅ | Chase cam — the view from behind, with the machine in shot | done |
+| ✅ | `CleanerDesign` — seven silhouettes, drawing only | done |
 
 ## v0.2 — depth
 

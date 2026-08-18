@@ -75,6 +75,41 @@ so it is rotated into world coordinates for display. Any controller can join in
 by growing a `telemetry()` method returning `est_x`, `est_y` and `est_heading`;
 those become `ctl.*` channels in the recording.
 
+## Chase cam
+
+```bash
+zimablue replay run.zbr --chase --gif out.gif      # animation
+zimablue replay run.zbr --chase --summary out.png  # contact sheet
+```
+
+```python
+from zimablue.replay import ChaseCam, ChaseCamConfig, export_chasecam, render_chasecam
+```
+
+A metre behind the robot and half a metre up. The top-down view shows the path
+and a machine the size of a postage stamp; the dirt cam shows what the machine
+sees and never the machine. This is the one that shows both — close enough to
+see the brushes turning, far enough to see the clean stripe opening up behind.
+
+Because the robot is now in front of the camera it has to be drawn, and what
+gets drawn is the cleaner's own
+[design](../src/zimablue/robot/design.py): the hull extruded to give it
+thickness, the parts at their own heights, and a contact shadow so it sits on
+the floor instead of floating over it. Two polygon fills and a brightness
+multiply — there is no lighting model, and calling it one would be generous.
+
+`ChaseCamConfig` adds `distance`, `lag` and `shadow` to the shared settings.
+`lag` is the one that matters: bolt the camera rigidly to the robot and a turn
+reads as the *pool* rotating, which is disorienting and wrong. Letting the
+camera's heading chase the robot's — a fifth of a second by default — makes a
+turn read as the robot swinging across frame with the camera easing after it.
+
+The lag filter runs over the whole recording at construction rather than per
+frame. It is a recurrence, so evaluating frame 900 alone would need the 899
+before it anyway, and doing that per frame turns a scrub into an O(n²) wait.
+The heading is unwrapped first, or every pass through ±π sends the camera the
+long way round.
+
 ## Dirt cam
 
 ```bash
@@ -98,6 +133,12 @@ The technique is inverse perspective mapping. Each output pixel is a ray cast
 through the floor plane; where it lands, the dirt raster is sampled. The whole
 frame is one vectorised NumPy expression over a precomputed grid of rays --
 no mesh, no z-buffer, no engine.
+
+Both underwater cameras are the same renderer,
+[`FloorCamera`](../src/zimablue/replay/floorcam.py), differing in exactly one
+thing: where the camera sits. That is not tidiness for its own sake -- two
+cameras that disagreed about how far away a leaf was would be two different
+simulators wearing one name.
 
 Tunable through `DirtCamConfig`: frame size, `camera_height`, `pitch`, `fov`,
 `far` and the grout `tile` pitch. The floor texture is locked to world
