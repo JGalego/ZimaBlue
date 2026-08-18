@@ -40,19 +40,22 @@ def _arc(
     start: tuple[float, float],
     end: tuple[float, float],
     ccw: bool,
-    n: int = 192,
+    step: float = 0.06,
 ) -> FloatArray:
     """Points along the circular arc of ``radius`` about ``centre``.
 
     Runs from ``start`` to ``end`` the short way round if ``ccw`` matches the
     sense of the turn, the long way otherwise.  Both endpoints are assumed to
     lie on the circle; only their bearings are used.
+
+    ``step`` is a spacing in metres rather than a point count, so arcs of very
+    different radii come out at the same density and the ring is uniform.
     """
     cx, cy = centre
     a0 = np.arctan2(start[1] - cy, start[0] - cx)
     a1 = np.arctan2(end[1] - cy, end[0] - cx)
     sweep = (a1 - a0) % (2 * np.pi) if ccw else -((a0 - a1) % (2 * np.pi))
-    t = np.linspace(a0, a0 + sweep, n)
+    t = np.linspace(a0, a0 + sweep, max(8, int(round(abs(sweep) * radius / step))))
     return np.column_stack([cx + radius * np.cos(t), cy + radius * np.sin(t)])
 
 
