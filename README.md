@@ -52,6 +52,8 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 | 📡 | **Sensors that lie** | Encoders, IMU, pressure, bump switches, sonar, all through one noise, bias, latency, dropout and saturation pipeline. Faults on a schedule. |
 | 🍂 | **Dirt that behaves** | Density, grain size, adhesion and pickup difficulty, settling by Ferguson & Church rather than Stokes. Seven scenarios from `clean` to `neglected_pool`. |
 | 🧭 | **Controllers** | Boustrophedon coverage, random bounce, an EKF-and-occupancy-map planner, and two ground-truth oracles to bound the problem. |
+| 🗺️ | **Coverage path planning** | The classical literature, implemented: eight offline decompositions and ten online rules, from Spiral-STC to a spectral ergodic controller. See [planners](docs/planners.md). |
+| ⚖️ | **Compared on twelve axes** | Coverage, overlap, turning, the worst gap left behind, anytime behaviour, energy. No single winner, and a matrix plot that shows why. |
 | 📊 | **Metrics that disagree** | Coverage and cleanliness scored separately, each with a spatial companion. The whole point is that they rank controllers differently. |
 | 🎬 | **Four ways to watch** | Top down, [chase cam](docs/replay.md), the [dirt cam](docs/replay.md) from the robot's own bumper, and a 3D basin. GIF, MP4 or an interactive window. |
 | 💾 | **Reproducible recordings** | The `.zbr` format: same version, platform, scenario and seed gives a bit-identical run. Inspect it with `np.load` and no ZimaBlue. |
@@ -67,6 +69,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 - [Add a cleaner](#add-a-cleaner) — [make it look like yours](#make-it-look-like-yours)
 - [Make it dirty](#make-it-dirty)
 - [Run it](#run-it)
+- [Plan it](#plan-it)
 - [Watch it](#watch-it) — [from behind](#from-behind), [from the bumper](#from-the-bumper), [in 3D](#in-3d)
 - [Measure it](#measure-it)
 - [Check it against a real robot](#check-it-against-a-real-robot)
@@ -236,6 +239,44 @@ ZIP of a JSON manifest, columnar `npz` frames, sparse events and dirt
 keyframes — unzip it and read it with `numpy.load`. Pool geometry and robot
 config are embedded, so a recording stays replayable after the preset it came
 from changes.
+
+## Plan it
+
+Eighteen coverage planners, which is most of the single-robot literature.
+Eight are **offline** — given the pool, they compute a whole route — and ten
+are **online**, deciding the next move from what the sensors just said.
+
+```python
+from zimablue.planners import PathFollower
+
+zb.Simulation(pool="kidney", controller="bsa").run(minutes=20)
+zb.Simulation(pool="kidney", controller=PathFollower("morse"),
+              expose_truth=True).run(minutes=20)
+```
+
+The online ones share everything except the decision. One base class owns the
+EKF, the occupancy grid, the bump recovery and the driving; each algorithm
+implements one method that returns the next cell. If they each had their own
+motion layer, a difference in coverage could always be the motion layer's
+fault.
+
+Following a plan is not free, and `PathFollower` is where the bill arrives.
+Drive it from the true pose and you have measured the *route*; drive it from
+dead reckoning and you have measured the route plus the localisation. On the
+rectangular pool `sweep_optimal` reaches 70.5% on truth and 49.6% on odometry
+— twenty-one points of the plan's value never reaches the floor.
+
+```bash
+python examples/compare_planners.py --minutes 20 --jobs 4 --plots out/
+```
+
+Twelve measurements per planner, deliberately not collapsed into one:
+coverage, dirt, evenness, worst gap, edges, path efficiency, turning per metre,
+time to half the pool, ergodic error, wasted time, energy and collisions. The
+ones that earn their place are efficiency, turning and the worst gap: a planner
+can reach 95% by driving over everything three times, and 90% coverage means
+two different things depending on whether it left a thin margin everywhere or
+a whole corner. See [coverage path planning](docs/planners.md).
 
 ## Watch it
 
@@ -486,6 +527,7 @@ determinism and preferring a small real model to a large fake one.
 | [From a photo](docs/imaging.md) | Tracing a pool out of a picture, and what a picture cannot tell you |
 | [Machine learning](docs/ml.md) | SAM for the water mask, Gymnasium for the controller |
 | [On a robot](docs/hardware.md) | Running a controller on real hardware, and testing it against real logs |
+| [Coverage path planning](docs/planners.md) | Eighteen planners, the map they needed, and twelve ways of comparing them |
 | [Behaviour](docs/dynamics.md) | Periodic orbits, mixing rates, the ergodic metric, and two pools chosen for their dynamics |
 | [Architecture](docs/architecture.md) | Layering, backends, determinism contract |
 | [Research](docs/research.md) | Prior art, and which decision each finding drove |
@@ -514,6 +556,7 @@ Every one takes `--minutes` if you want a shorter run.
 | [`batch_experiment.py`](examples/batch_experiment.py) | Run a scenario across seeds, then reproduce its worst episode exactly |
 | [`replay.py`](examples/replay.py) | Replay a recording flat, in 3D, from the bumper, or interactively |
 | [`replay_real_trajectory.py`](examples/replay_real_trajectory.py) | Score the estimator against a real robot's logged trajectory |
+| [`compare_planners.py`](examples/compare_planners.py) | Every coverage planner on every pool, scored on twelve axes, with the matrix plot |
 | [`analyse_dynamics.py`](examples/analyse_dynamics.py) | Periodic orbits, mixing rates, the ergodic metric and sensitivity, for one pool |
 | [`tour.ipynb`](examples/tour.ipynb) | All of the above in one notebook, with the pool turnable in the browser |
 

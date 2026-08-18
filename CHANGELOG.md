@@ -12,6 +12,79 @@ understand.
 ## [Unreleased]
 
 ### Added
+- **Coverage path planning** (`zimablue.planners`): eighteen planners, which is
+  most of the single-robot 2D literature. Eight offline -- `boustrophedon`,
+  `sweep_optimal`, `trapezoidal`, `boustrophedon_cells`, `morse`, `contour`,
+  `wavefront`, `spanning_tree` -- each returning a `CoveragePath` that
+  `PathFollower` drives. Ten online, registered as ordinary controllers:
+  `spiral_stc`, `full_stc`, `bsa`, `ba_star`, `brick_and_mortar`, `binn`,
+  `epsilon_star`, `ppcpp`, `frontier` and `smc`.
+
+  The online ten share one substrate. `OnlineCoverage` owns the EKF, the
+  occupancy grid, the bump recovery and the driving; each algorithm implements
+  one method that returns the next cell. If they each brought their own motion
+  layer, a difference in coverage could always be the motion layer's fault.
+
+- `EvidenceMap`, an occupancy grid that can change its mind about a wall. The
+  online planners drive on the map they build, and the first version of all ten
+  covered about an eighth of a pool before declaring it finished -- not because
+  of any of the algorithms, but because `OccupancyMap` never retracts a wall,
+  and three minutes of sonar echoes scattered by a drifting pose turned an
+  eight-metre pool into 552 wall cells around 108 of floor. A wall now needs
+  three sightings, a beam passing through a cell takes a vote away, and the
+  robot's own footprint overrides everything.
+
+- `PathFollower(planner, localisation="truth" | "odometry")`. Following a plan
+  from the true pose measures the *route*; following it through the same EKF a
+  real machine has measures the route plus the localisation. On the rectangular
+  pool `sweep_optimal` reaches 70.5% on truth and 49.6% on odometry, and that
+  gap is the most informative number in the package.
+
+- `zimablue.planners.compare`: a harness that runs every planner on every pool
+  and scores twelve dimensions -- coverage, dirt, evenness, the largest patch
+  left untouched, edge coverage, path efficiency, turning per metre, time to
+  half the pool, ergodic error, wasted time, energy and collisions.
+  Deliberately no scalar ranking.
+  `zimablue.planners.plots` draws four views of it: a normalised matrix, the
+  trajectories side by side, coverage against time, and any two dimensions
+  against each other with the Pareto front. `plot_plans` draws the offline
+  routes and their decompositions before anyone has tried to drive them.
+
+- `smc`, spectral multiscale coverage (Mathew & Mezic). It never chooses a
+  cell: it carries a Fourier description of where it has spent its time,
+  compares it with one of where it should, and drives down the difference. The
+  metric it minimises is the one `zimablue.dynamics.ergodic_score` already
+  measured, so the analysis module and the controller now close a loop.
+
+- `examples/compare_planners.py` and [docs/planners.md](docs/planners.md).
+
+### Changed
+- `OccupancyMap.absorb` folds a tick of contact and sonar readings into the
+  grid. It was the body of `SystematicCoverage._update_map`; moving it onto the
+  map is what let the planners reuse it instead of copying it.
+- `sweep_optimal` minimises `length + turn_cost * turning` rather than a
+  length-dominated proxy. Lane count is the right criterion on a convex region,
+  where it *is* the turn count; on the kidney pool the shortest sweep turns
+  5400 degrees and the least-turning one is 40 metres longer, so the weighting
+  is a real choice. The new cost finds 169 m at the same turning as the fixed
+  sweep's 204 m.
+
+### Fixed
+- `PathFollower` deadlocked against a wall. It advanced its waypoint index only
+  on arrival -- within 18 cm -- while aiming a lookahead distance further
+  along. A plan's first waypoint sits in a corner the hull cannot quite reach;
+  the robot closed to 40 cm, started aiming at the far end of the lane,
+  reversed out, found itself more than a lookahead from the corner again, and
+  turned back. It paced a 15 cm stretch of tile for a whole run at 4% coverage.
+  Pure pursuit now consumes every waypoint inside the lookahead circle.
+- `binn` integrated the shunting equation forward and rang between its own
+  bounds: with excitation 100 against decay 8, any step large enough to
+  propagate activity overshoots, and on an even iteration count the field
+  reported its lowest value at the cells that should be brightest. The robot
+  paced between two cells and covered 0.4% of the pool. Iterating the
+  equilibrium instead takes it to the top of the table.
+
+### Added
 - **Pools from drawings**: `zb.pool_from_sketch("napkin.jpg", width=9.0)`. A
   `SketchSegmenter` that satisfies the existing `Segmenter` protocol, so
   everything downstream of "which pixels are pool" -- region picking, hole

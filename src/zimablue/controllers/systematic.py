@@ -115,7 +115,10 @@ class OccupancyMap:
         if rows.size:
             self.covered[rows, cols] = True
 
-    def mark_wall(self, x: float, y: float) -> None:
+    def mark_wall(self, x: float, y: float, weight: int = 1) -> None:
+        """Record a wall here. ``weight`` is how strong the evidence is, and
+        this map ignores it -- see :class:`~zimablue.planners.online.EvidenceMap`
+        for the version that counts."""
         row, col = self.to_index(x, y)
         self.grid[row, col] = MapCell.WALL
 
@@ -170,6 +173,50 @@ class OccupancyMap:
         else:
             mask = self.grid[rows, cols] != MapCell.WALL
             self.grid[rows[mask], cols[mask]] = value
+
+    def absorb(self, ctl, pose, *, radius: float, swath: float) -> None:
+        """Fold one tick of contact and sonar readings into the grid.
+
+        On the map, a bump switch is a wall just beyond the hull in that
+        switch's direction, and a sonar beam is free space up to its return.
+        Both are written in the *estimated* frame, so a drifting estimate
+        smears the map exactly as it would on hardware.
+        """
+        self.mark_free(pose.x, pose.y, radius)
+        self.mark_covered(pose.x, pose.y, 0.5 * swath)
+
+        contact = ctl.reading("contact")
+        if contact is not None and contact.valid:
+            # A closed bump switch is a wall just beyond the hull, in the
+            # direction of that switch.
+            for index, offset in enumerate((0.0, np.pi / 2, -np.pi / 2, np.pi)):
+                if contact[index] > 0.5:
+                    angle = pose.heading + offset
+                    reach = radius + self.cell
+                    # A bump is contact, not an echo: worth more than a ping.
+                    self.mark_wall(
+                        pose.x + np.cos(angle) * reach,
+                        pose.y + np.sin(angle) * reach,
+                        weight=3,
+                    )
+
+        sonar = ctl.reading("sonar")
+        if sonar is not None and sonar.valid:
+            sensor = ctl.robot.sensors.get("sonar")
+            angles = getattr(sensor, "beam_angles", ())
+            max_range = getattr(sensor, "max_range", 3.0)
+            for index, offset in enumerate(angles):
+                distance = float(sonar[index])
+                if not np.isfinite(distance):
+                    continue
+                # A max-range return means "nothing seen", not "wall there".
+                self.observe_ray(
+                    pose.x,
+                    pose.y,
+                    pose.heading + offset,
+                    min(distance, max_range),
+                    hit=distance < max_range - 1e-3,
+                )
 
     # -- planning ---------------------------------------------------------
     def nearest_frontier(self, x: float, y: float, *, min_distance: float = 0.0):
@@ -422,38 +469,7 @@ class SystematicCoverage:
         return 0.5 * (left + right), gyro, max(abs(left), abs(right))
 
     def _update_map(self, ctl: ControlInput, pose) -> None:
-        self.map.mark_free(pose.x, pose.y, self.radius)
-        self.map.mark_covered(pose.x, pose.y, 0.5 * self.swath)
-
-        contact = ctl.reading("contact")
-        if contact is not None and contact.valid:
-            # A closed bump switch is a wall just beyond the hull, in the
-            # direction of that switch.
-            for index, offset in enumerate((0.0, np.pi / 2, -np.pi / 2, np.pi)):
-                if contact[index] > 0.5:
-                    angle = pose.heading + offset
-                    reach = self.radius + self.map.cell
-                    self.map.mark_wall(
-                        pose.x + np.cos(angle) * reach, pose.y + np.sin(angle) * reach
-                    )
-
-        sonar = ctl.reading("sonar")
-        if sonar is not None and sonar.valid:
-            sensor = ctl.robot.sensors.get("sonar")
-            angles = getattr(sensor, "beam_angles", ())
-            max_range = getattr(sensor, "max_range", 3.0)
-            for index, offset in enumerate(angles):
-                distance = float(sonar[index])
-                if not np.isfinite(distance):
-                    continue
-                # A max-range return means "nothing seen", not "wall there".
-                self.map.observe_ray(
-                    pose.x,
-                    pose.y,
-                    pose.heading + offset,
-                    min(distance, max_range),
-                    hit=distance < max_range - 1e-3,
-                )
+        self.map.absorb(ctl, pose, radius=self.radius, swath=self.swath)
 
     def _obstruction(self, ctl: ControlInput, dt: float) -> tuple[bool, bool]:
         contact = ctl.reading("contact")
