@@ -270,13 +270,22 @@ rectangular pool `sweep_optimal` reaches 70.5% on truth and 49.6% on odometry
 python examples/compare_planners.py --minutes 20 --jobs 4 --plots out/
 ```
 
+<div align="center">
+<img src="docs/assets/planners-matrix.png" alt="Twenty-one planners scored on twelve dimensions" width="820">
+</div>
+
 Twelve measurements per planner, deliberately not collapsed into one:
 coverage, dirt, evenness, worst gap, edges, path efficiency, turning per metre,
 time to half the pool, ergodic error, wasted time, energy and collisions. The
 ones that earn their place are efficiency, turning and the worst gap: a planner
 can reach 95% by driving over everything three times, and 90% coverage means
 two different things depending on whether it left a thin margin everywhere or
-a whole corner. See [coverage path planning](docs/planners.md).
+a whole corner.
+
+The headline is not the winner. It is that `random_bounce` — drive straight,
+turn at random when you hit something — beats thirteen of the eighteen
+planners, four of which have completeness proofs. See
+[coverage path planning](docs/planners.md).
 
 ## Watch it
 
