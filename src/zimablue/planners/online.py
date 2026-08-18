@@ -56,7 +56,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from heapq import heappop, heappush
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -204,21 +204,60 @@ class OnlineCoverage:
         self.map = EvidenceMap(cell=cell or 0.4, extent=extent)
         self.done: set[Cell] = set()
         self.sealed: set[Cell] = set()
+        self._peer_done: set[Cell] = set()
+        self._peer_cells: set[Cell] = set()
         self.finished = False
+        self.index = 0
+        self.origin: tuple[float, float, float] | None = None
+        self.blackboard: Any = None
+        self.share = True
+        self.fleet_size = 1
+
+    # ------------------------------------------------------------------
+    def attach_fleet(
+        self,
+        *,
+        index: int,
+        blackboard: Any,
+        origin: tuple[float, float, float],
+        fleet_size: int = 1,
+        share: bool = True,
+    ) -> None:
+        """Join a fleet. Called by :class:`~zimablue.fleet.Fleet` before reset.
+
+        Two things arrive with the invitation. The **origin** is where this
+        robot starts in the frame the fleet shares, and starting the estimator
+        there is what makes one robot's grid cells mean the same as another's
+        -- up to the drift each of them accumulates afterwards, which is the
+        interesting part rather than a caveat. The **blackboard** is the radio.
+
+        ``share`` off gives a fleet of strangers: they still collide, still
+        clean the same dirt, and still get in each other's way, but no robot
+        knows another exists. It is the baseline every cooperative method has
+        to beat, and it is not as far behind as the literature implies.
+        """
+        self.index = int(index)
+        self.blackboard = blackboard
+        self.origin = origin
+        self.fleet_size = int(fleet_size)
+        self.share = bool(share)
 
     # ------------------------------------------------------------------
     def reset(self, robot: Cleaner) -> None:
         self.radius = robot.radius
         self.swath = robot.swath_width
         cell = self._cell or max(self.swath * (1.0 - self.tuning.overlap), 0.15)
-        self.estimator = PoseEstimator(self.estimator_config)
+        self.estimator = PoseEstimator(self.estimator_config, origin=self.origin or (0.0, 0.0, 0.0))
         self.map = EvidenceMap(cell=cell, extent=self.extent, votes=self.votes)
         self.cell = self.map.cell
         self.done = set()
         self.sealed = set()
         self.finished = False
         self.facing: Cell = EAST
-        self.here: Cell = (self.map.origin, self.map.origin)
+        start = self.origin or (0.0, 0.0, 0.0)
+        self.here: Cell = self.map.to_index(start[0], start[1])
+        self._peer_done: set[Cell] = set()
+        self._peer_cells: set[Cell] = set()
         self._route: list[Cell] = []
         self._last_time = 0.0
         self._contact_since: float | None = None
@@ -250,6 +289,7 @@ class OnlineCoverage:
         if ctl.battery <= ctl.robot.power.battery.cutoff or self.finished:
             return DriveCommand.stop()
 
+        self._sync(ctl, pose)
         blocked, wedged = self._obstruction(ctl)
         if blocked:
             # Whatever is in front of us is not floor. Writing it down is what
@@ -269,6 +309,37 @@ class OnlineCoverage:
             return self._recover(ctl)
 
         return self._act(ctl, pose)
+
+    def _sync(self, ctl: ControlInput, pose) -> None:
+        """Say where we are and what we have done; hear the same back.
+
+        The covered set goes over the wire by reference rather than by copy.
+        That models a robot broadcasting its map continuously and keeps the
+        tick cheap; what it does *not* model is bandwidth, so a result here
+        about a fleet with a small ``comms_range`` is about range and nothing
+        else.
+        """
+        if self.blackboard is None:
+            return
+        self.blackboard.publish(
+            self.index,
+            pose.x,
+            pose.y,
+            pose.heading,
+            covered=self.done if self.share else set(),
+            time=ctl.time,
+            extras={"cell": self.cell},
+        )
+        if not self.share:
+            self._peer_done = set()
+            self._peer_cells = set()
+            return
+        peers = self.blackboard.peers(self.index)
+        self._peer_done = set().union(*(p.covered for p in peers)) if peers else set()
+        # Where they are *now*, as a cell each. Enough to make the routing
+        # steer round a team-mate instead of into one; the collision resolver
+        # is the backstop, not the plan.
+        self._peer_cells = {self.map.to_index(p.x, p.y) for p in peers}
 
     # -- the motion layer -------------------------------------------------
     def _act(self, ctl: ControlInput, pose) -> DriveCommand:
@@ -352,8 +423,19 @@ class OnlineCoverage:
         return 0 <= cell[0] < self.map.size and 0 <= cell[1] < self.map.size
 
     def passable(self, cell: Cell) -> bool:
-        """Not a known wall and not sealed off by the planner itself."""
-        return self.inside(cell) and self.map.grid[cell] != MapCell.WALL and cell not in self.sealed
+        """Not a known wall, not sealed off, and not where a team-mate is.
+
+        A team-mate is treated as a wall for one tick at a time rather than
+        written into the map: they move, and a robot that remembered where its
+        colleagues used to be would fill the pool with obstacles that are not
+        there any more.
+        """
+        return (
+            self.inside(cell)
+            and self.map.grid[cell] != MapCell.WALL
+            and cell not in self.sealed
+            and cell not in self._peer_cells
+        )
 
     def observed(self, cell: Cell) -> bool:
         return self.inside(cell) and self.map.grid[cell] == MapCell.FREE
@@ -366,7 +448,7 @@ class OnlineCoverage:
         unobserved cell is trivially "not done", so without an adjacency
         requirement the nearest-unvisited rule would point at open nothing.
         """
-        if cell in self.done or not self.passable(cell):
+        if cell in self.done or cell in self._peer_done or not self.passable(cell):
             return False
         if self.observed(cell):
             return True
@@ -512,6 +594,7 @@ class OnlineCoverage:
             "backtracks": float(self._backtracks),
             "stalled": float(self._stalled),
             "mapped": float(self.map.explored_cells),
+            "peer_cells": float(len(self._peer_done)),
         }
 
 

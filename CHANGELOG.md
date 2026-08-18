@@ -12,6 +12,53 @@ understand.
 ## [Unreleased]
 
 ### Added
+- **Fleets** (`zimablue.fleet`): several cleaners in one pool.
+  `zb.Fleet(pool="kidney", robots=3, controllers="auction").run(minutes=20)`.
+  Each robot gets its own backend, sensors and controller; all of them are
+  reset against one `World`, which is what makes the dirt shared. Nothing in
+  the single-robot path changed to allow it.
+
+  Three things are genuinely new. They **collide** -- every backend is told
+  where the others are as discs before each tick, the resolver pushes them
+  apart, and the sonar sees them, with `Contact.is_robot` separating a
+  team-mate from a wall. They **talk badly** -- `Blackboard` is a radio, not a
+  god view: a robot publishes its own *estimate* of where it is and what it has
+  covered, so a fleet inherits every member's localisation error and has to
+  coordinate through it, and `comms_range` limits who hears whom. And the tick
+  is **sense all, decide all, move all**, so no robot gets a turn-order
+  advantage from being listed first.
+
+- `FleetMetrics`: team coverage as a union, per-robot metrics, plus three
+  numbers a single-robot run cannot have -- `speedup` (team coverage over the
+  best member's, ceiling = the robot count), `overlap` (floor more than one
+  robot did) and `balance` (shortest robot's distance over the longest's,
+  which catches one robot working while another parks).
+
+- **Five ways to divide a pool** (`zimablue.planners.partition`): `voronoi`,
+  `geodesic`, `strips`, `darp` (Kapoutsis et al., 2017) and `forest` (Zheng et
+  al., 2005). Each territory becomes a small `Pool`, so all eight offline
+  planners work inside one unchanged:
+  `controllers=partitioned("darp", "sweep_optimal")`. On a kidney with three
+  robots the fairness -- smallest share over largest -- runs 0.54 for Voronoi,
+  0.56 geodesic, 0.87 forest, 0.92 DARP, 0.99 strips.
+
+- **Five ways to cooperate without dividing** (`zimablue.planners.cooperative`):
+  `mstc` and `mstc_backtracking` (Hazon & Kaminka, 2005), `auction` (Zlot et
+  al., 2002), `binn_swarm` (Luo & Yang, 2008) and `smc_swarm` (multi-agent
+  Mathew & Mezic). Plus a sixth that needed no code: every online planner
+  becomes cooperative when the fleet hands it a blackboard, and
+  `Fleet(..., share=True)` is the default.
+
+- `zimablue.fleetplots`: paths, territory, overlap and progress, and
+  `plot_fleet` for all four. The replay window draws fleets too -- a coloured
+  ring and trail per robot, with the HUD following robot 0.
+
+- `compare_fleets` and `FLEET_DIMENSIONS` reuse the planner comparison harness
+  with team measurements, so `plot_matrix` works on a fleet unchanged.
+
+- `examples/fleet.py` (including `--scaling`, which prints what the second,
+  third and fourth robot are actually worth) and
+  [docs/multi-robot.md](docs/multi-robot.md).
 - **Coverage path planning** (`zimablue.planners`): eighteen planners, which is
   most of the single-robot 2D literature. Eight offline -- `boustrophedon`,
   `sweep_optimal`, `trapezoidal`, `boustrophedon_cells`, `morse`, `contour`,
@@ -57,34 +104,6 @@ understand.
   measured, so the analysis module and the controller now close a loop.
 
 - `examples/compare_planners.py` and [docs/planners.md](docs/planners.md).
-
-### Changed
-- `OccupancyMap.absorb` folds a tick of contact and sonar readings into the
-  grid. It was the body of `SystematicCoverage._update_map`; moving it onto the
-  map is what let the planners reuse it instead of copying it.
-- `sweep_optimal` minimises `length + turn_cost * turning` rather than a
-  length-dominated proxy. Lane count is the right criterion on a convex region,
-  where it *is* the turn count; on the kidney pool the shortest sweep turns
-  5400 degrees and the least-turning one is 40 metres longer, so the weighting
-  is a real choice. The new cost finds 169 m at the same turning as the fixed
-  sweep's 204 m.
-
-### Fixed
-- `PathFollower` deadlocked against a wall. It advanced its waypoint index only
-  on arrival -- within 18 cm -- while aiming a lookahead distance further
-  along. A plan's first waypoint sits in a corner the hull cannot quite reach;
-  the robot closed to 40 cm, started aiming at the far end of the lane,
-  reversed out, found itself more than a lookahead from the corner again, and
-  turned back. It paced a 15 cm stretch of tile for a whole run at 4% coverage.
-  Pure pursuit now consumes every waypoint inside the lookahead circle.
-- `binn` integrated the shunting equation forward and rang between its own
-  bounds: with excitation 100 against decay 8, any step large enough to
-  propagate activity overshoots, and on an even iteration count the field
-  reported its lowest value at the cells that should be brightest. The robot
-  paced between two cells and covered 0.4% of the pool. Iterating the
-  equilibrium instead takes it to the top of the table.
-
-### Added
 - **Pools from drawings**: `zb.pool_from_sketch("napkin.jpg", width=9.0)`. A
   `SketchSegmenter` that satisfies the existing `Segmenter` protocol, so
   everything downstream of "which pixels are pool" -- region picking, hole
@@ -190,7 +209,54 @@ understand.
   the two cannot disagree about what a `.zbr` column means.
 - `docs/hardware.md`.
 
+### Changed
+- `resolve()` takes `neighbours`, and `SensorContext` carries them, so robots
+  are obstacles to each other in both the physics and the rangefinder. Empty
+  for a single-robot run, which pays nothing for the fleet's existence.
+- `RngTree.branch(name)` returns a whole sub-tree. Each robot's backend needs
+  its own `"slip"` stream; sharing one tree would have them drawing in turn
+  from a single sequence, so adding a fourth robot would change the first
+  three's runs.
+- A fleet recording carries `r0.x`, `r1.x` and so on, *and* robot 0's channels
+  flat as `x`. The duplication is deliberate: every existing tool reads the
+  flat names, so the replay window, the dirt cam, the dynamics module and the
+  planner comparison all open a fleet recording and follow one member.
+- `partitioned` cuts the *navigable* mask rather than the workspace. Cutting
+  the workspace insets by the robot radius, and the single-robot planners then
+  inset again, leaving a two-radius ring along the wall belonging to nobody --
+  29 points of coverage on the kidney with three robots.
+- `PathFollower` gained a give-way rule (a lower-numbered robot has right of
+  way, which is a total order so two robots cannot both defer) and a
+  progress-based stall guard.
+- `OccupancyMap.absorb` folds a tick of contact and sonar readings into the
+  grid. It was the body of `SystematicCoverage._update_map`; moving it onto the
+  map is what let the planners reuse it instead of copying it.
+- `sweep_optimal` minimises `length + turn_cost * turning` rather than a
+  length-dominated proxy. Lane count is the right criterion on a convex region,
+  where it *is* the turn count; on the kidney pool the shortest sweep turns
+  5400 degrees and the least-turning one is 40 metres longer, so the weighting
+  is a real choice. The new cost finds 169 m at the same turning as the fixed
+  sweep's 204 m.
+
 ### Fixed
+- `PathFollower`'s stall guard measured elapsed time rather than progress, so
+  it confiscated a waypoint every twelve seconds while the robot was driving a
+  nine-metre lane exactly as instructed -- skipping three quarters of a plan.
+  It now resets whenever the robot gets meaningfully closer, and waiting for a
+  team-mate does not count as stalling.
+- `PathFollower` deadlocked against a wall. It advanced its waypoint index only
+  on arrival -- within 18 cm -- while aiming a lookahead distance further
+  along. A plan's first waypoint sits in a corner the hull cannot quite reach;
+  the robot closed to 40 cm, started aiming at the far end of the lane,
+  reversed out, found itself more than a lookahead from the corner again, and
+  turned back. It paced a 15 cm stretch of tile for a whole run at 4% coverage.
+  Pure pursuit now consumes every waypoint inside the lookahead circle.
+- `binn` integrated the shunting equation forward and rang between its own
+  bounds: with excitation 100 against decay 8, any step large enough to
+  propagate activity overshoots, and on an even iteration count the field
+  reported its lowest value at the cells that should be brightest. The robot
+  paced between two cells and covered 0.4% of the pool. Iterating the
+  equilibrium instead takes it to the top of the table.
 - `export_summary` printed "coverage 0%  dirt removed 0%" for a run with no
   ground truth, which is the most misleading thing that figure could say — it
   looks exactly like a controller that did nothing. It now reports the metrics

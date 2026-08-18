@@ -30,7 +30,7 @@ from typing import Any
 
 import numpy as np
 
-from zimablue.planners.compare import DIMENSIONS, Comparison
+from zimablue.planners.compare import Comparison
 from zimablue.replay._deps import require_matplotlib
 from zimablue.replay.renderer import PALETTE
 
@@ -81,17 +81,18 @@ def plot_matrix(comparison: Comparison, *, pool: str | None = None, ax: Any = No
     import matplotlib.pyplot as plt
 
     planners = comparison.planners
+    dimensions = comparison.dimensions
     grid = comparison.matrix(pool)
     if ax is None:
-        fig = _new(1.05 * len(DIMENSIONS) + 2.6, 0.36 * len(planners) + 1.6)
+        fig = _new(1.05 * len(dimensions) + 2.6, 0.36 * len(planners) + 1.6)
         ax = fig.add_subplot(111)
     else:
         fig = ax.figure
 
     ax.imshow(grid, cmap="viridis", vmin=0.0, vmax=1.0, aspect="auto")
-    ax.set_xticks(range(len(DIMENSIONS)))
+    ax.set_xticks(range(len(dimensions)))
     ax.set_xticklabels(
-        [f"{d.label}\n{'higher' if d.better > 0 else 'lower'}" for d in DIMENSIONS],
+        [f"{d.label}\n{'higher' if d.better > 0 else 'lower'}" for d in dimensions],
         fontsize=7,
         color=INK,
         family="monospace",
@@ -99,7 +100,7 @@ def plot_matrix(comparison: Comparison, *, pool: str | None = None, ax: Any = No
     ax.set_yticks(range(len(planners)))
     ax.set_yticklabels(planners, fontsize=7, color=INK, family="monospace")
     for row, planner in enumerate(planners):
-        for col, dimension in enumerate(DIMENSIONS):
+        for col, dimension in enumerate(dimensions):
             value = comparison.score(planner, dimension.key, pool)
             ax.text(
                 col,
@@ -111,11 +112,11 @@ def plot_matrix(comparison: Comparison, *, pool: str | None = None, ax: Any = No
                 family="monospace",
                 color="#0d151f" if grid[row, col] > 0.55 else "#dbe7f2",
             )
-    title = "planner comparison" + (f" -- {pool}" if pool else "")
+    title = comparison.label + (f" -- {pool}" if pool else "")
     ax.set_title(
         f"{title} ({comparison.minutes:.0f} min)", color=INK, fontsize=10, family="monospace"
     )
-    ax.set_xticks(np.arange(-0.5, len(DIMENSIONS)), minor=True)
+    ax.set_xticks(np.arange(-0.5, len(dimensions)), minor=True)
     ax.set_yticks(np.arange(-0.5, len(planners)), minor=True)
     ax.grid(which="minor", color=PALETTE["panel"], linewidth=1.5)
     ax.tick_params(which="minor", length=0)
@@ -209,7 +210,7 @@ def plot_tradeoff(
     """
     require_matplotlib()
 
-    lookup = {d.key: d for d in DIMENSIONS}
+    lookup = {d.key: d for d in comparison.dimensions}
     dim_x, dim_y = lookup[x], lookup[y]
     if ax is None:
         fig = _new(5.6, 4.4)
@@ -324,7 +325,10 @@ def plot_comparison(comparison: Comparison, *, pool: str | None = None) -> Any:
     require_matplotlib()
 
     pool_name = pool or comparison.pools[0]
-    fig = _new(max(1.05 * len(DIMENSIONS) + 2.6, 12.0), 0.36 * len(comparison.planners) + 7.0)
+    fig = _new(
+        max(1.05 * len(comparison.dimensions) + 2.6, 12.0),
+        0.36 * len(comparison.planners) + 7.0,
+    )
     grid = fig.add_gridspec(2, 2, height_ratios=(0.36 * len(comparison.planners) + 1.2, 4.4))
     plot_matrix(comparison, pool=pool, ax=fig.add_subplot(grid[0, :]))
     plot_curves(comparison, pool=pool_name, ax=fig.add_subplot(grid[1, 0]))

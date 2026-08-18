@@ -64,6 +64,13 @@ class Fast2DBackend:
     def __init__(self, *, enable_dirt_drift: bool = True) -> None:
         self.enable_dirt_drift = enable_dirt_drift
         self.world: World | None = None
+        self.neighbours: tuple[tuple[float, float, float], ...] = ()
+        """Other robots this tick, as ``(x, y, radius)`` discs.
+
+        Set by :class:`~zimablue.fleet.Fleet` before each tick and empty
+        otherwise, so a single-robot run pays nothing for the fleet's
+        existence. Feeding it through the backend rather than the world is
+        deliberate: it changes every tick, and the world does not."""
         self.robot: Cleaner | None = None
         self._rng: RngTree | None = None
         self._slip_rng: np.random.Generator | None = None
@@ -147,7 +154,7 @@ class Fast2DBackend:
         nx, ny, heading = exact_arc_step(state.x, state.y, state.heading, v, omega, dt)
 
         # 4. Contact.
-        contact = resolve(pool, nx, ny, heading, robot.radius)
+        contact = resolve(pool, nx, ny, heading, robot.radius, self.neighbours)
         if contact.touching:
             nx, ny = contact.x, contact.y
             # Edge-triggered: a robot pressed against a wall for two seconds is
@@ -163,6 +170,7 @@ class Fast2DBackend:
                             "y": ny,
                             "penetration": contact.penetration,
                             "obstacle": contact.is_obstacle,
+                            "robot": contact.is_robot,
                         },
                     )
                 )
@@ -293,6 +301,7 @@ class Fast2DBackend:
             contacts=state.contacts,
             pool=self.world.pool,
             water=self.world.pool.water,
+            neighbours=self.neighbours,
         )
         return self.robot.sensors.update(ctx)
 

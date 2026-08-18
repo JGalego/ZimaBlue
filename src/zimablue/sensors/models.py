@@ -236,6 +236,8 @@ class Sonar(Sensor):
             return np.full(len(self.beam_angles), self.max_range, dtype=float)
         angles = np.array(self.beam_angles, dtype=float) + ctx.heading
         ranges = pool.raycast((ctx.x, ctx.y), angles, self.max_range)
+        if ctx.neighbours:
+            ranges = np.minimum(ranges, _range_to_discs(ctx.x, ctx.y, angles, ctx.neighbours))
 
         turbidity = getattr(ctx.water, "turbidity", 0.0) if ctx.water is not None else 0.0
         if turbidity > 0:
@@ -251,3 +253,31 @@ class Sonar(Sensor):
             "max_range": self.max_range,
             "min_range": self.min_range,
         }
+
+
+def _range_to_discs(
+    x: float,
+    y: float,
+    angles: FloatArray,
+    discs: tuple[tuple[float, float, float], ...],
+) -> FloatArray:
+    """Distance along each ray to the nearest disc, or infinity.
+
+    Closed-form ray-circle intersection rather than marching: a beam is a
+    half-line, a robot is a disc, and the quadratic has an answer. Discs the
+    ray starts inside are ignored -- that is two robots already overlapping,
+    which is the collision resolver's problem and not the sonar's.
+    """
+    dx, dy = np.cos(angles), np.sin(angles)
+    best = np.full(angles.shape, np.inf)
+    for cx, cy, radius in discs:
+        ox, oy = cx - x, cy - y
+        along = dx * ox + dy * oy
+        gap = ox * ox + oy * oy - radius * radius
+        discriminant = along * along - gap
+        hit = (discriminant >= 0.0) & (along > 0.0) & (gap > 0.0)
+        if not hit.any():
+            continue
+        distance = np.where(hit, along - np.sqrt(np.maximum(discriminant, 0.0)), np.inf)
+        best = np.minimum(best, distance)
+    return best

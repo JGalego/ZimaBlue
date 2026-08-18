@@ -31,17 +31,24 @@ from zimablue.dirt import (
     make_dirt,
 )
 from zimablue.estimation import EstimatorConfig, PoseEstimate, PoseEstimator
+from zimablue.fleet import Blackboard, Fleet, FleetMetrics, FleetResult, spread_poses
 from zimablue.geometry import Grid
 from zimablue.imaging import PoolTrace, pool_from_image, trace_pool
 from zimablue.metrics import Metrics, SpatialMetrics
 from zimablue.notebook import PoolPreview, preview
 from zimablue.planners import (
+    PARTITIONS,
     PLANNERS,
     CoveragePath,
     CoveragePlanner,
     OnlineCoverage,
+    Partition,
     PathFollower,
+    Territory,
+    make_partition,
     make_planner,
+    mstc,
+    partitioned,
 )
 from zimablue.pool import (
     MATERIALS,
@@ -105,11 +112,13 @@ __all__ = [
     "DIRT_TYPES",
     "IMU",
     "MATERIALS",
+    "PARTITIONS",
     "PLANNERS",
     "POOL_PRESETS",
     "ROBOT_PRESETS",
     "BatchResult",
     "Battery",
+    "Blackboard",
     "Brush",
     "Chassis",
     "Cleaner",
@@ -133,6 +142,9 @@ __all__ = [
     "Encoder",
     "EstimatorConfig",
     "Filter",
+    "Fleet",
+    "FleetMetrics",
+    "FleetResult",
     "Grid",
     "LayerSpec",
     "Locomotion",
@@ -141,6 +153,7 @@ __all__ = [
     "Obstacle",
     "OccupancyMap",
     "OnlineCoverage",
+    "Partition",
     "PathFollower",
     "PlaneSlopeDepth",
     "Pool",
@@ -172,19 +185,24 @@ __all__ = [
     "Stairs",
     "SurfaceMaterial",
     "SystematicCoverage",
+    "Territory",
     "Water",
     "World",
     "__version__",
     "get_material",
     "load_scenario",
     "make_dirt",
+    "make_partition",
     "make_planner",
     "make_pool",
     "make_robot",
+    "mstc",
+    "partitioned",
     "pool_from_image",
     "pool_from_sketch",
     "preview",
     "run_batch",
+    "spread_poses",
     "trace_pool",
     "trace_sketch",
 ]

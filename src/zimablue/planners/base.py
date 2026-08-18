@@ -183,6 +183,18 @@ class PathFollower:
         # only one of them is undeployable.
         self.needs_truth = True
 
+        self.index = 0
+        self.blackboard: Any = None
+        self.fleet_size = 1
+        self.give_way = 1.1
+        """Metres ahead at which a lower-numbered team-mate makes this one
+        wait. Right of way by index is arbitrary and that is the point: it is
+        a total order, so two robots meeting head-on cannot both defer and
+        deadlock."""
+
+        self.done = False
+        """Whether the plan has been driven to its end."""
+
         self.path: CoveragePath | None = None
         self.target = 0
         self._pose = (0.0, 0.0, 0.0)
@@ -193,10 +205,32 @@ class PathFollower:
         self._last_target = -1
         self._closest = np.inf
         self._skipped = 0
+        self._waited = 0.0
 
     # ------------------------------------------------------------------
+    def attach_fleet(
+        self,
+        *,
+        index: int,
+        blackboard: Any,
+        origin: tuple[float, float, float],
+        fleet_size: int = 1,
+        share: bool = True,
+    ) -> None:
+        """Join a fleet: publish where we are, and give way to lower numbers.
+
+        A follower has nothing to coordinate -- its route was decided before
+        the run and a partitioner already made sure two robots are not sweeping
+        the same floor. What it still has to do is not drive into anybody, and
+        a plan cannot help with that because the other robot is not in it.
+        """
+        self.index = int(index)
+        self.blackboard = blackboard
+        self.fleet_size = int(fleet_size)
+
     def reset(self, robot: Cleaner) -> None:
         self.robot = robot
+        self.done = False
         self.target = 0
         self.path = None
         self._planned_for = None
@@ -206,6 +240,7 @@ class PathFollower:
         self._last_target = -1
         self._closest = np.inf
         self._skipped = 0
+        self._waited = 0.0
 
     def telemetry(self) -> dict[str, float]:
         x, y, heading = self._pose
@@ -219,6 +254,7 @@ class PathFollower:
             if self.path and len(self.path)
             else 0.0,
             "skipped": float(self._skipped),
+            "waited": float(self._waited),
         }
 
     # ------------------------------------------------------------------
@@ -239,7 +275,43 @@ class PathFollower:
                 raise RuntimeError(f"{self.planner.name} planned an empty path for this pool")
 
         self._pose = self._locate(control_input, truth)
+        if self.blackboard is not None:
+            x, y, heading = self._pose
+            self.blackboard.publish(
+                self.index,
+                x,
+                y,
+                heading,
+                time=control_input.time,
+                extras={"waypoint": float(self.target)},
+            )
+            if self._must_wait():
+                from zimablue.robot import DriveCommand
+
+                # Waiting is not stalling. Without this the give-way rule and
+                # the stall guard fight each other: a robot held at a
+                # territory border for twelve seconds has its waypoint
+                # confiscated by its own watchdog, and a fleet on a shared
+                # border chops its plans to pieces that way.
+                self._target_since = control_input.time
+                self._waited += control_input.dt
+                return DriveCommand(0.0, 0.0, brush=True, pump=1.0)
         return self._pursue(control_input)
+
+    def _must_wait(self) -> bool:
+        """Whether a lower-numbered robot is close enough and in front."""
+        x, y, heading = self._pose
+        for peer in self.blackboard.peers(self.index):
+            if peer.index > self.index:
+                continue
+            gap = float(np.hypot(peer.x - x, peer.y - y))
+            if gap > self.give_way:
+                continue
+            bearing = float(np.arctan2(peer.y - y, peer.x - x))
+            ahead = abs(float(np.arctan2(np.sin(bearing - heading), np.cos(bearing - heading))))
+            if ahead < np.pi / 3:
+                return True
+        return False
 
     def _locate(self, control_input: Any, truth: Any) -> tuple[float, float, float]:
         """Where the follower believes the robot is."""
@@ -325,6 +397,11 @@ class PathFollower:
             self._target_since = control_input.time
             self._skipped += 1
             if self.target >= len(waypoints) - 1:
+                # The plan is over and the last waypoint is out of reach.
+                # Counting a skip every twelve seconds from here on would say
+                # a 22-waypoint plan skipped 29 of them.
+                self._skipped -= 1
+                self.done = True
                 return DriveCommand.stop()
             self.target += 1
 

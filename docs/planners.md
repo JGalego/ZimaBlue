@@ -6,9 +6,10 @@ literature is large — the most recent survey ([Shen et al.,
 2026](https://arxiv.org/abs/2607.10649)) reviews 125 works and names over a
 hundred algorithms.
 
-`zimablue.planners` implements the single-robot 2D branch of it: every distinct
-*mechanism*, rather than every published variant. Eighteen planners, split by
-what they are allowed to know.
+`zimablue.planners` implements the 2D branch of it: every distinct *mechanism*,
+rather than every published variant. Eighteen single-robot planners, split by
+what they are allowed to know, and ten multi-robot methods on top of them --
+those are in [fleets](multi-robot.md).
 
 ```python
 import zimablue as zb
@@ -19,11 +20,10 @@ zb.Simulation(pool="kidney", controller=PathFollower("morse"),                  
               expose_truth=True).run(minutes=20)
 ```
 
-What is deliberately absent, and why: multi-robot methods, because there is one
-robot; 3D and visual/inspection coverage, because the backend is planar and
-there is no camera in the loop; learning-based coverage, because that is
-[`zimablue.rl`](ml.md), which is the same question with the policy learned
-rather than written.
+What is deliberately absent, and why: 3D and visual/inspection coverage,
+because the backend is planar and there is no camera in the loop; and
+learning-based coverage, because that is [`zimablue.rl`](ml.md), which is the
+same question with the policy learned rather than written.
 
 ## Offline: given the map, compute the route
 

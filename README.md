@@ -53,6 +53,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 | 🍂 | **Dirt that behaves** | Density, grain size, adhesion and pickup difficulty, settling by Ferguson & Church rather than Stokes. Seven scenarios from `clean` to `neglected_pool`. |
 | 🧭 | **Controllers** | Boustrophedon coverage, random bounce, an EKF-and-occupancy-map planner, and two ground-truth oracles to bound the problem. |
 | 🗺️ | **Coverage path planning** | The classical literature, implemented: eight offline decompositions and ten online rules, from Spiral-STC to a spectral ergodic controller. See [planners](docs/planners.md). |
+| 🛥️ | **Fleets** | Several cleaners in one pool, sharing the dirt and getting in each other's way. Five ways to divide the pool, five ways to cooperate without dividing it. See [fleets](docs/multi-robot.md). |
 | ⚖️ | **Compared on twelve axes** | Coverage, overlap, turning, the worst gap left behind, anytime behaviour, energy. No single winner, and a matrix plot that shows why. |
 | 📊 | **Metrics that disagree** | Coverage and cleanliness scored separately, each with a spatial companion. The whole point is that they rank controllers differently. |
 | 🎬 | **Four ways to watch** | Top down, [chase cam](docs/replay.md), the [dirt cam](docs/replay.md) from the robot's own bumper, and a 3D basin. GIF, MP4 or an interactive window. |
@@ -70,6 +71,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 - [Make it dirty](#make-it-dirty)
 - [Run it](#run-it)
 - [Plan it](#plan-it)
+- [Send a fleet](#send-a-fleet)
 - [Watch it](#watch-it) — [from behind](#from-behind), [from the bumper](#from-the-bumper), [in 3D](#in-3d)
 - [Measure it](#measure-it)
 - [Check it against a real robot](#check-it-against-a-real-robot)
@@ -286,6 +288,53 @@ The headline is not the winner. It is that `random_bounce` — drive straight,
 turn at random when you hit something — beats thirteen of the eighteen
 planners, four of which have completeness proofs. See
 [coverage path planning](docs/planners.md).
+
+## Send a fleet
+
+```python
+result = zb.Fleet(pool="kidney", robots=3, controllers="auction").run(minutes=20)
+print(result.summary())
+```
+
+```
+  robots            3
+  team coverage       84.4 %
+  overlap             55.0 %   (floor two or more robots both did)
+  speedup             1.70 x   (against the best single member)
+  balance             0.98     (shortest run / longest)
+  encounters            64     (robot-on-robot)
+```
+
+Coverage is the least interesting number there. Speedup has a ceiling equal to
+the robot count, and how far short it falls is the cost of sharing a pool.
+Overlap is the floor more than one robot did. Balance catches the failure
+coverage hides completely: one robot working while another parks in a corner it
+was assigned.
+
+The robots share one dirt field, collide with each other, and see each other on
+the sonar. What they *know* about each other went over a radio, as estimates —
+so a fleet inherits every member's localisation error and then has to
+coordinate through it.
+
+Five ways to cut the pool up and hand each piece to a single-robot planner
+(`voronoi`, `geodesic`, `strips`, `darp`, `forest`), and five that coordinate
+without cutting anything (`mstc`, `auction`, `binn_swarm`, `smc_swarm`, and the
+shared-map version of every online planner, which is the default).
+
+```python
+from zimablue.planners import partitioned
+zb.Fleet(pool="kidney", robots=3, controllers=partitioned("darp", "sweep_optimal"))
+```
+
+<div align="center">
+<img src="docs/assets/fleet-views.png" alt="Paths, territory, overlap and progress for a three-robot fleet" width="820">
+</div>
+
+The result worth the trouble: the same DARP partition followed from the true
+pose gives a **2.87x speedup with 0.3% overlap** — near-perfect division of
+labour — and followed on dead reckoning gives 1.88x with 43% overlap. The
+partition survives in the plan and evaporates in the execution. See
+[fleets](docs/multi-robot.md).
 
 ## Watch it
 
@@ -537,6 +586,7 @@ determinism and preferring a small real model to a large fake one.
 | [Machine learning](docs/ml.md) | SAM for the water mask, Gymnasium for the controller |
 | [On a robot](docs/hardware.md) | Running a controller on real hardware, and testing it against real logs |
 | [Coverage path planning](docs/planners.md) | Eighteen planners, the map they needed, and twelve ways of comparing them |
+| [Fleets](docs/multi-robot.md) | Several robots in one pool: partitioning, cooperation, and what a second robot is worth |
 | [Behaviour](docs/dynamics.md) | Periodic orbits, mixing rates, the ergodic metric, and two pools chosen for their dynamics |
 | [Architecture](docs/architecture.md) | Layering, backends, determinism contract |
 | [Research](docs/research.md) | Prior art, and which decision each finding drove |
@@ -565,6 +615,7 @@ Every one takes `--minutes` if you want a shorter run.
 | [`batch_experiment.py`](examples/batch_experiment.py) | Run a scenario across seeds, then reproduce its worst episode exactly |
 | [`replay.py`](examples/replay.py) | Replay a recording flat, in 3D, from the bumper, or interactively |
 | [`replay_real_trajectory.py`](examples/replay_real_trajectory.py) | Score the estimator against a real robot's logged trajectory |
+| [`fleet.py`](examples/fleet.py) | Several cleaners in one pool, the four fleet views, and what each extra robot buys |
 | [`compare_planners.py`](examples/compare_planners.py) | Every coverage planner on every pool, scored on twelve axes, with the matrix plot |
 | [`analyse_dynamics.py`](examples/analyse_dynamics.py) | Periodic orbits, mixing rates, the ergodic metric and sensitivity, for one pool |
 | [`tour.ipynb`](examples/tour.ipynb) | All of the above in one notebook, with the pool turnable in the browser |

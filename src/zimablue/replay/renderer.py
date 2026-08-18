@@ -118,6 +118,10 @@ def load_scene(recording: Recording) -> Scene:
     )
 
 
+FLEET_COLOURS = ("#3ddcff", "#ffd166", "#ff7ab6", "#8affc1", "#c9a7ff", "#ff9f6e")
+"""Ring and trail colours, one per robot. Six is more than any pool needs."""
+
+
 class ReplayRenderer:
     """Draws one frame of a recording onto a matplotlib figure.
 
@@ -139,6 +143,11 @@ class ReplayRenderer:
     ) -> None:
         self.recording = recording
         self.scene = load_scene(recording)
+        fleet = recording.manifest.get("fleet") or {}
+        self.fleet_size = int(fleet.get("count", 1))
+        # A fleet recording carries r0.x alongside a flat copy of the same
+        # channel; single-robot recordings carry only the flat one.
+        self.prefixes = [f"r{i}." for i in range(self.fleet_size)] if self.fleet_size > 1 else [""]
         self.show_sensors = show_sensors
         self.show_trail = show_trail
         self.trail_seconds = trail_seconds
@@ -364,6 +373,82 @@ class ReplayRenderer:
                 patch.set_clip_path(hull_patch)
             self._parts.append(patch)
 
+        # The rest of the fleet. Each gets the same design and a coloured ring
+        # rather than a recoloured hull: the designs exist to be told apart
+        # from each other, and repainting them to tell robots apart would
+        # throw that away. The ring and the trail carry the identity.
+        self._crew: list[dict[str, Any]] = []
+        for index in range(1, self.fleet_size):
+            colour = FLEET_COLOURS[index % len(FLEET_COLOURS)]
+            parts = []
+            hull = None
+            for part in design.drawable():
+                patch = mpatches.Polygon(
+                    np.asarray(part.outline, dtype=float) * scale,
+                    closed=True,
+                    facecolor=part.colour,
+                    edgecolor="#05090e" if part.name == "hull" else "none",
+                    linewidth=1.2 if part.name == "hull" else 0.0,
+                    alpha=part.alpha,
+                    zorder=9 + 0.01 * (part.z + 100),
+                )
+                ax.add_patch(patch)
+                if hull is None:
+                    hull = patch
+                else:
+                    patch.set_clip_path(hull)
+                parts.append(patch)
+            ring = mpatches.Circle(
+                (0.0, 0.0),
+                0.5 * max(scene.robot_length, scene.robot_width) * 1.15,
+                fill=False,
+                edgecolor=colour,
+                linewidth=1.6,
+                alpha=0.9,
+                zorder=11,
+            )
+            ax.add_patch(ring)
+            trail = LineCollection([], colors=colour, linewidths=1.4, alpha=0.5, zorder=6)
+            ax.add_collection(trail)
+            label = ax.text(
+                0.0,
+                0.0,
+                str(index),
+                color=colour,
+                fontsize=7,
+                family="monospace",
+                ha="center",
+                va="center",
+                zorder=12,
+            )
+            self._crew.append({"parts": parts, "ring": ring, "trail": trail, "label": label})
+
+        if self.fleet_size > 1:
+            self._lead_ring = mpatches.Circle(
+                (0.0, 0.0),
+                0.5 * max(scene.robot_length, scene.robot_width) * 1.15,
+                fill=False,
+                edgecolor=FLEET_COLOURS[0],
+                linewidth=1.6,
+                alpha=0.9,
+                zorder=11,
+            )
+            ax.add_patch(self._lead_ring)
+            self._lead_label = ax.text(
+                0.0,
+                0.0,
+                "0",
+                color=FLEET_COLOURS[0],
+                fontsize=7,
+                family="monospace",
+                ha="center",
+                va="center",
+                zorder=12,
+            )
+        else:
+            self._lead_ring = None
+            self._lead_label = None
+
         self._nose = ax.plot([], [], color=PALETTE["accent"], linewidth=2.4, zorder=10)[0]
         self._brush = ax.plot([], [], marker="o", markersize=6, color=PALETTE["accent"], zorder=10)[
             0
@@ -540,6 +625,21 @@ class ReplayRenderer:
             [x + np.cos(heading) * nose * 0.85], [y + np.sin(heading) * nose * 0.85]
         )
 
+        if self._lead_ring is not None:
+            self._lead_ring.center = (x, y)
+            self._lead_label.set_position((x, y))
+        for member, mate in enumerate(self._crew, start=1):
+            prefix = self.prefixes[member]
+            mx, my = float(f[f"{prefix}x"][index]), float(f[f"{prefix}y"][index])
+            mh = float(f[f"{prefix}heading"][index])
+            mate_transform = mtransforms.Affine2D().rotate(mh).translate(mx, my) + self.ax.transData
+            for patch in mate["parts"]:
+                patch.set_transform(mate_transform)
+            mate["ring"].center = (mx, my)
+            mate["label"].set_position((mx, my))
+            if self.show_trail:
+                self._set_trail(mate["trail"], prefix, index, t, fade=False)
+
         # Sonar rays, drawn at their measured length.
         if self.show_sensors and scene.sonar_angles:
             segments = []
@@ -592,17 +692,29 @@ class ReplayRenderer:
         self._error_line.set_data([x, wx], [y, wy])
 
     def _update_trail(self, index: int, t: float) -> None:
+        self._set_trail(self._trail, self.prefixes[0], index, t, fade=True)
+
+    def _set_trail(self, artist: Any, prefix: str, index: int, t: float, *, fade: bool) -> None:
+        """A fading window of one robot's recent path.
+
+        ``fade`` is off for the rest of the fleet: their trails are already
+        distinguished by colour, and giving every one of them a bright head
+        makes a three-robot pool look like a firework.
+        """
         f = self.recording.frames
         times = f["time"]
         start = int(np.searchsorted(times, t - self.trail_seconds))
         start = max(0, min(start, index))
-        xs = f["x"][start : index + 1]
-        ys = f["y"][start : index + 1]
+        xs = f[f"{prefix}x"][start : index + 1]
+        ys = f[f"{prefix}y"][start : index + 1]
         if xs.size < 2:
-            self._trail.set_segments([])
+            artist.set_segments([])
             return
         points = np.column_stack([xs, ys])
         segments = np.stack([points[:-1], points[1:]], axis=1)
+        artist.set_segments(list(segments))
+        if not fade:
+            return
         # Older segments fade and thin out; the head of the trail is brightest.
         age = np.linspace(0.0, 1.0, len(segments))
         rgba = np.zeros((len(segments), 4))
@@ -610,9 +722,8 @@ class ReplayRenderer:
         rgba[:, 3] = 0.06 + 0.78 * age
         # matplotlib's stubs are narrower than what LineCollection accepts;
         # arrays are the documented input for all three of these.
-        self._trail.set_segments(list(segments))
-        self._trail.set_linewidth((0.7 + 3.2 * age).tolist())
-        self._trail.set_color(rgba)  # type: ignore[arg-type]
+        artist.set_linewidth((0.7 + 3.2 * age).tolist())
+        artist.set_color(rgba)  # type: ignore[arg-type]
 
     def _update_text(self, index: int, t: float) -> None:
         f = self.recording.frames
@@ -685,16 +796,17 @@ class ReplayRenderer:
         n = self.recording.n_frames
         first = np.full(scene.grid.shape, np.iinfo(np.int32).max, dtype=np.int32)
         radius = 0.5 * scene.swath
-        for i in range(n):
-            x, y = float(f["x"][i]), float(f["y"][i])
-            if not (np.isfinite(x) and np.isfinite(y)):
-                continue
-            window = scene.grid.window(x, y, radius)
-            if window is None:
-                continue
-            patch = window.view(first)
-            fresh = window.mask & (patch == np.iinfo(np.int32).max)
-            patch[fresh] = i
+        for prefix in self.prefixes:
+            for i in range(n):
+                x, y = float(f[f"{prefix}x"][i]), float(f[f"{prefix}y"][i])
+                if not (np.isfinite(x) and np.isfinite(y)):
+                    continue
+                window = scene.grid.window(x, y, radius)
+                if window is None:
+                    continue
+                patch = window.view(first)
+                fresh = window.mask & (patch == np.iinfo(np.int32).max)
+                patch[fresh] = i
         first[~scene.navigable] = np.iinfo(np.int32).max
         return first
 

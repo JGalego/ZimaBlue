@@ -219,6 +219,17 @@ class Recording:
             f"robot           {m.get('scenario', {}).get('robot', '?')}",
             f"dirt            {m.get('scenario', {}).get('dirt', '?')}",
             f"controller      {m.get('scenario', {}).get('controller', '?')}",
+        ]
+        fleet = m.get("fleet")
+        if fleet:
+            names = ", ".join(dict.fromkeys(fleet.get("controllers", [])))
+            lines.append(f"robots          {fleet.get('count')} ({names})")
+            reach = fleet.get("comms_range")
+            lines.append(
+                f"radio           {'unlimited' if reach is None else f'{reach:g} m'}"
+                f"{'' if fleet.get('share', True) else ', not sharing coverage'}"
+            )
+        lines += [
             f"timestep        {m.get('timestep')} s",
             f"frames          {self.n_frames} ({self.duration / 60:.1f} min)",
             f"channels        {len(self.frames)}",

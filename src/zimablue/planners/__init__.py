@@ -5,12 +5,15 @@ passes over every point of a region.  It is the oldest question in cleaning
 robotics and the field is large -- the most recent survey (Shen et al., 2026)
 reviews 125 works and names over a hundred algorithms.
 
-This module implements **the single-robot 2D branch of that literature**, which
-is the part a pool cleaner lives in, and it implements every distinct
-*mechanism* in it rather than every published variant. What is deliberately
-absent, and why:
+This module implements **the 2D branch of that literature**, and it implements
+every distinct *mechanism* in it rather than every published variant. The
+single-robot half is :mod:`~zimablue.planners.offline` and
+:mod:`~zimablue.planners.online`; the multi-robot half is
+:mod:`~zimablue.planners.partition` (divide the pool, then reuse a single-robot
+planner in each share) and :mod:`~zimablue.planners.cooperative` (methods whose
+decision rule refers to the other robots). What is deliberately absent, and
+why:
 
-* multi-robot methods -- there is one robot;
 * 3D and visual/inspection coverage -- the backend is planar and there is no
   camera in the loop;
 * learning-based coverage -- that is :mod:`zimablue.rl`, which is the same idea
@@ -52,6 +55,13 @@ from zimablue.planners.base import (
     PathFollower,
     make_planner,
 )
+from zimablue.planners.cooperative import (
+    AuctionFrontier,
+    MSTCFollower,
+    SwarmField,
+    SwarmSpectral,
+    mstc,
+)
 from zimablue.planners.ergodic import SpectralCoverage
 from zimablue.planners.offline import (
     Boustrophedon,
@@ -76,10 +86,20 @@ from zimablue.planners.online import (
     Predictive,
     SpiralSTC,
 )
+from zimablue.planners.partition import (
+    PARTITIONS,
+    Partition,
+    Partitioner,
+    Territory,
+    make_partition,
+    partitioned,
+)
 
 __all__ = [
     "BSA",
+    "PARTITIONS",
     "PLANNERS",
+    "AuctionFrontier",
     "BAStar",
     "Boustrophedon",
     "BoustrophedonCells",
@@ -90,17 +110,26 @@ __all__ = [
     "EpsilonStar",
     "Frontier",
     "FullSTC",
+    "MSTCFollower",
     "Morse",
     "NeuralField",
     "OnlineCoverage",
     "OnlineTuning",
     "OptimalSweep",
+    "Partition",
+    "Partitioner",
     "PathFollower",
     "Predictive",
     "SpanningTree",
     "SpectralCoverage",
     "SpiralSTC",
+    "SwarmField",
+    "SwarmSpectral",
+    "Territory",
     "Trapezoidal",
     "Wavefront",
+    "make_partition",
     "make_planner",
+    "mstc",
+    "partitioned",
 ]

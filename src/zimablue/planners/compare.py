@@ -69,7 +69,17 @@ from zimablue.planners.base import PLANNERS, PathFollower
 
 FloatArray = NDArray[np.float64]
 
-__all__ = ["DIMENSIONS", "Comparison", "Dimension", "Trial", "compare", "coverage_curve"]
+__all__ = [
+    "DIMENSIONS",
+    "FLEET_DIMENSIONS",
+    "Comparison",
+    "Dimension",
+    "Trial",
+    "compare",
+    "compare_fleets",
+    "coverage_curve",
+    "evaluate_fleet",
+]
 
 
 @dataclass(frozen=True)
@@ -134,6 +144,9 @@ class Comparison:
     trials: list[Trial]
     dimensions: tuple[Dimension, ...] = DIMENSIONS
     minutes: float = 0.0
+    label: str = "planner comparison"
+    """What the matrix plot calls itself. A fleet comparison scores teams on a
+    different set of dimensions and should not claim to be ranking planners."""
 
     @property
     def planners(self) -> list[str]:
@@ -510,3 +523,206 @@ def compare(
     order = {e: i for i, e in enumerate(entries)}
     trials.sort(key=lambda t: (order.get(t.planner, 99), t.pool, t.seed))
     return Comparison(trials=trials, minutes=minutes)
+
+
+# ----------------------------------------------------------------------
+# Fleets
+# ----------------------------------------------------------------------
+FLEET_DIMENSIONS: tuple[Dimension, ...] = (
+    Dimension("coverage", "coverage", +1, "%", 100.0, 1),
+    Dimension("dirt", "dirt", +1, "%", 100.0, 1),
+    Dimension("speedup", "speedup", +1, "x", 1.0, 2),
+    Dimension("overlap", "overlap", -1, "%", 100.0, 0),
+    Dimension("balance", "balance", +1, "", 1.0, 2),
+    Dimension("gap", "worst gap", -1, "m2", 1.0, 1),
+    Dimension("efficiency", "efficiency", +1, "", 1.0, 2),
+    Dimension("turning", "turning", -1, "", 57.29577951308232, 1),
+    Dimension("half", "to half", -1, "s", 1.0, 0),
+    Dimension("bumps", "bumps", -1, "/min", 1.0, 1),
+    Dimension("energy", "energy", -1, "Wh", 1.0, 1),
+)
+"""What a *team* is judged on.
+
+Three of these have no single-robot meaning at all. **Speedup** is the team's
+coverage over its best member's, and its ceiling is the robot count -- a fleet
+scoring 1.2x with three robots has bought two very expensive passengers.
+**Overlap** is the floor more than one of them did, which is the cost of
+coordinating badly. **Balance** is the shortest robot's distance over the
+longest, and it catches the failure a coverage number hides completely: one
+robot doing the work while another sits in a corner it was assigned and
+finished.
+"""
+
+
+def evaluate_fleet(
+    entry: str,
+    *,
+    robots: int = 3,
+    pool: str = "rectangular",
+    dirt: str = "autumn",
+    seed: int = 1,
+    minutes: float = 20.0,
+    robot: str = "tracked",
+    share: bool = True,
+    keep_path: int = 6,
+) -> Trial:
+    """Run one fleet once and measure the team.
+
+    ``entry`` is a controller name every robot runs (``"bsa"``), a partition
+    and planner (``"darp+sweep_optimal"``), or ``"mstc"`` / ``"mstc_nobt"``.
+    """
+    from zimablue.dynamics import ergodic_score
+    from zimablue.fleet import Fleet
+    from zimablue.planners.cooperative import mstc
+    from zimablue.planners.partition import partitioned
+
+    if entry == "mstc":
+        controllers: Any = mstc(backtracking=True)
+    elif entry == "mstc_nobt":
+        controllers = mstc(backtracking=False)
+    elif "+" in entry:
+        method, planner = entry.split("+", 1)
+        controllers = partitioned(method, planner)
+    else:
+        controllers = entry
+
+    fleet = Fleet(
+        pool=pool, robots=robots, dirt=dirt, controllers=controllers, seed=seed, share=share
+    )
+    result = fleet.run(minutes=minutes)
+    metrics, recording = result.metrics, result.recording
+    geometry = fleet.pool
+    swath = fleet.robots[0].swath_width
+
+    times, fractions = coverage_curve(recording, geometry, swath=swath)
+    turned = 0.0
+    for index in range(robots):
+        heading = np.asarray(recording.column(f"r{index}.heading"), dtype=float)
+        step = np.diff(heading)
+        turned += float(np.abs(np.arctan2(np.sin(step), np.cos(step))).sum())
+    distance = max(metrics.team.distance_traveled, 1e-6)
+    area = float(geometry.navigable.area)
+
+    half = float("inf")
+    reached = np.flatnonzero(fractions >= 0.5)
+    if reached.size:
+        half = float(times[reached[0]])
+
+    try:
+        score = ergodic_score(recording, target="uniform", pool=geometry)
+        ergodic, wasted = score.value, score.wasted
+    except Exception:  # pragma: no cover - a run too short to score
+        ergodic, wasted = float("nan"), float("nan")
+
+    runtime = max(metrics.team.runtime / 60.0, 1e-6)
+    scores = {
+        "coverage": metrics.team.coverage,
+        "dirt": metrics.team.dirt_removed_fraction,
+        "speedup": metrics.speedup,
+        "overlap": metrics.overlap,
+        "balance": metrics.balance,
+        "gap": largest_gap(result.spatial, fleet.world.cell),
+        "efficiency": min(metrics.team.coverage * area / (distance * swath), 1.0),
+        "turning": turned / distance,
+        "half": half,
+        "bumps": metrics.encounters / runtime,
+        "energy": metrics.team.energy_consumed,
+        "ergodic": ergodic,
+        "wasted": wasted,
+    }
+
+    # One polyline per robot, separated by a gap so a single plot call draws
+    # them as separate strokes rather than joining the last point of one robot
+    # to the first of the next.
+    strokes = []
+    for index in range(robots):
+        track = np.column_stack(
+            [
+                np.asarray(recording.column(f"r{index}.x"), dtype=float),
+                np.asarray(recording.column(f"r{index}.y"), dtype=float),
+            ]
+        )[::keep_path]
+        strokes.append(track)
+        strokes.append(np.full((1, 2), np.nan))
+    return Trial(
+        planner=entry,
+        pool=pool,
+        seed=seed,
+        scores=scores,
+        path=np.vstack(strokes),
+        curve=(times, fractions),
+        notes={"robots": robots, "per_robot": [m.coverage for m in metrics.robots]},
+    )
+
+
+FLEET_ENTRIES = (
+    "bsa",
+    "frontier",
+    "binn",
+    "epsilon_star",
+    "ppcpp",
+    "smc",
+    "auction",
+    "binn_swarm",
+    "smc_swarm",
+    "mstc",
+    "mstc_nobt",
+    "voronoi+sweep_optimal",
+    "geodesic+sweep_optimal",
+    "strips+sweep_optimal",
+    "darp+sweep_optimal",
+    "forest+sweep_optimal",
+    "darp+boustrophedon_cells",
+)
+
+
+def compare_fleets(
+    entries: tuple[str, ...] = FLEET_ENTRIES,
+    *,
+    robots: int = 3,
+    pools: tuple[str, ...] = ("rectangular",),
+    seeds: tuple[int, ...] = (1,),
+    minutes: float = 20.0,
+    dirt: str = "autumn",
+    share: bool = True,
+    jobs: int = 1,
+    on_result=None,
+) -> Comparison:
+    """The same harness, scoring teams instead of individuals."""
+    work = [
+        (entry, {"robots": robots, "pool": p, "seed": s, "minutes": minutes,
+                 "dirt": dirt, "share": share})
+        for entry in entries
+        for p in pools
+        for s in seeds
+    ]
+    trials: list[Trial] = []
+
+    if jobs > 1:
+        from concurrent.futures import ProcessPoolExecutor
+
+        # evaluate_fleet at module level, not a closure: a worker process gets
+        # the function by pickling a reference to it, and a local function has
+        # no reference to send.
+        with ProcessPoolExecutor(max_workers=jobs) as pool_executor:
+            futures = [pool_executor.submit(evaluate_fleet, e, **kw) for e, kw in work]
+            for future in futures:
+                trial = future.result()
+                trials.append(trial)
+                if on_result:
+                    on_result(trial)
+    else:
+        for entry, kwargs in work:
+            trial = evaluate_fleet(entry, **kwargs)
+            trials.append(trial)
+            if on_result:
+                on_result(trial)
+
+    order = {e: i for i, e in enumerate(entries)}
+    trials.sort(key=lambda t: (order.get(t.planner, 99), t.pool, t.seed))
+    return Comparison(
+        trials=trials,
+        dimensions=FLEET_DIMENSIONS,
+        minutes=minutes,
+        label=f"fleet comparison -- {robots} robots",
+    )

@@ -236,6 +236,13 @@ class SensorContext:
     water: Any = None
     """The :class:`~zimablue.pool.Water` properties."""
 
+    neighbours: tuple[tuple[float, float, float], ...] = ()
+    """Other robots, as ``(x, y, radius)`` discs.
+
+    Empty for a single-robot run. A fleet fills it, and a rangefinder that
+    ignored it would let a robot drive confidently into a team-mate it was
+    pointing straight at."""
+
     extras: dict[str, float] = field(default_factory=dict)
 
 

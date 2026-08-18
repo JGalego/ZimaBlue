@@ -89,6 +89,19 @@ class RngTree:
         self._streams[name] = generator
         return generator
 
+    def branch(self, name: str) -> RngTree:
+        """A whole sub-tree, seeded from this one and this name.
+
+        A stream is one generator; a branch is a new tree that can hand out
+        streams of its own. What needs it is a fleet: each robot's backend
+        wants its *own* ``"slip"``, and handing them all the same tree would
+        have them drawing in turn from one sequence -- so the noise robot 2
+        sees would depend on how many robots are ahead of it in the list, and
+        adding a fourth robot would change the first three's runs.
+        """
+        seq = np.random.SeedSequence(entropy=self._seed, spawn_key=name_to_key(name))
+        return RngTree(int(seq.generate_state(1, dtype=np.uint32)[0]))
+
     def names(self) -> Iterable[str]:
         """Names of the streams handed out so far (creation order)."""
         return tuple(self._streams)
