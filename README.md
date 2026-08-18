@@ -330,10 +330,14 @@ zb.Fleet(pool="kidney", robots=3, controllers=partitioned("darp", "sweep_optimal
 <img src="docs/assets/fleet-views.png" alt="Paths, territory, overlap and progress for a three-robot fleet" width="820">
 </div>
 
-The result worth the trouble: the same DARP partition followed from the true
+Two results worth the trouble. The same DARP partition followed from the true
 pose gives a **2.87x speedup with 0.3% overlap** — near-perfect division of
-labour — and followed on dead reckoning gives 1.88x with 43% overlap. The
-partition survives in the plan and evaporates in the execution. See
+labour — and followed on dead reckoning gives 1.88x with 43%. The partition
+survives in the plan and evaporates in the execution.
+
+And on a kidney pool, **the fourth robot makes it worse**: coverage goes 49% →
+70% → 84% → 83% as the fleet grows, dirt removed peaks at three, and collisions
+triple between the third robot and the fourth. See
 [fleets](docs/multi-robot.md).
 
 ## Watch it

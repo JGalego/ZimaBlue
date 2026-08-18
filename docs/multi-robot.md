@@ -205,6 +205,33 @@ and team coverage does not move. Knowing where your colleague has been is worth
 about seven points of overlap and nothing else, because by the time you hear
 about a cell you were usually not going there anyway.
 
+## What a second robot is worth
+
+```bash
+python examples/fleet.py --scaling --robots 4 --controllers auction
+```
+
+Kidney pool, eight minutes, `auction`, one seed:
+
+| robots | coverage | dirt | speedup | overlap | balance | bumps |
+|---|---|---|---|---|---|---|
+| 1 | 49.0% | 24.2% | 1.00 | 0% | 1.00 | 0 |
+| 2 | 70.0% | 36.1% | 1.51 | 24% | 1.00 | 28 |
+| 3 | 84.4% | 47.2% | 1.70 | 55% | 0.98 | 64 |
+| 4 | **83.4%** | **41.5%** | 1.83 | 63% | 0.86 | 192 |
+
+**The fourth robot makes it worse.** Coverage falls by a point, dirt removed
+falls by six, and collisions triple. Four machines with a 34 cm swath in a
+fifty square metre pool spend enough of their time getting out of each other's
+way to lose more than the fourth one brings.
+
+Note what speedup does while that happens: it keeps going *up*, to 1.83. It is
+team coverage over the best single member's, and the fourth robot pushes the
+denominator down faster than the numerator. A rising speedup with falling
+coverage means each robot is doing less, not that the team is doing more --
+which is exactly why there are eleven columns and not one.
+
+
 ## Pictures
 
 ```python

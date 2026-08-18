@@ -58,7 +58,10 @@ understand.
 
 - `examples/fleet.py` (including `--scaling`, which prints what the second,
   third and fourth robot are actually worth) and
-  [docs/multi-robot.md](docs/multi-robot.md).
+  [docs/multi-robot.md](docs/multi-robot.md). On a kidney pool with `auction`,
+  coverage goes 49% -> 70% -> 84% -> 83% as the fleet grows to four: the
+  fourth robot loses a point of coverage and six of dirt removed, and triples
+  the collisions.
 - **Coverage path planning** (`zimablue.planners`): eighteen planners, which is
   most of the single-robot 2D literature. Eight offline -- `boustrophedon`,
   `sweep_optimal`, `trapezoidal`, `boustrophedon_cells`, `morse`, `contour`,
