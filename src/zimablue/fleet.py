@@ -638,6 +638,7 @@ class Fleet:
             wall_visits,
             self._initial_dirt,
             termination=self._termination,
+            robot=self.robots[0],
         )
 
         navigable = spatial.navigable
@@ -651,6 +652,7 @@ class Fleet:
                 np.asarray(self.backends[index].wall_visits),
                 self._initial_dirt,
                 termination=self._termination,
+                robot=self.robots[index],
             )
             per_robot.append(one)
 

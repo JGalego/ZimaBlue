@@ -690,8 +690,17 @@ def compare_fleets(
 ) -> Comparison:
     """The same harness, scoring teams instead of individuals."""
     work = [
-        (entry, {"robots": robots, "pool": p, "seed": s, "minutes": minutes,
-                 "dirt": dirt, "share": share})
+        (
+            entry,
+            {
+                "robots": robots,
+                "pool": p,
+                "seed": s,
+                "minutes": minutes,
+                "dirt": dirt,
+                "share": share,
+            },
+        )
         for entry in entries
         for p in pools
         for s in seeds

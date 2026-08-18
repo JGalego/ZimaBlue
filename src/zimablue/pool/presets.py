@@ -13,10 +13,10 @@ means adding a function, not extending a branch.
 from __future__ import annotations
 
 import numpy as np
-from shapely.geometry import Polygon
+from numpy.typing import NDArray
+from shapely.geometry import LineString, Polygon
 from shapely.geometry import box as shapely_box
 
-from zimablue.geometry import smooth_ring
 from zimablue.pool.depth import CompositeDepth, ConstantDepth, PlaneSlopeDepth
 from zimablue.pool.features import Drain, Obstacle, Return, Skimmer, Stairs
 from zimablue.pool.pool import Pool
@@ -26,10 +26,90 @@ __all__ = ["POOL_PRESETS", "make_pool"]
 
 POOL_PRESETS: Registry[Pool] = Registry("pool")
 
+FloatArray = NDArray[np.float64]
+
 
 def _ellipse(cx: float, cy: float, rx: float, ry: float, n: int = 256) -> Polygon:
     t = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
     return Polygon(np.column_stack([cx + rx * np.cos(t), cy + ry * np.sin(t)]))
+
+
+def _arc(
+    centre: tuple[float, float],
+    radius: float,
+    start: tuple[float, float],
+    end: tuple[float, float],
+    ccw: bool,
+    n: int = 192,
+) -> FloatArray:
+    """Points along the circular arc of ``radius`` about ``centre``.
+
+    Runs from ``start`` to ``end`` the short way round if ``ccw`` matches the
+    sense of the turn, the long way otherwise.  Both endpoints are assumed to
+    lie on the circle; only their bearings are used.
+    """
+    cx, cy = centre
+    a0 = np.arctan2(start[1] - cy, start[0] - cx)
+    a1 = np.arctan2(end[1] - cy, end[0] - cx)
+    sweep = (a1 - a0) % (2 * np.pi) if ccw else -((a0 - a1) % (2 * np.pi))
+    t = np.linspace(a0, a0 + sweep, n)
+    return np.column_stack([cx + radius * np.cos(t), cy + radius * np.sin(t)])
+
+
+def _circles_meet(
+    c1: tuple[float, float], r1: float, c2: tuple[float, float], r2: float, upper: bool
+) -> tuple[float, float]:
+    """One of the two points where circles ``(c1, r1)`` and ``(c2, r2)`` cross.
+
+    ``upper`` picks the higher of the pair.  Raises if the circles are nested,
+    disjoint or concentric, which is how an impossible set of kidney radii
+    reports itself instead of quietly producing a self-crossing outline.
+    """
+    (ax, ay), (bx, by) = c1, c2
+    dx, dy = bx - ax, by - ay
+    d = float(np.hypot(dx, dy))
+    if d == 0 or d > r1 + r2 or d < abs(r1 - r2):
+        raise ValueError(
+            f"no arc chain closes for radii {r1:.3g} and {r2:.3g} at centres {d:.3g} apart"
+        )
+    a = (r1 * r1 - r2 * r2 + d * d) / (2 * d)
+    h = float(np.sqrt(max(r1 * r1 - a * a, 0.0)))
+    mx, my = ax + a * dx / d, ay + a * dy / d
+    low = (mx + h * dy / d, my - h * dx / d)
+    high = (mx - h * dy / d, my + h * dx / d)
+    if (high[1] > low[1]) != upper:
+        low, high = high, low
+    return high if upper else low
+
+
+def _towards(
+    centre: tuple[float, float], target: tuple[float, float], radius: float
+) -> tuple[float, float]:
+    """The point ``radius`` from ``centre`` on the line to ``target``.
+
+    A negative ``radius`` steps the other way.  Where two circles are tangent
+    this is the point they touch, which is where one arc of the chain hands
+    over to the next.
+    """
+    vx, vy = target[0] - centre[0], target[1] - centre[1]
+    norm = float(np.hypot(vx, vy))
+    return (centre[0] + radius * vx / norm, centre[1] + radius * vy / norm)
+
+
+def _chord_point(polygon: Polygon, x: float, fraction: float) -> tuple[float, float]:
+    """The point ``fraction`` of the way up the pool's vertical chord at ``x``.
+
+    Lets a preset place a drain "in the middle of the deep end" and have that
+    still mean the middle after its dimensions change.
+    """
+    _, miny, _, maxy = polygon.bounds
+    chord = polygon.intersection(LineString([(x, miny - 1.0), (x, maxy + 1.0)]))
+    if chord.is_empty:
+        raise ValueError(f"x = {x:.3g} is outside the pool")
+    if chord.geom_type != "LineString":  # a concave section can cut two chords
+        chord = max(chord.geoms, key=lambda part: part.length)
+    (_, y0), (_, y1) = chord.coords[0], chord.coords[-1]
+    return (x, y0 + fraction * (y1 - y0))
 
 
 @POOL_PRESETS.register("rectangular")
@@ -94,38 +174,127 @@ def l_shaped() -> Pool:
 
 
 @POOL_PRESETS.register("kidney")
-def kidney() -> Pool:
-    """A kidney-bean pool: a 12.5 x 6.4 m bean with one concave long side.
+def kidney(
+    length: float = 12.5,
+    shallow_lobe: float = 2.261,
+    deep_lobe: float = 2.643,
+    lobe_spacing: float = 7.596,
+    lobe_rise: float = 1.109,
+    belly_radius: float = 13.023,
+    scoop_radius: float = 2.694,
+    shallow: float = 1.0,
+    deep: float = 1.8,
+) -> Pool:
+    """A kidney pool: 12.5 x 6.4 m, 54 m2, one concave long side.
 
-    Composed from ellipse booleans rather than a hand-typed vertex list: a body
-    ellipse, a lobe that fattens the deep end, a closing buffer to erase the
-    waist where the two meet, and a large offset circle that scoops the shallow
-    side.  The result is then passed through :func:`~zimablue.geometry.smooth_ring`, so the final
-    boundary is a smooth curve with no cusps left over from the booleans.
+    The outline is a chain of four circular arcs, which is how a kidney is
+    actually set out on site -- stakes at the two lobe centres, a line for the
+    long belly arc, a fourth for the scoop bitten out of the top:
 
-    The concavity is the point: a boustrophedon planner that treats the pool as
-    a single cell wastes travel crossing the scoop, and coverage metrics show it.
+    * ``shallow_lobe`` and ``deep_lobe`` are the radii of the two ends,
+    * ``lobe_spacing`` and ``lobe_rise`` place the deep lobe's centre relative
+      to the shallow one,
+    * ``belly_radius`` is the long arc that runs under both lobes,
+    * ``scoop_radius`` is the concave arc between them.
+
+    Successive arcs meet where their circles are tangent, so the tangent is
+    continuous the whole way round and there are no corners.  Curvature does
+    jump at each join -- a real pool shell is no different, and it is a fairer
+    test of a wall follower than a curve with no jumps at all.
+
+    Everything is then scaled uniformly so the bounding length is ``length``.
+    Uniform scaling maps circles to circles, so the arcs stay exact at any
+    size; the defaults give 12.5 x 6.4 m over 54 m2, an 18 x 36 ft kidney.
+
+    The floor is flat under the shallow end, ramps through a hopper over the
+    middle 45% of the length, and is flat again under the deep end, which is
+    where the drain goes and where the returns sweep everything.
+
+    The concavity is the point.  A boustrophedon planner that treats the pool
+    as a single cell wastes travel crossing the scoop, and the coverage
+    metrics show it.
+
+    An earlier version of this preset was a union of ellipses passed through a
+    Fourier smoother.  It looked right and measured right, but it had no
+    parameters, so there was no way to ask for a bigger kidney or a deeper
+    scoop, and no statement of what the shape was supposed to be that a test
+    could check.
     """
-    body = _ellipse(6.0, 3.9, 6.0, 3.1).union(_ellipse(9.6, 4.5, 2.9, 2.7))
-    body = body.buffer(0.5).buffer(-0.5)  # closing: erase the waist
-    scoop = _ellipse(4.6, 9.3, 4.3, 4.3)
-    boundary = body.difference(scoop)
-    if boundary.geom_type == "MultiPolygon":  # pragma: no cover - defensive
-        boundary = max(boundary.geoms, key=lambda g: g.area)
-    boundary = smooth_ring(Polygon(boundary.exterior), harmonics=12)
+    if deep_lobe <= 0 or shallow_lobe <= 0 or scoop_radius <= 0:
+        raise ValueError("lobe and scoop radii must be positive")
+    if belly_radius <= max(shallow_lobe, deep_lobe):
+        raise ValueError("belly_radius must exceed both lobe radii")
 
+    shallow_centre = (0.0, 0.0)
+    deep_centre = (lobe_spacing, lobe_rise)
+    # Centres of the two long arcs: the belly contains both lobes (internal
+    # tangency, hence the difference of radii) and the scoop excludes them.
+    belly = _circles_meet(
+        shallow_centre, belly_radius - shallow_lobe, deep_centre, belly_radius - deep_lobe, True
+    )
+    scoop = _circles_meet(
+        shallow_centre, scoop_radius + shallow_lobe, deep_centre, scoop_radius + deep_lobe, True
+    )
+    belly_shallow = _towards(shallow_centre, belly, -shallow_lobe)
+    belly_deep = _towards(deep_centre, belly, -deep_lobe)
+    scoop_deep = _towards(deep_centre, scoop, deep_lobe)
+    scoop_shallow = _towards(shallow_centre, scoop, shallow_lobe)
+    ring = np.vstack(
+        [
+            _arc(belly, belly_radius, belly_shallow, belly_deep, ccw=True),
+            _arc(deep_centre, deep_lobe, belly_deep, scoop_deep, ccw=True),
+            _arc(scoop, scoop_radius, scoop_deep, scoop_shallow, ccw=False),
+            _arc(shallow_centre, shallow_lobe, scoop_shallow, belly_shallow, ccw=True),
+        ]
+    )
+    ring -= ring.min(axis=0)
+    ring *= length / ring[:, 0].max()
+    boundary = Polygon(ring)
+    if not boundary.is_valid or not boundary.exterior.is_simple:
+        raise ValueError("those radii give a self-crossing outline, not a kidney")
+
+    hopper_start, hopper_end = 0.35 * length, 0.80 * length
     return Pool(
         boundary=boundary,
         depth=PlaneSlopeDepth(
-            shallow=1.0, deep=2.0, origin=(0.0, 0.0), direction=(1.0, 0.0), length=12.0
+            shallow=shallow,
+            deep=deep,
+            origin=(hopper_start, 0.0),
+            direction=(1.0, 0.0),
+            length=hopper_end - hopper_start,
         ),
         name="kidney",
         material="plaster",
         features=(
-            Drain("main_drain", position=(9.4, 4.2), radius=0.25, flow_rate=0.18),
-            Return("return_a", position=(1.4, 3.6), direction=(1.0, 0.1)),
-            Return("return_b", position=(11.8, 4.6), direction=(-1.0, -0.2)),
-            Skimmer("skimmer", position=(3.0, 1.4)),
+            # In the middle of the deep flat, which is where a main drain goes
+            # and where the floor sends everything anyway. It used to sit
+            # three metres short of the deep end, so the returns swept dirt
+            # straight past it and piled it against the far wall, outside the
+            # robot's reach.
+            Drain(
+                "main_drain",
+                position=_chord_point(boundary, 0.88 * length, 0.5),
+                radius=0.25,
+                flow_rate=0.18,
+            ),
+            # Both returns sit at the shallow end and push the length of the
+            # pool towards the drain. The preset used to put one at each end
+            # aimed at the other, which is not how anyone plumbs a pool: the
+            # two jets met in the middle and dirt piled onto the stagnation
+            # line until it read as floor the robot had missed. Sweeping one
+            # way puts the pile where it belongs, on the drain -- which is
+            # what every other preset here already did.
+            Return(
+                "return_a",
+                position=_chord_point(boundary, 0.11 * length, 0.28),
+                direction=(1.0, 0.12),
+            ),
+            Return(
+                "return_b",
+                position=_chord_point(boundary, 0.19 * length, 0.78),
+                direction=(1.0, -0.12),
+            ),
+            Skimmer("skimmer", position=_chord_point(boundary, 0.24 * length, 0.04)),
         ),
     )
 

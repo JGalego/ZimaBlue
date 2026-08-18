@@ -99,6 +99,20 @@ class Metrics:
     debris_remaining: int = 0
     debris_collected: int = 0
 
+    debris_oversize: int = 0
+    """Items too large for this robot's intake. They can never be collected --
+    the robot shoves them around instead -- so they are not a controller's
+    failure and no amount of coverage will shift them."""
+
+    uncollectable_dirt: float = 0.0
+    """Grams locked up in those items."""
+
+    dirt_ceiling: float = 1.0
+    """The largest ``dirt_removed_fraction`` this robot could reach on this
+    pool, however perfectly it drove. Below 1.0 whenever the pool contains
+    debris the intake cannot swallow, and worth knowing before reading a
+    dirt-removed number as a score out of a hundred."""
+
     # Cost and failure
     energy_consumed: float = 0.0
     """Watt-hours."""
@@ -130,6 +144,9 @@ class Metrics:
             "cleaning_uniformity": self.cleaning_uniformity,
             "debris_remaining": self.debris_remaining,
             "debris_collected": self.debris_collected,
+            "debris_oversize": self.debris_oversize,
+            "uncollectable_dirt": self.uncollectable_dirt,
+            "dirt_ceiling": self.dirt_ceiling,
             "energy_consumed": self.energy_consumed,
             "battery_remaining": self.battery_remaining,
             "stuck_time": self.stuck_time,
@@ -162,9 +179,31 @@ class Metrics:
                 f"(battery {self.battery_remaining * 100:.0f} % left)",
                 f"  collisions        {self.collisions:6d}",
                 f"  stuck             {self.stuck_events:6d} events, {self.stuck_time:.1f} s",
+                *self._debris_lines(),
                 f"  termination       {self.termination}",
             ]
         )
+
+    def _debris_lines(self) -> list[str]:
+        """Leaves and twigs, and the ceiling the big ones impose.
+
+        Printed only when there is debris, and the ceiling only when it bites.
+        A dirt-removed figure of 49% reads very differently once you know the
+        robot's intake cannot reach the last 8% at all.
+        """
+        total = self.debris_collected + self.debris_remaining
+        if not total:
+            return []
+        lines = [
+            f"  debris            {self.debris_collected:6d} collected of {total}"
+            + (f", {self.debris_oversize} too big for the intake" if self.debris_oversize else "")
+        ]
+        if self.dirt_ceiling < 0.999:
+            lines.append(
+                f"  dirt ceiling      {self.dirt_ceiling * 100:6.1f} %   "
+                f"({self.uncollectable_dirt:.0f} g this intake cannot lift)"
+            )
+        return lines
 
 
 def compute_metrics(
@@ -176,8 +215,14 @@ def compute_metrics(
     initial_dirt: FloatArray,
     *,
     termination: str = "unknown",
+    robot: Any = None,
 ) -> tuple[Metrics, SpatialMetrics]:
-    """Score a finished run."""
+    """Score a finished run.
+
+    ``robot`` is optional and only used to work out which debris its intake
+    could never have swallowed. Without it the ceiling is reported as 1.0,
+    which is the honest answer to "we do not know what machine this was".
+    """
     pool = world.pool
     navigable = pool.navigable_mask(world.cell)
     navigable_cells = int(navigable.sum())
@@ -229,6 +274,17 @@ def compute_metrics(
     else:
         uniformity = 1.0
 
+    # Debris the intake was never going to take. Counted over every item,
+    # collected or not: an oversize item cannot have been collected, so this
+    # is exactly the set that was doomed from the start.
+    oversize_count, oversize_mass = 0, 0.0
+    debris = world.dirt.debris
+    if robot is not None and len(debris):
+        limit = robot.cleaning.pump.max_debris_size
+        too_big = np.asarray(debris.size) > limit
+        oversize_count = int(too_big.sum())
+        oversize_mass = float(np.asarray(debris.mass)[too_big].sum())
+
     stuck_events = sum(1 for e in events if e.kind == "stuck")
     collisions = sum(1 for e in events if e.kind == "collision")
     filter_full = any(e.kind == "filter_full" for e in events)
@@ -249,6 +305,9 @@ def compute_metrics(
         cleaning_uniformity=uniformity,
         debris_remaining=len(world.dirt.debris) - world.dirt.debris.collected_count,
         debris_collected=world.dirt.debris.collected_count,
+        debris_oversize=oversize_count,
+        uncollectable_dirt=oversize_mass,
+        dirt_ceiling=(1.0 - oversize_mass / initial_total if initial_total > 0 else 1.0),
         energy_consumed=state.energy_used_wh,
         battery_remaining=state.battery_fraction,
         stuck_time=state.stuck_time,

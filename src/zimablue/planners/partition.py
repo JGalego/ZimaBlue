@@ -448,7 +448,7 @@ class DARP:
     """
 
     cell: float = 0.5
-    iterations: int = 60
+    iterations: int = 150
     tolerance: float = 0.03
     gain: float = 0.12
     connectivity_penalty: float = 1.6

@@ -184,15 +184,55 @@ class DirtField:
             # Renormalise: the blur leaks mass past the mask and the window edge.
             patch += spread * (total / spread_sum) - lifted
 
-    def drift(self, flow_vx: FloatArray, flow_vy: FloatArray, dt: float) -> None:
+    def drift(
+        self,
+        flow_vx: FloatArray,
+        flow_vy: FloatArray,
+        dt: float,
+        *,
+        spread: float = 0.12,
+    ) -> None:
         """Advect fine, easily-suspended dirt along the water flow.
 
         First-order upwind on the raster, applied only to the fraction of each
-        layer that is light enough to move.  Coarse, and honestly so: the flow
-        field itself is a superposition heuristic, not a solution.
+        layer that is light enough to move, plus a diffusion term. The flow
+        field itself is a superposition heuristic rather than a solution, and
+        this is a matching level of coarseness -- but three details are not
+        negotiable, because each of them produced a visible artefact.
+
+        **The upwind gate reads the source cell.** An earlier version wrote
+        ``np.where(cx > 0, np.roll(mx, 1, axis=1), 0.0)``, which tests the
+        velocity at the cell the mass is arriving *at*. Everywhere the flow is
+        smooth the two agree; at a stagnation line, where the sign flips, the
+        destination's velocity is already negative and the arriving mass was
+        silently dropped.
+
+        **Mass that would leave the pool goes back to the sender.** Rolling
+        wraps around the array, and the old code let it, then clipped with the
+        mask and rescaled the whole field by ``layer.sum() / out.sum()`` to put
+        the total back. That is a *multiplicative* correction: it hands the
+        most mass to whichever cell already has the most, which is exactly the
+        cell at the middle of a convergence. Shifting without wrapping and
+        returning blocked mass to its origin conserves the total by
+        construction, and no cell is rewarded for being large.
+
+        **Diffusion is required, not decorative.** Advection alone concentrates
+        without bound wherever the flow converges: on a one-dimensional
+        convergence test, four hundred steps of pure upwind put twenty times a
+        cell's initial load into one cell. The kidney pool used to have two
+        return jets pointing at each other, so this was not hypothetical -- it
+        drew a brown stripe down the middle of the pool that looked like floor
+        the robot had missed. ``spread`` of 0.08 holds
+        the same test to about 17 times over three cells, which is a dirt line
+        rather than a knife edge, and is what turbulence does.
+
+        ``spread`` is one Laplacian step per drift call and must stay below
+        0.25 for an explicit four-neighbour stencil to be stable.
         """
         if dt <= 0:
             return
+        if not 0.0 <= spread < 0.25:
+            raise ValueError(f"spread must be in [0, 0.25) for stability, got {spread}")
         cell = self.grid.cell
         for name, layer in self.layers.items():
             dirt = self.types[name]
@@ -205,20 +245,45 @@ class DirtField:
             moving = layer * (np.abs(cx) + np.abs(cy))
             if moving.sum() <= 0:
                 continue
-            out = layer - moving
-            # Split the moving mass between the two upwind neighbours.
-            wx = np.abs(cx) / np.maximum(np.abs(cx) + np.abs(cy), 1e-12)
-            mx = moving * wx
-            my = moving - mx
-            out += np.where(cx > 0, np.roll(mx, 1, axis=1), 0.0)
-            out += np.where(cx < 0, np.roll(mx, -1, axis=1), 0.0)
-            out += np.where(cy > 0, np.roll(my, 1, axis=0), 0.0)
-            out += np.where(cy < 0, np.roll(my, -1, axis=0), 0.0)
-            out = np.where(self.mask, out, 0.0)
-            # Conserve mass exactly: rolling wraps and the mask clips.
-            if out.sum() > 0:
-                out *= layer.sum() / out.sum()
-            self.layers[name] = out
+            weight_x = np.abs(cx) / np.maximum(np.abs(cx) + np.abs(cy), 1e-12)
+            along_x = moving * weight_x
+            along_y = moving - along_x
+
+            out = layer.copy()
+            for leaving, step, axis, amount in (
+                (cx > 0, 1, 1, along_x),
+                (cx < 0, -1, 1, along_x),
+                (cy > 0, 1, 0, along_y),
+                (cy < 0, -1, 0, along_y),
+            ):
+                # A cell may only send what somewhere can receive. Subtracting
+                # the whole moving fraction first and putting back whatever
+                # failed to land is the same idea and one step harder to get
+                # right: the shift truncates at the *array* edge as well as at
+                # the pool wall, and mass that fell off the array was gone
+                # before there was anything left to give back.
+                sent = np.where(leaving & (_shift(self.mask, -step, axis) > 0), amount, 0.0)
+                out -= sent
+                out += _shift(sent, step, axis)
+
+            if spread > 0:
+                out += spread * (_neighbour_sum(out) - out * self._neighbour_count)
+            self.layers[name] = np.where(self.mask, out, 0.0)
+
+    @property
+    def _neighbour_count(self) -> FloatArray:
+        """How many of each cell's four neighbours are inside the pool.
+
+        Cached: the mask does not change during a run, and the diffusion step
+        needs it every call to stay conservative at the wall -- a cell on the
+        edge must only give away as much as it can actually give.
+        """
+        cached = getattr(self, "_neighbours", None)
+        if cached is None:
+            inside = self.mask.astype(float)
+            cached = _neighbour_sum(inside)
+            self._neighbours = cached
+        return cached
 
     # ------------------------------------------------------------------
     # Serialisation
@@ -375,3 +440,30 @@ class DirtState:
         if len(self.debris):
             out["debris_items"] = float(len(self.debris) - self.debris.collected_count)
         return out
+
+
+def _shift(a: Any, step: int, axis: int) -> FloatArray:
+    """Shift by one cell without wrapping; zeros come in at the edge.
+
+    ``np.roll`` wraps, which teleports dirt from one end of the pool to the
+    other. At raster resolution that is a few grams appearing against the far
+    wall every drift step.
+    """
+    a = np.asarray(a, dtype=float)
+    out = np.zeros_like(a)
+    if axis == 1:
+        if step > 0:
+            out[:, step:] = a[:, :-step]
+        else:
+            out[:, :step] = a[:, -step:]
+    else:
+        if step > 0:
+            out[step:, :] = a[:-step, :]
+        else:
+            out[:step, :] = a[-step:, :]
+    return out
+
+
+def _neighbour_sum(a: FloatArray) -> FloatArray:
+    """Sum of the four edge-adjacent cells, zero outside the array."""
+    return _shift(a, 1, 1) + _shift(a, -1, 1) + _shift(a, 1, 0) + _shift(a, -1, 0)

@@ -96,6 +96,19 @@ def _metrics_table(metrics: Any, title: str = "results") -> Table:
     row("battery left", f"{metrics.battery_remaining * 100:.0f} %", "yellow")
     row("collisions", str(metrics.collisions))
     row("stuck events", str(metrics.stuck_events))
+    debris_total = getattr(metrics, "debris_collected", 0) + getattr(metrics, "debris_remaining", 0)
+    if debris_total:
+        oversize = getattr(metrics, "debris_oversize", 0)
+        row("debris", f"{metrics.debris_collected} of {debris_total} collected")
+        if oversize:
+            # The number that reframes the dirt figure above it: these items
+            # were never collectable by this robot, whatever it did.
+            row("", f"{oversize} too big for the intake", "yellow")
+            row(
+                "dirt ceiling",
+                f"{getattr(metrics, 'dirt_ceiling', 1.0) * 100:.1f} %",
+                "yellow",
+            )
     row("termination", metrics.termination)
     return table
 

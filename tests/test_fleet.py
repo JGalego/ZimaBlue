@@ -33,9 +33,7 @@ def test_start_poses_are_inside_the_pool_and_apart():
     for x, y, _ in poses:
         assert pool.navigable.contains(zb.Pool and _point(x, y))
     gaps = [
-        math.hypot(a[0] - b[0], a[1] - b[1])
-        for i, a in enumerate(poses)
-        for b in poses[i + 1 :]
+        math.hypot(a[0] - b[0], a[1] - b[1]) for i, a in enumerate(poses) for b in poses[i + 1 :]
     ]
     assert min(gaps) > 4 * robot.radius, "robots placed on top of each other"
 
@@ -76,7 +74,9 @@ def test_robots_cannot_drive_through_each_other():
             # A penetration-based resolver allows a sliver of overlap for one
             # tick before pushing out; a whole radius of it would be a robot
             # driving through another.
-            assert gap.min() > 1.2 * radius, f"r{a} and r{b} overlapped by {2 * radius - gap.min():.2f} m"
+            assert gap.min() > 1.2 * radius, (
+                f"r{a} and r{b} overlapped by {2 * radius - gap.min():.2f} m"
+            )
 
 
 def test_the_dirt_is_shared_not_copied():
@@ -114,9 +114,7 @@ def test_team_coverage_is_the_union_and_never_less_than_a_member():
     assert metrics.team.coverage >= max(m.coverage for m in metrics.robots)
     assert 0.0 <= metrics.overlap <= 1.0
     assert 0.0 < metrics.balance <= 1.0
-    assert metrics.team.distance_traveled == pytest.approx(
-        sum(s.distance for s in result.states)
-    )
+    assert metrics.team.distance_traveled == pytest.approx(sum(s.distance for s in result.states))
 
 
 def test_the_run_is_reproducible():
@@ -153,14 +151,23 @@ def test_sharing_coverage_removes_it_from_everyone_elses_list():
     fleet.run(seconds=40)
     first, second = fleet.controllers
     assert first.done, "robot 0 covered nothing"
-    assert second._peer_done, "robot 1 never heard about robot 0's work"
-    assert not (second._peer_done & {c for c in second.done if c in first.done and False})
+    assert first.done <= second._peer_done, "robot 1 never heard about robot 0's work"
+    assert second.done <= first._peer_done, "and the other way round"
+    # What sharing is for: a cell a team-mate has done is not a candidate.
+    theirs = next(iter(first.done - second.done), None)
+    if theirs is not None:
+        assert not second.candidate(theirs), "robot 1 would still drive to robot 0's cell"
 
 
-def test_a_fleet_of_strangers_still_runs():
-    result = Fleet(pool=POOL, robots=2, controllers="bsa", seed=1, share=False).run(seconds=40)
+def test_a_fleet_of_strangers_hears_nothing():
+    """share=False still collides and still shares the dirt -- it just does not
+    tell anyone anything. The baseline every cooperative method has to beat."""
+    fleet = Fleet(pool=POOL, robots=2, controllers="bsa", seed=1, share=False)
+    result = fleet.run(seconds=40)
     assert result.metrics.team.coverage > 0.02
-    assert result.metrics.messages == 0 or True
+    for controller in fleet.controllers:
+        assert controller.done, "a robot covered nothing"
+        assert not controller._peer_done, "a stranger heard about someone else's work"
 
 
 # ======================================================================
@@ -325,12 +332,12 @@ def test_backtracking_mstc_shares_out_the_work_that_plain_mstc_leaves():
     finishes in a minute and sits there; the backtracking variant sends it to
     help, and the fleet's balance goes from terrible to reasonable.
     """
-    plain = Fleet(
-        pool="kidney", robots=3, controllers=mstc(backtracking=False), seed=1
-    ).run(minutes=4)
-    helping = Fleet(
-        pool="kidney", robots=3, controllers=mstc(backtracking=True), seed=1
-    ).run(minutes=4)
+    plain = Fleet(pool="kidney", robots=3, controllers=mstc(backtracking=False), seed=1).run(
+        minutes=4
+    )
+    helping = Fleet(pool="kidney", robots=3, controllers=mstc(backtracking=True), seed=1).run(
+        minutes=4
+    )
     assert helping.metrics.balance > plain.metrics.balance
     assert helping.metrics.team.coverage > plain.metrics.team.coverage
 
@@ -354,9 +361,7 @@ def test_the_swarm_field_pushes_back_where_a_team_mate_is():
     middle = (controller.map.origin, controller.map.origin)
     from zimablue.controllers.systematic import MapCell
 
-    controller.map.grid[
-        middle[0] - 6 : middle[0] + 6, middle[1] - 6 : middle[1] + 6
-    ] = MapCell.FREE
+    controller.map.grid[middle[0] - 6 : middle[0] + 6, middle[1] - 6 : middle[1] + 6] = MapCell.FREE
     quiet = controller._input()[middle[0] + 3, middle[1] + 3]
     controller._peer_cells = {(middle[0] + 3, middle[1] + 3)}
     loud = controller._input()[middle[0] + 3, middle[1] + 3]

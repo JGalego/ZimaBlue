@@ -12,6 +12,13 @@ understand.
 ## [Unreleased]
 
 ### Added
+- `Metrics.debris_oversize`, `uncollectable_dirt` and `dirt_ceiling`: how many
+  items are wider than the intake, what they weigh, and the fraction of the
+  dirt a perfect run could therefore still remove. The summary, the CLI table
+  and the replay HUD all show it. An autumn kidney run starts with 60 items,
+  19 of which no pump in the model can lift; the cleaner collected all 41 it
+  could and still read as leaving a quarter of the leaves behind.
+
 - **Fleets** (`zimablue.fleet`): several cleaners in one pool.
   `zb.Fleet(pool="kidney", robots=3, controllers="auction").run(minutes=20)`.
   Each robot gets its own backend, sensors and controller; all of them are
@@ -39,8 +46,8 @@ understand.
   al., 2005). Each territory becomes a small `Pool`, so all eight offline
   planners work inside one unchanged:
   `controllers=partitioned("darp", "sweep_optimal")`. On a kidney with three
-  robots the fairness -- smallest share over largest -- runs 0.54 for Voronoi,
-  0.56 geodesic, 0.87 forest, 0.92 DARP, 0.99 strips.
+  robots the fairness -- smallest share over largest -- runs 0.51 for Voronoi,
+  0.54 geodesic, 0.82 forest, 0.96 DARP, 0.99 strips.
 
 - **Five ways to cooperate without dividing** (`zimablue.planners.cooperative`):
   `mstc` and `mstc_backtracking` (Hazon & Kaminka, 2005), `auction` (Zlot et
@@ -213,6 +220,16 @@ understand.
 - `docs/hardware.md`.
 
 ### Changed
+- The `kidney` preset is a chain of four circular arcs -- two lobe radii, a
+  belly arc under both, a scoop bitten out between them -- meeting where their
+  circles are tangent, and every radius is an argument. It was a union of
+  ellipses run through a Fourier smoother: right to look at, but with no
+  parameters, so there was no way to ask for a bigger kidney or a deeper
+  scoop, and nothing a test could check. Same footprint as before, 12.5 x 6.4 m
+  over 54 m2, now a stated 18 x 36 ft rather than a coincidence. Its floor is a
+  hopper -- flat at 1.0 m, sloping over the middle 45%, flat at 1.8 m under the
+  drain -- rather than one ramp from wall to wall, and the drain, returns and
+  skimmer are placed from the geometry, so they follow when the shape changes.
 - `resolve()` takes `neighbours`, and `SensorContext` carries them, so robots
   are obstacles to each other in both the physics and the rangefinder. Empty
   for a single-robot run, which pays nothing for the fleet's existence.
@@ -228,6 +245,9 @@ understand.
   the workspace insets by the robot radius, and the single-robot planners then
   inset again, leaving a two-radius ring along the wall belonging to nobody --
   29 points of coverage on the kidney with three robots.
+- `DARP` iterates up to 150 times rather than 60. It stops the moment it is
+  within tolerance, so this costs nothing where 60 was enough; on the kidney it
+  needs 93 and used to give up at 0.84 fairness instead of reaching 0.96.
 - `PathFollower` gained a give-way rule (a lower-numbered robot has right of
   way, which is a total order so two robots cannot both defer) and a
   progress-based stall guard.
@@ -242,6 +262,21 @@ understand.
   sweep's 204 m.
 
 ### Fixed
+- Dirt drift moved mass with an off-by-one upwind gate: it decided whether a
+  cell could give dirt away by looking at the cell downstream, then rescaled
+  the whole layer to put the difference back. Advection with no diffusion at
+  all did the rest, so wherever a flow converged the field collapsed onto a
+  one-cell line. On the kidney that line was a column carrying ten times its
+  starting load, which read on screen as floor the robot had missed. Drift now
+  sends dirt cell by cell -- nothing leaves that a valid neighbour cannot
+  receive, so mass is conserved exactly rather than restored afterwards -- and
+  carries a small diffusion term, refused outright above the stability limit.
+- The kidney had a return at each end aimed at the other. Two opposed jets have
+  a stagnation line in the middle and pile everything onto it; both returns now
+  sit at the shallow end and sweep towards the drain, which is what every other
+  preset already did.
+- The kidney's main drain sat three metres short of the deep end, so the floor
+  slope and the returns swept dirt straight past it into the far wall.
 - `PathFollower`'s stall guard measured elapsed time rather than progress, so
   it confiscated a waypoint every twelve seconds while the robot was driving a
   nine-metre lane exactly as instructed -- skipping three quarters of a plan.

@@ -573,6 +573,12 @@ class ReplayRenderer:
             bar = mpatches.Rectangle((x0, 0.36), 0.0, 0.24, facecolor=colour, edgecolor="none")
             hud.add_patch(bar)
             self._bars[label] = (bar, value, x0, width)
+            if label == "dirt removed":
+                # A tick where the bar physically cannot go past, because the
+                # pool holds debris this intake cannot swallow. Without it a
+                # run that removed everything it could looks like a run that
+                # gave up at 92%.
+                self._ceiling = hud.plot([], [], color=PALETTE["warn"], linewidth=1.4, zorder=6)[0]
 
         # Right-aligned to the last bar. Left-aligned it grew off the edge of
         # the figure as soon as the frame counter reached five digits.
@@ -769,10 +775,25 @@ class ReplayRenderer:
             bar.set_width(width * float(np.clip(value, 0.0, 1.0)))
             text.set_text(f"{value * 100:4.0f}%")
 
+        debris = self._debris_tally(t)
+        if debris is not None:
+            collected, total, oversize, ceiling = debris
+            bar, _text, x0, width = self._bars["dirt removed"]
+            if ceiling < 0.999:
+                self._ceiling.set_data([x0 + width * ceiling] * 2, [0.32, 0.64])
+
         note = (
             f"controller {scenario.get('controller', '?')}   "
             f"frame {index + 1}/{self.recording.n_frames}"
         )
+        if debris is not None and total:
+            collected, total, oversize, ceiling = debris
+            note = (
+                f"debris {collected}/{total}"
+                + (f", {oversize} too big" if oversize else "")
+                + "   "
+                + note
+            )
         if self._has_estimate and self._ghost_world is not None:
             error = float(
                 np.hypot(
@@ -782,6 +803,37 @@ class ReplayRenderer:
             )
             note = f"estimate off by {error:4.2f} m   " + note
         self._hud_note.set_text(note)
+
+    def _debris_tally(self, t: float) -> tuple[int, int, int, float] | None:
+        """Collected, total, oversize, and the ceiling they impose.
+
+        Read from the debris snapshot rather than the run's final metrics, so
+        it is right at every frame while scrubbing. The intake size comes from
+        the robot embedded in the recording -- the same pool with a wider
+        intake has a different ceiling, which is the point.
+        """
+        items = self.recording.debris_at(t)
+        if not items.size:
+            return None
+        limit = float(
+            self.recording.manifest.get("robot_config", {})
+            .get("cleaning", {})
+            .get("pump", {})
+            .get("max_debris_size", 0.09)
+        )
+        collected = int((items[:, 4] > 0.5).sum())
+        oversize_mask = items[:, 3] > limit
+        stuck_mass = float(items[oversize_mask, 2].sum())
+        total_dirt = (
+            float(self.recording.dirt_keyframes[0].sum())
+            if len(self.recording.dirt_keyframes)
+            else 0.0
+        )
+        # The dirt rasters do not include debris mass, so the denominator is
+        # the pool's whole initial load: field plus items.
+        initial = total_dirt + float(items[:, 2].sum())
+        ceiling = 1.0 - stuck_mass / initial if initial > 0 else 1.0
+        return collected, len(items), int(oversize_mask.sum()), ceiling
 
     def _build_first_visit(self) -> np.ndarray:
         """Frame index at which each cell was first covered, or a large sentinel.
@@ -815,13 +867,22 @@ class ReplayRenderer:
         return float((self._first_visit <= index).sum()) / total
 
     def _dirt_removed_at(self, t: float) -> float:
+        """Fraction of the pool's dirt taken out, debris included.
+
+        The raster keyframes hold the *field* only, so a bar built from them
+        alone ignores a quarter of what is in an autumn pool and reads several
+        points below the run's own metric. Leaves are dirt.
+        """
         rec = self.recording
         if rec.dirt_keyframes.size == 0:
             return 0.0
-        initial = float(rec.dirt_keyframes[0].sum())
+        items = rec.debris_at(t)
+        loose = float(items[items[:, 4] < 0.5, 2].sum()) if items.size else 0.0
+        every = float(items[:, 2].sum()) if items.size else 0.0
+        initial = float(rec.dirt_keyframes[0].sum()) + every
         if initial <= 0:
             return 0.0
-        now = float(rec.dirt_at(t).sum())
+        now = float(rec.dirt_at(t).sum()) + loose
         return float(np.clip((initial - now) / initial, 0.0, 1.0))
 
 

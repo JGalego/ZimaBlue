@@ -302,6 +302,7 @@ class Simulation:
             self.backend.wall_visits,
             self._initial_dirt,
             termination=self._termination,
+            robot=self.robot,
         )
         recording = None
         if self.recorder.enabled:

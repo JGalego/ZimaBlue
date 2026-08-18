@@ -93,7 +93,7 @@ controller:
 | File | What it is for |
 |---|---|
 | `rectangular.yaml` | The control. A flat 10×5 m box with light sediment — if a controller cannot cover this, the pool shape is not the problem. |
-| `kidney.yaml` | Curved boundary with a concave side and a sloped floor. |
+| `kidney.yaml` | Curved boundary with a concave side and a hopper floor. |
 | `autumn_kidney.yaml` | Leaf fall: exercises discrete debris, oversized items and filter fill. |
 | `neglected.yaml` | A month unattended. Mostly adhered algae and biofilm, so coverage and cleanliness come apart hardest here. |
 | `corner_heavy.yaml` | Dirt piled where a lawnmower path arrives last, in a pool with stairs and a ladder foot. |

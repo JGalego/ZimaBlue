@@ -96,9 +96,12 @@ skimmers, stairs and obstacles hang off it; the blocking ones come out of the
 navigable area, so coverage is measured against the floor the robot can
 actually reach.
 
-The kidney boundary is a low-order Fourier curve, which makes it smooth
-everywhere — a wall follower meeting a corner behaves differently from one
-tracing a curve, and a real kidney pool has no corners.
+The kidney is a chain of four circular arcs — two lobes, a belly under
+both, a scoop bitten out between them — meeting where their circles are
+tangent, which is how a kidney is set out on site. So it has no corners, and a
+wall follower meeting a corner behaves differently from one tracing a curve.
+Every radius is an argument: `zb.make_pool("kidney", length=16.0,
+scoop_radius=2.0)` gives a bigger pool with a deeper bite.
 
 Have a photo instead of a spec? `zb.pool_from_image("backyard.jpg",
 sample=(640, 410), width=8.4)` finds the water, traces its edge and scales it.

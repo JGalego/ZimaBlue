@@ -88,3 +88,41 @@ def test_renderer_handles_a_pool_with_obstacles():
     import matplotlib.pyplot as plt
 
     plt.close(renderer.fig)
+
+
+def test_the_hud_dirt_bar_agrees_with_the_run_that_produced_it(tmp_path):
+    """They disagreed by seven points, and the bar was the wrong one.
+
+    The dirt keyframes hold the raster field only. An autumn pool keeps about
+    a quarter of its mass in leaves and twigs, so a bar built from the
+    keyframes alone read several points below the run's own dirt-removed
+    metric -- and the two numbers sat on the same screen.
+    """
+    import zimablue as zb
+    from zimablue.replay.renderer import ReplayRenderer
+
+    result = zb.Simulation(
+        pool="kidney", robot="tracked", dirt="autumn", controller="baseline_coverage", seed=42
+    ).run(minutes=3)
+    recording = zb.Recording.load(result.save(tmp_path / "hud.zbr"))
+    renderer = ReplayRenderer(recording)
+    last = recording.n_frames - 1
+    shown = renderer._dirt_removed_at(float(recording.frames["time"][last]))
+    assert shown == pytest.approx(result.metrics.dirt_removed_fraction, abs=0.01)
+
+
+def test_the_hud_reports_debris_the_intake_cannot_take(tmp_path):
+    import zimablue as zb
+    from zimablue.replay.renderer import ReplayRenderer
+
+    result = zb.Simulation(
+        pool="kidney", robot="tracked", dirt="autumn", controller="baseline_coverage", seed=42
+    ).run(minutes=2)
+    recording = zb.Recording.load(result.save(tmp_path / "hud2.zbr"))
+    renderer = ReplayRenderer(recording)
+    tally = renderer._debris_tally(float(recording.frames["time"][-1]))
+    assert tally is not None
+    _, total, oversize, ceiling = tally
+    assert total == result.metrics.debris_collected + result.metrics.debris_remaining
+    assert oversize == result.metrics.debris_oversize
+    assert ceiling == pytest.approx(result.metrics.dirt_ceiling, abs=0.01)

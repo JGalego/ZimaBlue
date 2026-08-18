@@ -38,11 +38,11 @@ def smooth_ring(polygon: Polygon, harmonics: int = 12, n: int = 512) -> Polygon:
     everywhere by construction -- a trigonometric polynomial has no corners.
 
     Free curvature also matters physically: a wall follower that meets a corner
-    behaves differently from one tracing a smooth curve, and a kidney pool
-    really is smooth.
+    behaves differently from one tracing a smooth curve, and a real pool shell
+    is smooth.
 
-    The same argument applies to an outline traced from a photograph, where the
-    corners are the pixel grid's rather than the pool's.
+    Mostly this is for outlines traced from a photograph or a sketch, where the
+    corners belong to the pixel grid rather than to the pool.
     """
     from shapely.geometry import LineString
 
