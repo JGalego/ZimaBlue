@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import zipfile
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -44,7 +45,7 @@ from numpy.typing import NDArray
 
 from zimablue._version import __version__
 
-__all__ = ["FORMAT", "SCHEMA_VERSION", "Recorder", "Recording"]
+__all__ = ["FORMAT", "SCHEMA_VERSION", "Recorder", "Recording", "build_frame"]
 
 FORMAT = "zbr"
 SCHEMA_VERSION = 1
@@ -224,7 +225,20 @@ class Recording:
             f"events          {len(self.events)}",
             f"dirt keyframes  {len(self.dirt_times)}",
         ]
+        if not self.has_ground_truth:
+            lines.append(f"pose            {m.get('pose_source', 'estimate')} -- no ground truth")
         return "\n".join(lines)
+
+    @property
+    def has_ground_truth(self) -> bool:
+        """Whether ``x``, ``y`` and ``heading`` are the true pose.
+
+        False for anything recorded off a robot, where they are the
+        controller's estimate. Readers that compute coverage or compare against
+        a simulated run have to check this: the arithmetic works either way and
+        means something entirely different.
+        """
+        return bool(self.manifest.get("ground_truth", True))
 
 
 class Recorder:
@@ -337,6 +351,67 @@ class Recorder:
 
 _INT_CHANNELS = frozenset({"step", "contacts", "collided", "stuck", "cmd_brush"})
 """Channels that are counts or bitfields, stored as int32 rather than float32."""
+
+
+def build_frame(
+    state: Any,
+    command: Any,
+    observations: Mapping[str, Any] | None = None,
+    channels: Mapping[str, Sequence[str]] | None = None,
+    telemetry: Mapping[str, float] | None = None,
+) -> dict[str, float]:
+    """Flatten one tick into the columns a ``.zbr`` stores.
+
+    Shared by the simulator and by :mod:`zimablue.hardware`, which is the whole
+    point: a recording written on a robot has to have the same columns as one
+    written by the backend, or the replay viewer and every metric downstream of
+    it quietly mean something different depending on where the file came from.
+
+    ``state`` only has to have the attributes it is asked for, so a hardware
+    runtime can hand over a :class:`~zimablue.backends.base.SimState` filled in
+    from telemetry, with NaN in the fields it cannot know.
+    """
+    contacts = sum(1 << i for i, flag in enumerate(state.contacts) if flag)
+    frame: dict[str, float] = {
+        "time": state.time,
+        "step": state.step,
+        "x": state.x,
+        "y": state.y,
+        "heading": state.heading,
+        "v": state.v,
+        "omega": state.omega,
+        "wheel_left": state.wheel_left,
+        "wheel_right": state.wheel_right,
+        "slip_left": state.slip_left,
+        "slip_right": state.slip_right,
+        "depth": state.depth,
+        "battery": state.battery_fraction,
+        "power": state.power_w,
+        "filter_load": state.filter_load,
+        "distance": state.distance,
+        "dirt_collected": state.dirt_collected,
+        "contacts": contacts,
+        "collided": 1 if state.collided else 0,
+        "stuck": 1 if state.stuck else 0,
+        "cmd_left": command.left,
+        "cmd_right": command.right,
+        "cmd_brush": 1 if command.brush else 0,
+        "cmd_pump": command.pump,
+    }
+    # A controller may publish its own channels -- an estimated pose, a planner
+    # phase. Recording them next to ground truth is what lets replay show
+    # estimation error rather than merely assert it. On hardware there is no
+    # ground truth to show it against, and these are all you have.
+    if telemetry:
+        for key, value in telemetry.items():
+            frame[f"ctl.{key}"] = float(value)
+
+    for name, reading in (observations or {}).items():
+        names = (channels or {}).get(name, ())
+        for channel, value in zip(names, reading.values, strict=False):
+            frame[f"{name}.{channel}"] = float(value)
+        frame[f"{name}.valid"] = 1.0 if reading.valid else 0.0
+    return frame
 
 
 def _npz_bytes(arrays: dict[str, NDArray]) -> bytes:

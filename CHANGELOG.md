@@ -11,7 +11,57 @@ understand.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- `zimablue.hardware`: the control loop with no simulator underneath it. A
+  controller written against `Simulation` runs on a robot unmodified, because
+  `ControlInput` and `DriveCommand` were always the entire contract. Standard
+  library and NumPy only — no extra to install.
+  - `DeviceSource` wraps one polling function and does the bookkeeping the
+    simulated sensor pipeline was doing for free: timestamps, hold-last-good,
+    staleness.
+  - `WheelSpeedLoop`, PI with feedforward, closing metres per second onto duty
+    cycle. Anti-windup, a slew limit that ramps up and cuts immediately, and
+    symmetric saturation so a saturating turn keeps its radius.
+  - `Watchdog` for the failures a simulator is not obliged to have: a sensor
+    gone quiet, a loop that missed its deadline, a controller that raised.
+  - `HardwareRuntime` writes the same `.zbr` the simulator writes, so a real
+    run replays in the ordinary viewer. Its manifest carries
+    `pose_source: "estimate"`, and `HardwareRun.metrics()` deliberately omits
+    coverage and dirt removed — both need ground truth a robot does not have.
+  - `RecordedSource` replays a recording back out as readings with jitter and
+    dropouts, so a controller can be tested against conditions the simulator
+    cannot produce.
+- `zimablue.hardware.logs` and `TrajectorySource`: score the estimator against
+  a trajectory a real robot really drove. `tools/fetch_trajectory.py` fetches
+  Pioneer 3-DX logs from the TUM RGB-D benchmark and
+  `examples/replay_real_trajectory.py` runs the whole stack over them — the
+  first estimator numbers in this project measured against motion it did not
+  generate. 0.15 m of error after 42.5 m of real driving, with the caveats in
+  `docs/hardware.md`.
+- `recording.build_frame`, shared by the simulator and the hardware runtime so
+  the two cannot disagree about what a `.zbr` column means.
+- `docs/hardware.md`.
+
+### Fixed
+- `export_summary` printed "coverage 0%  dirt removed 0%" for a run with no
+  ground truth, which is the most misleading thing that figure could say — it
+  looks exactly like a controller that did nothing. It now reports the metrics
+  that exist and states that the others are unmeasured, and labels the three
+  panels that need ground truth.
+- `zimablue inspect` poured a hardware recording's metrics into
+  `Metrics.from_dict`, which fills the keys it does not find with zeros — so a
+  real run that drove 41 metres printed "distance 0.0 m" and "coverage 0.0%".
+  It prints what the recording actually holds now, and says why the rest is
+  absent. `Recording.has_ground_truth` is the flag to check.
+- `load_scene` failed with a `TypeError` from inside `Pool.from_dict` when a
+  recording carried no pool. It now says what is missing and why a recording
+  written on a robot might not have one.
+- `SystematicCoverage` crashed on a range reading of NaN, which is what a real
+  ultrasonic rangefinder reports when no echo comes back — `int(nan / cell)`
+  raises, from inside an occupancy map with no reason to expect one. The
+  simulated sonar never produces one, so nothing caught it until a recording
+  was replayed through the hardware runtime. Non-finite ranges are now treated
+  as "no information" rather than as a measurement.
 
 ## [0.2.0] — 2026-08-17
 

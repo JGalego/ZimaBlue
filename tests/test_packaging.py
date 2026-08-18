@@ -136,6 +136,39 @@ def test_importing_zimablue_does_not_import_pillow():
     assert out.stdout.strip() == "False"
 
 
+def test_the_hardware_module_needs_nothing_installed():
+    """It runs on a robot. A robot is the last place you want a dependency tree.
+
+    Also the last place you want matplotlib: importing zimablue.hardware must
+    not drag in a plotting stack, an ONNX runtime or Gymnasium.
+    """
+    import subprocess
+    import sys
+
+    code = (
+        "import zimablue.hardware, sys; "
+        "print(sorted({'matplotlib', 'onnxruntime', 'gymnasium', 'PIL'} & set(sys.modules)))"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "[]"
+
+
+def test_the_hardware_runtime_and_the_simulator_share_one_frame_builder():
+    """Two writers of the same format is two formats sharing a file extension.
+
+    The columns a ``.zbr`` carries are not a detail: replay, metrics and every
+    downstream reader are written against them, so a recording produced on a
+    robot has to be laid out exactly like one produced by the backend.
+    """
+    simulation = (ROOT / "src" / "zimablue" / "simulation.py").read_text()
+    runtime = (ROOT / "src" / "zimablue" / "hardware" / "runtime.py").read_text()
+    assert "build_frame(" in simulation and "build_frame(" in runtime
+    assert '"cmd_left": command.left' not in runtime, (
+        "the hardware runtime is building frames by hand again; it must use "
+        "recording.build_frame or the two layouts will drift"
+    )
+
+
 def test_readme_urls_are_absolute_in_package_metadata():
     """PyPI renders the description with no repository behind it.
 

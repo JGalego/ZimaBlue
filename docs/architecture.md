@@ -197,6 +197,27 @@ intended shape, informed by
 The test that the boundary holds: a `.zbr` produced by the 3D backend must be
 replayable by the 2D replay viewer, with the extra channels ignored.
 
+### No backend at all
+
+`zimablue.hardware` is the same argument taken one step further. A backend owns
+dynamics and sensing; on a robot those belong to physics and to a driver, and
+what is left is the part `Simulation.step` was doing anyway — build a
+`ControlInput`, ask the controller, write the answer somewhere, record the
+frame.
+
+So there is no `HardwareBackend`. A backend has to return a `SimState` it
+integrated and a `World` it owns, and a robot has neither: it cannot report its
+own true pose, and there is no dirt field to account against. Pretending
+otherwise would make `metrics.coverage` computable from the pose estimate,
+which is a number that looks exactly like the simulated one and means something
+else. `HardwareRuntime` is a sibling of `Simulation` rather than a backend
+under it, and it produces a deliberately shorter set of metrics.
+
+What *is* shared is the part that must not diverge: `recording.build_frame`
+turns a state, a command and a set of readings into `.zbr` columns, and both
+callers use it. The same acceptance test applies — a recording written on a
+robot has to replay in the ordinary viewer.
+
 ## Extension points
 
 | To add… | Implement | Register with |
@@ -207,6 +228,7 @@ replayable by the 2D replay viewer, with the extra channels ignored.
 | a dirt scenario | a function returning `DirtSpec` | `@dirt_preset("name")` |
 | a controller | satisfy `Controller` | `@controller_preset("name")` |
 | a backend | satisfy `SimulationBackend` | `@backend("name")` |
+| a robot's sensors | satisfy `ReadingSource` | pass to `HardwareRuntime` |
 
 Registries are plain dicts with decorator sugar and a lookup that raises a
 `KeyError` listing the valid names. No plugin framework, no entry points, no

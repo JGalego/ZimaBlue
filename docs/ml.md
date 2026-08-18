@@ -326,3 +326,10 @@ A 2D kinematic backend with no buoyancy, no cable drag and no wall climbing
 will not transfer to hardware. This is a fair testbed for comparing algorithms
 and a bad one for shipping a policy. The [roadmap](roadmap.md) says the same
 thing about the 3D backend that would change it.
+
+Note which half of that is about the *interface* and which about the *physics*,
+because only one of them is a problem. `PolicyController` already runs a trained
+policy through `zimablue.hardware` on a real robot with no changes — the
+plumbing is done, and [hardware.md](hardware.md) is the whole of it. What will
+not transfer is the policy, because it learned a drivetrain whose slip is a
+constant somebody guessed.

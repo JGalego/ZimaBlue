@@ -105,6 +105,19 @@ def test_tune_controller_improves_on_the_defaults():
     assert "<-- kept" in result.stdout
 
 
+def test_replay_real_trajectory_runs_when_a_log_is_present(tmp_path):
+    """Skips without the data, because the data is somebody else's and 3 MB.
+
+    ``tools/fetch_trajectory.py`` downloads it; see docs/hardware.md.
+    """
+    if not sorted((ROOT / "data" / "trajectories").glob("*.txt")):
+        pytest.skip("no trajectories fetched; run tools/fetch_trajectory.py")
+    result = run("replay_real_trajectory.py", "--save", str(tmp_path))
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "final" in result.stdout
+    assert sorted(tmp_path.glob("*.zbr")), "each log should produce a replayable recording"
+
+
 def test_batch_experiment_runs_and_reproduces_its_worst_episode():
     result = run("batch_experiment.py", "--episodes", "3", "--minutes", "3")
     assert result.returncode == 0, result.stderr[-2000:]

@@ -486,10 +486,24 @@ def inspect_recording(
 
     console.print(Panel(rec.describe(), title=str(recording), border_style="cyan", expand=False))
 
-    if rec.metrics:
+    if rec.metrics and rec.has_ground_truth:
         from zimablue.metrics import Metrics
 
         console.print(_metrics_table(Metrics.from_dict(rec.metrics), "recorded metrics"))
+    elif rec.metrics:
+        # A recording made on a robot carries a different, shorter set of
+        # metrics. Pouring it into Metrics.from_dict fills the missing keys
+        # with zeros, which reads as a controller that drove nowhere and
+        # cleaned nothing rather than as a run nobody measured.
+        table = Table(title="recorded metrics", box=None, show_header=False)
+        for key, value in sorted(rec.metrics.items()):
+            table.add_row(key, f"{value:g}" if isinstance(value, int | float) else str(value))
+        console.print(table)
+        console.print(
+            "[dim]No ground truth in this recording, so there is no coverage or "
+            "dirt-removed figure -- both need the true pose and the true dirt "
+            "field. See docs/hardware.md.[/dim]"
+        )
     if channels:
         console.print("\n[bold]channels[/bold]")
         for name in rec.channels:

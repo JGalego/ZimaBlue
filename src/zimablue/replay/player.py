@@ -296,7 +296,14 @@ def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) ->
     navigable = scene.navigable
     outline = np.asarray(scene.pool.boundary.exterior.coords)
 
-    def style(ax, title: str):
+    # A run recorded off a robot has no visit grid and no dirt field, so three
+    # of the four panels come back empty. Say why, or an empty panel reads as
+    # a spotless pool rather than as an unanswered question.
+    measured = recording.manifest.get("ground_truth", True)
+
+    def style(ax, title: str, *, needs_truth: bool = False):
+        if needs_truth and not measured:
+            title = f"{title} -- not measurable on hardware"
         ax.set_title(title, color=PALETTE["ink"], fontsize=11, family="monospace")
         ax.set_facecolor(PALETTE["panel"])
         ax.set_xticks([])
@@ -326,7 +333,7 @@ def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) ->
 
     # Visits
     ax = axes[0][1]
-    clip = style(ax, "coverage (visit count)")
+    clip = style(ax, "coverage (visit count)", needs_truth=True)
     visits = spatial.get("visits")
     if visits is not None:
         image = ax.imshow(
@@ -351,7 +358,7 @@ def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) ->
         (axes[1][0], initial, "dirt at start"),
         (axes[1][1], remaining, "dirt at end"),
     ):
-        clip = style(ax, title)
+        clip = style(ax, title, needs_truth=True)
         if data is None:
             continue
         base = ax.imshow(
@@ -372,10 +379,24 @@ def export_summary(recording: Recording, path: str | Path, *, dpi: int = 110) ->
         overlay.set_clip_path(clip)
 
     metrics = recording.metrics
+    duration = metrics.get("runtime", recording.duration)
+    if recording.manifest.get("ground_truth", True):
+        headline = (
+            f"coverage {metrics.get('coverage', 0) * 100:.0f}%    "
+            f"dirt removed {metrics.get('dirt_removed_fraction', 0) * 100:.0f}%    "
+            f"{duration / 60:.0f} min"
+        )
+    else:
+        # A run recorded off a robot has no ground truth, so coverage and dirt
+        # removed are not zero -- they are unmeasured. Printing "0%" is the
+        # single most misleading thing this figure could say, because it looks
+        # exactly like a controller that did nothing.
+        headline = (
+            f"{duration / 60:.0f} min    {metrics.get('distance', float('nan')):.0f} m driven    "
+            "no ground truth: coverage and cleaning unmeasured"
+        )
     fig.suptitle(
-        f"coverage {metrics.get('coverage', 0) * 100:.0f}%    "
-        f"dirt removed {metrics.get('dirt_removed_fraction', 0) * 100:.0f}%    "
-        f"{metrics.get('runtime', 0) / 60:.0f} min",
+        headline,
         color=PALETTE["ink"],
         family="monospace",
         fontsize=13,

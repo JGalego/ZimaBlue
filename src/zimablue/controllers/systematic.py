@@ -125,7 +125,16 @@ class OccupancyMap:
         Standard inverse sensor model, minus the probabilities: at this
         resolution a binary map is enough for planning, and a log-odds grid
         would imply a confidence the pose estimate does not support.
+
+        A non-finite distance carves nothing. An ultrasonic rangefinder that
+        gets no echo back -- off the end of a pool, or into a surface angled
+        away from it -- has not measured a long distance, it has failed to
+        measure, and real drivers report that as NaN or inf. The simulated
+        sensor never produces one, so this used to raise on the first beam
+        with no return.
         """
+        if not np.isfinite(distance) or distance <= 0.0:
+            return
         steps = max(1, int(distance / self.cell))
         for i in range(steps):
             t = (i + 0.5) * self.cell
@@ -435,6 +444,8 @@ class SystematicCoverage:
             max_range = getattr(sensor, "max_range", 3.0)
             for index, offset in enumerate(angles):
                 distance = float(sonar[index])
+                if not np.isfinite(distance):
+                    continue
                 # A max-range return means "nothing seen", not "wall there".
                 self.map.observe_ray(
                     pose.x,
@@ -453,6 +464,11 @@ class SystematicCoverage:
 
         sonar = ctl.reading("sonar")
         ahead = float(sonar[0]) if sonar is not None and sonar.valid else float("inf")
+        if not np.isfinite(ahead):
+            # No echo is not "the way is clear"; it is "no information". Treat
+            # it as clear for steering -- the bump switches are the backstop --
+            # but do not let a NaN propagate into the comparisons below.
+            ahead = float("inf")
         blocked = front or ahead <= self.tuning.wall_threshold
 
         if not (front or side):

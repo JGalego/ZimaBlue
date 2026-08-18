@@ -42,6 +42,8 @@ Shipped on `main` and not yet tagged. Same bar: implemented, tested, runnable.
 | ✅ | `SamSegmenter` — SAM over onnxruntime, `zimablue[ml]` | done |
 | ✅ | `zimablue.rl` — Gymnasium env, `PolicyController`, `zimablue[rl]` | done |
 | ✅ | `dirt_oracle` — the cleaning-side counterpart to the lawnmower | done |
+| ✅ | `zimablue.hardware` — the control loop with no simulator under it | done |
+| ✅ | Estimator scored against a real robot's logged trajectory | done |
 
 ## v0.2 — depth
 
@@ -63,6 +65,21 @@ Shipped on `main` and not yet tagged. Same bar: implemented, tested, runnable.
   the end of a run and is, measurably, still overconfident. Matching the
   current sonar returns against the map it has already built is the standard
   answer and would bound the drift.
+
+  Replaying real trajectories sharpened the case. The gyro bias is only
+  observable when the robot stops, because the zero-velocity update is the only
+  thing that makes it observable. On a logged run that rarely stops
+  (`pioneer_slam2`) the heading ends 39 degrees out, while two runs that pause
+  more often stay under five. In simulation this is invisible: every shipped
+  controller stops and turns constantly, so the bias is always being observed.
+  See [hardware.md](hardware.md).
+
+- **Measured sensor parameters.** Every figure in `SensorConfig` is a
+  consumer-MEMS-class guess. An hour of a real gyro sitting still, Allan-
+  variance'd, replaces the two that matter most, and a phone is a good enough
+  gyro to start with. Until then every noise-dependent result in this
+  repository rests on numbers nobody measured -- which is now testable, because
+  `zimablue.hardware` can be pointed at a real log.
 - **Dirt dynamics** — resuspension driven by the robot's own wake, plus
   settling over long runs.
 - **Scenario sweeps** — parameter grids and randomised distributions, not just
@@ -108,6 +125,15 @@ the domain model.
   the ladder, the steps, the skimmer or the drains, so `traced.pool()` comes
   back with no features. A detector would fix that and needs a labelled
   dataset of pool photographs, which as far as we can tell does not exist.
+- **A wheel-speed loop tuned on something real.** `WheelSpeedLoop`'s gains are
+  a starting point for a small geared drive, not a measurement. A step response
+  off any real differential drive would replace them, and the procedure is two
+  paragraphs in [hardware.md](hardware.md).
+- **An overhead camera rig.** The one thing that would let cleaning be scored
+  on real hardware. Coverage needs the true pose and dirt removed needs the
+  true dirt field, and a robot has neither -- so a camera above the pool is not
+  a nice-to-have, it is the entire difference between measuring cleaning and
+  asserting it.
 - **A trained controller worth shipping.** The env is there, the baseline to
   beat is measured, and `examples/train_policy.py` will point PPO at it. Half
   an hour of CPU buys a policy that drives forward, turns off walls and loses

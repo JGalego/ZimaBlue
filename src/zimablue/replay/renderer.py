@@ -68,6 +68,17 @@ def load_scene(recording: Recording) -> Scene:
     after the preset it came from has changed.
     """
     manifest = recording.manifest
+    if not manifest.get("pool_config"):
+        # A recording written on a robot carries no pool unless the runtime was
+        # told one -- a cleaner does not know the shape of what it is in. Say
+        # so, rather than failing inside Pool.from_dict on a None.
+        raise ValueError(
+            "this recording has no pool geometry, so there is nothing to draw it "
+            "against. Recordings written by zimablue.hardware only carry a pool "
+            "if the runtime was constructed with pool=..., because a robot does "
+            "not know the shape of the pool it is in. Pass the pool you believe "
+            "you are in, or attach one to the manifest before replaying."
+        )
     pool = Pool.from_dict(manifest["pool_config"])
     cell = float(manifest.get("cell", 0.10))
     robot_cfg = manifest.get("robot_config", {})

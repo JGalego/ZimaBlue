@@ -28,7 +28,7 @@ from zimablue.controllers.baseline import BaselineCoverage
 from zimablue.dirt import DirtSpec, make_dirt
 from zimablue.metrics import Metrics, SpatialMetrics, compute_metrics
 from zimablue.pool import DEFAULT_CELL, Pool, make_pool
-from zimablue.recording import Recorder, Recording
+from zimablue.recording import Recorder, Recording, build_frame
 from zimablue.rng import RngTree
 from zimablue.robot import Cleaner, DriveCommand, make_robot
 from zimablue.world import World
@@ -199,48 +199,16 @@ class Simulation:
     def _record(self, state: SimState, command: DriveCommand, observations: dict[str, Any]) -> None:
         if not self.recorder.enabled:
             return
-        contacts = sum(1 << i for i, flag in enumerate(state.contacts) if flag)
-        frame: dict[str, float] = {
-            "time": state.time,
-            "step": state.step,
-            "x": state.x,
-            "y": state.y,
-            "heading": state.heading,
-            "v": state.v,
-            "omega": state.omega,
-            "wheel_left": state.wheel_left,
-            "wheel_right": state.wheel_right,
-            "slip_left": state.slip_left,
-            "slip_right": state.slip_right,
-            "depth": state.depth,
-            "battery": state.battery_fraction,
-            "power": state.power_w,
-            "filter_load": state.filter_load,
-            "distance": state.distance,
-            "dirt_collected": state.dirt_collected,
-            "contacts": contacts,
-            "collided": 1 if state.collided else 0,
-            "stuck": 1 if state.stuck else 0,
-            "cmd_left": command.left,
-            "cmd_right": command.right,
-            "cmd_brush": 1 if command.brush else 0,
-            "cmd_pump": command.pump,
-        }
-        # A controller may publish its own channels -- an estimated pose, a
-        # planner phase. Recording them next to ground truth is what lets
-        # replay show estimation error rather than merely assert it.
         telemetry = getattr(self.controller, "telemetry", None)
-        if telemetry is not None:
-            for key, value in telemetry().items():
-                frame[f"ctl.{key}"] = float(value)
-
-        for name, reading in observations.items():
-            for channel, value in zip(
-                self.robot.sensors[name].channels, reading.values, strict=False
-            ):
-                frame[f"{name}.{channel}"] = float(value)
-            frame[f"{name}.valid"] = 1.0 if reading.valid else 0.0
-        self.recorder.add_frame(frame)
+        self.recorder.add_frame(
+            build_frame(
+                state,
+                command,
+                observations,
+                {name: sensor.channels for name, sensor in self.robot.sensors.items()},
+                telemetry() if telemetry is not None else None,
+            )
+        )
 
     # ------------------------------------------------------------------
     def run(

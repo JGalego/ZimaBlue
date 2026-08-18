@@ -27,6 +27,7 @@ source file and follow line by line.
 | `backends/` | Domain model as the API, engine as a strategy | Koenig & Howard (2004); Todorov et al. (2012) |
 | `segment.py` | Promptable segmentation, and the multi-mask output the chooser ranks | Kirillov et al. (2023); Zhang et al. (2023) |
 | `rl/env.py` | The environment interface | Towers et al. (2024) |
+| `hardware/logs.py` | The trajectory format, and the logs the estimator is scored against | Sturm et al. (2012) |
 
 ---
 
@@ -98,11 +99,13 @@ source file and follow line by line.
 
 29. Tobin, J., Fong, R., Ray, A., Schneider, J., Zaremba, W., & Abbeel, P. (2017). [Domain randomization for transferring deep neural networks from simulation to the real world](https://doi.org/10.1109/IROS.2017.8202133). *2017 IEEE/RSJ International Conference on Intelligent Robots and Systems*, 23–30.
 
+30. Sturm, J., Engelhard, N., Endres, F., Burgard, W., & Cremers, D. (2012). [A benchmark for the evaluation of RGB-D SLAM systems](https://doi.org/10.1109/IROS.2012.6385773). *2012 IEEE/RSJ International Conference on Intelligent Robots and Systems*, 573–580. — The source of the Pioneer 3-DX trajectories `zimablue.hardware` scores the pose estimator against. Not bundled; `tools/fetch_trajectory.py` fetches them.
+
 ### Simulation
 
-30. Koenig, N., & Howard, A. (2004). [Design and use paradigms for Gazebo, an open-source multi-robot simulator](https://doi.org/10.1109/IROS.2004.1389727). *2004 IEEE/RSJ International Conference on Intelligent Robots and Systems, 3*, 2149–2154.
+31. Koenig, N., & Howard, A. (2004). [Design and use paradigms for Gazebo, an open-source multi-robot simulator](https://doi.org/10.1109/IROS.2004.1389727). *2004 IEEE/RSJ International Conference on Intelligent Robots and Systems, 3*, 2149–2154.
 
-31. Todorov, E., Erez, T., & Tassa, Y. (2012). [MuJoCo: A physics engine for model-based control](https://doi.org/10.1109/IROS.2012.6386109). *2012 IEEE/RSJ International Conference on Intelligent Robots and Systems*, 5026–5033.
+32. Todorov, E., Erez, T., & Tassa, Y. (2012). [MuJoCo: A physics engine for model-based control](https://doi.org/10.1109/IROS.2012.6386109). *2012 IEEE/RSJ International Conference on Intelligent Robots and Systems*, 5026–5033.
 
 ### Segmentation and learned control
 
@@ -110,19 +113,19 @@ These are the two optional extras. Both are used as tools rather than
 reimplemented: ZimaBlue runs a published SAM checkpoint and implements a
 Gymnasium interface, and there is no algorithm from either paper in the source.
 
-32. Kirillov, A., Mintun, E., Ravi, N., Mao, H., Rolland, C., Gustafson, L., Xiao, T., Whitehead, S., Berg, A. C., Lo, W.-Y., Dollár, P., & Girshick, R. (2023). [Segment Anything](https://arxiv.org/abs/2304.02643). *arXiv:2304.02643*. The promptable-segmentation model behind `SamSegmenter`, and the source of the multi-mask output the chooser ranks.
+33. Kirillov, A., Mintun, E., Ravi, N., Mao, H., Rolland, C., Gustafson, L., Xiao, T., Whitehead, S., Berg, A. C., Lo, W.-Y., Dollár, P., & Girshick, R. (2023). [Segment Anything](https://arxiv.org/abs/2304.02643). *arXiv:2304.02643*. The promptable-segmentation model behind `SamSegmenter`, and the source of the multi-mask output the chooser ranks.
 
-33. Zhang, C., Han, D., Qiao, Y., Kim, J. U., Bae, S.-H., Lee, S., & Hong, C. S. (2023). [Faster Segment Anything: Towards Lightweight SAM for Mobile Applications](https://arxiv.org/abs/2306.14289). *arXiv:2306.14289*. MobileSAM — the 45 MB distillation that makes running this on a CPU reasonable.
+34. Zhang, C., Han, D., Qiao, Y., Kim, J. U., Bae, S.-H., Lee, S., & Hong, C. S. (2023). [Faster Segment Anything: Towards Lightweight SAM for Mobile Applications](https://arxiv.org/abs/2306.14289). *arXiv:2306.14289*. MobileSAM — the 45 MB distillation that makes running this on a CPU reasonable.
 
-34. Towers, M., Kwiatkowski, A., Terry, J., Balis, J. U., De Cola, G., Deleu, T., Goulão, M., Kallinteris, A., Krimmel, M., KG, A., Perez-Vicente, R., Pierré, A., Schulhoff, S., Tai, J. J., Tan, H., & Younis, O. G. (2024). [Gymnasium: A Standard Interface for Reinforcement Learning Environments](https://arxiv.org/abs/2407.17032). *arXiv:2407.17032*. The interface `PoolCleaningEnv` implements.
+35. Towers, M., Kwiatkowski, A., Terry, J., Balis, J. U., De Cola, G., Deleu, T., Goulão, M., Kallinteris, A., Krimmel, M., KG, A., Perez-Vicente, R., Pierré, A., Schulhoff, S., Tai, J. J., Tan, H., & Younis, O. G. (2024). [Gymnasium: A Standard Interface for Reinforcement Learning Environments](https://arxiv.org/abs/2407.17032). *arXiv:2407.17032*. The interface `PoolCleaningEnv` implements.
 
-35. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347). *arXiv:1707.06347*. Not implemented here — cited because it is what the throughput estimates in [`ml.md`](ml.md) assume you will point at the env.
+36. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347). *arXiv:1707.06347*. Not implemented here — cited because it is what the throughput estimates in [`ml.md`](ml.md) assume you will point at the env.
 
 ### Sediment and settling
 
-36. Ferguson, R. I., & Church, M. (2004). [A simple universal equation for grain settling velocity](https://doi.org/10.1306/051204740933). *Journal of Sedimentary Research, 74*(6), 933–937.
+37. Ferguson, R. I., & Church, M. (2004). [A simple universal equation for grain settling velocity](https://doi.org/10.1306/051204740933). *Journal of Sedimentary Research, 74*(6), 933–937.
 
-37. Mendrik, F., Fernández, R., Hackney, C. R., Waller, C., & Parsons, D. R. (2023). [Non-buoyant microplastic settling velocity varies with biofilm growth and ambient water salinity](https://doi.org/10.1038/s43247-023-00690-z). *Communications Earth & Environment, 4*(1), 30.
+38. Mendrik, F., Fernández, R., Hackney, C. R., Waller, C., & Parsons, D. R. (2023). [Non-buoyant microplastic settling velocity varies with biofilm growth and ambient water salinity](https://doi.org/10.1038/s43247-023-00690-z). *Communications Earth & Environment, 4*(1), 30.
 
 ## Standards
 

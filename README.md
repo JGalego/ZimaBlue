@@ -263,6 +263,39 @@ ground the way random bounce does; with a good one it runs short disciplined
 lanes and spends its time turning. Coverage is being won by accident, and
 fixing that is the top [roadmap](docs/roadmap.md) item.
 
+## Check it against a real robot
+
+Those numbers all come from motion this package generated, judged against
+ground truth it also generated. That is unfalsifiable, so there is now a path
+that is not.
+
+```bash
+python tools/fetch_trajectory.py --all
+python examples/replay_real_trajectory.py
+```
+
+A Pioneer 3-DX driving a real building, tracked at 300 Hz by a real motion
+capture rig. The shipped sensor models are driven from that motion and the
+estimator is scored against where the robot actually was:
+
+| log | drove | final error | mean | worst |
+|---|---|---|---|---|
+| `pioneer_360` | 17.0 m | 0.18 m | 0.22 m | 0.44 m |
+| `pioneer_slam` | 42.5 m | 0.15 m | 0.34 m | 1.08 m |
+| `pioneer_slam2` | 23.3 m | 2.16 m | 0.86 m | 2.17 m |
+
+The motion is real, including a full second where the tracker lost the robot.
+The sensors are not — the noise is still ours — and there is no slip, so the
+estimator is being flattered in a known direction. Even so it says something
+the table above could not: the 13.7 m of drift is the slip model's doing, not
+a real trajectory being hard to integrate. And `pioneer_slam2` ends 39° out on
+heading because the gyro bias is only observable when the robot stops, and
+that one rarely does.
+
+The whole control loop runs on real hardware too, through the same
+`ControlInput` and `DriveCommand` a controller already sees. See
+[on a robot](docs/hardware.md).
+
 ## Scale it
 
 ```bash
@@ -322,6 +355,7 @@ determinism and preferring a small real model to a large fake one.
 | [Getting started](docs/getting-started.md) | Install, first run, common tasks |
 | [From a photo](docs/imaging.md) | Tracing a pool out of a picture, and what a picture cannot tell you |
 | [Machine learning](docs/ml.md) | SAM for the water mask, Gymnasium for the controller |
+| [On a robot](docs/hardware.md) | Running a controller on real hardware, and testing it against real logs |
 | [Architecture](docs/architecture.md) | Layering, backends, determinism contract |
 | [Research](docs/research.md) | Prior art, and which decision each finding drove |
 | [References](docs/references.md) | Verified bibliography, with what the code implements |
@@ -348,6 +382,7 @@ Every one takes `--minutes` if you want a shorter run.
 | [`estimation_replay.py`](examples/estimation_replay.py) | The EKF controller, with the pose estimate drawn against ground truth |
 | [`batch_experiment.py`](examples/batch_experiment.py) | Run a scenario across seeds, then reproduce its worst episode exactly |
 | [`replay.py`](examples/replay.py) | Replay a recording flat, in 3D, from the bumper, or interactively |
+| [`replay_real_trajectory.py`](examples/replay_real_trajectory.py) | Score the estimator against a real robot's logged trajectory |
 | [`tour.ipynb`](examples/tour.ipynb) | All of the above in one notebook, with the pool turnable in the browser |
 
 ## Did you know?
