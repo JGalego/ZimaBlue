@@ -118,6 +118,13 @@ def test_replay_real_trajectory_runs_when_a_log_is_present(tmp_path):
     assert sorted(tmp_path.glob("*.zbr")), "each log should produce a replayable recording"
 
 
+def test_analyse_dynamics_runs_and_reports_every_section():
+    result = run("analyse_dynamics.py", "--minutes", "4", "--seeds", "2")
+    assert result.returncode == 0, result.stderr[-2000:]
+    for heading in ("contacts", "mixing", "wasted", "lambda", "forecast err"):
+        assert heading in result.stdout, f"the {heading} section is missing"
+
+
 def test_batch_experiment_runs_and_reproduces_its_worst_episode():
     result = run("batch_experiment.py", "--episodes", "3", "--minutes", "3")
     assert result.returncode == 0, result.stderr[-2000:]

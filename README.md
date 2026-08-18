@@ -44,7 +44,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 
 | | | |
 |---|---|---|
-| 🏊 | **Pools** | Six presets, or your own Shapely outline with a pluggable depth model. Drains, skimmers, stairs and obstacles come out of the navigable area. |
+| 🏊 | **Pools** | Eight presets, or your own Shapely outline with a pluggable depth model. Drains, skimmers, stairs and obstacles come out of the navigable area. |
 | 📷 | **Pools from photographs** | Point it at a picture of a real pool and get a model. Colour rules by default, or [SAM](docs/ml.md) if you have a checkpoint. |
 | 🤖 | **Cleaners** | Composed from chassis, drive, cleaning head and power. Three presets; a custom robot needs no changes to ZimaBlue. |
 | 🎨 | **Cleaner designs** | Seven silhouettes so a domed suction unit does not look like a quad-brush commercial machine. Drawing only — the physics is the chassis. |
@@ -58,6 +58,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 | 🕹️ | **A Gymnasium environment** | Train a policy against the same simulator, then run it as an ordinary controller so it is scored like every other one. |
 | 🔌 | **Runs on real hardware** | The control loop with no simulator underneath: sensor adapters, a wheel-speed loop, a watchdog. Writes the same `.zbr`. See [on a robot](docs/hardware.md). |
 | 📈 | **Checked against a real robot** | The pose estimator scored against a Pioneer 3-DX's logged trajectory, not only against motion we generated ourselves. |
+| 🌀 | **Dynamical-systems analysis** | Poincaré sections, transfer operators, the ergodic metric, Lyapunov divergence. Finds where a controller gets stuck rather than scoring it. See [behaviour](docs/dynamics.md). |
 
 ## Contents
 
@@ -68,6 +69,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 - [Watch it](#watch-it) — [from behind](#from-behind), [from the bumper](#from-the-bumper), [in 3D](#in-3d)
 - [Measure it](#measure-it)
 - [Check it against a real robot](#check-it-against-a-real-robot)
+- [Analyse it](#analyse-it)
 - [Scale it](#scale-it)
 - [Extend it](#extend-it)
 - [Read more](#read-more)
@@ -79,6 +81,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 import zimablue as zb
 
 pool = zb.make_pool("kidney")  # rectangular · sloped · l_shaped · oval · stairs
+# stadium · mushroom  (chosen for their dynamics)
 ```
 
 Geometry is a Shapely polygon plus a pluggable depth model, so a sloped floor
@@ -388,6 +391,40 @@ The whole control loop runs on real hardware too, through the same
 `ControlInput` and `DriveCommand` a controller already sees. See
 [on a robot](docs/hardware.md).
 
+## Analyse it
+
+Coverage and cleanliness say what a run achieved. They say nothing about
+*how* the robot behaved — whether it repeated itself, how fast it forgot where
+it started, whether the room was doing the work.
+
+```python
+from zimablue.dynamics import transfer_operator, ergodic_score
+
+operator = transfer_operator([run_a, run_b, run_c])
+print(operator.summary())  # mixing rate
+labels = operator.almost_invariant_sets(2)  # where it gets stuck
+```
+
+<div align="center">
+<img src="docs/assets/dynamics-mushroom.png" alt="Four runs in a mushroom-shaped pool, each spending most of its time in the narrow stem" width="900">
+
+<sub>The <code>mushroom</code> pool. Same controller, same code, four seeds.</sub>
+</div>
+
+The stem is 21% of the floor and takes 58% of the robot's time — 85% on one
+seed and 37% on another. Nothing about the algorithm causes that spread; the
+room does. `mushroom` and `stadium` are pool presets chosen for their billiard
+dynamics: one is a provable trap, the other provably ergodic.
+
+The transfer operator finds the trap without being told the shape of the pool,
+and the [ergodic metric](docs/dynamics.md) catches something coverage
+structurally cannot — `lawnmower_oracle` achieves the best distribution of any
+controller at twelve minutes, then finishes, parks, and spends the rest of the
+cycle making it worse.
+
+Two predictions this exercise proved wrong are written up in
+[behaviour](docs/dynamics.md), because they were made in public first.
+
 ## Scale it
 
 ```bash
@@ -448,6 +485,7 @@ determinism and preferring a small real model to a large fake one.
 | [From a photo](docs/imaging.md) | Tracing a pool out of a picture, and what a picture cannot tell you |
 | [Machine learning](docs/ml.md) | SAM for the water mask, Gymnasium for the controller |
 | [On a robot](docs/hardware.md) | Running a controller on real hardware, and testing it against real logs |
+| [Behaviour](docs/dynamics.md) | Periodic orbits, mixing rates, the ergodic metric, and two pools chosen for their dynamics |
 | [Architecture](docs/architecture.md) | Layering, backends, determinism contract |
 | [Research](docs/research.md) | Prior art, and which decision each finding drove |
 | [References](docs/references.md) | Verified bibliography, with what the code implements |
@@ -475,6 +513,7 @@ Every one takes `--minutes` if you want a shorter run.
 | [`batch_experiment.py`](examples/batch_experiment.py) | Run a scenario across seeds, then reproduce its worst episode exactly |
 | [`replay.py`](examples/replay.py) | Replay a recording flat, in 3D, from the bumper, or interactively |
 | [`replay_real_trajectory.py`](examples/replay_real_trajectory.py) | Score the estimator against a real robot's logged trajectory |
+| [`analyse_dynamics.py`](examples/analyse_dynamics.py) | Periodic orbits, mixing rates, the ergodic metric and sensitivity, for one pool |
 | [`tour.ipynb`](examples/tour.ipynb) | All of the above in one notebook, with the pool turnable in the browser |
 
 ## Did you know?

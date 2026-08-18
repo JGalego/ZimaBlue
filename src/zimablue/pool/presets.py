@@ -146,6 +146,91 @@ def oval(length: float = 11.0, width: float = 6.0, depth: float = 1.5) -> Pool:
     )
 
 
+@POOL_PRESETS.register("stadium")
+def stadium(straight: float = 6.0, radius: float = 2.5, depth: float = 1.5) -> Pool:
+    """Bunimovich's stadium: a rectangle capped with two half-discs.
+
+    Not an ordinary pool shape. It is here because the billiard flow inside it
+    is *provably* chaotic and ergodic -- the flat sides defocus a bundle of
+    parallel trajectories faster than the curved ends refocus it, so nearby
+    paths separate exponentially and almost every trajectory eventually comes
+    arbitrarily close to every point.
+
+    Which makes it the control case for the question this project keeps asking.
+    A robot that bounces at random covers a stadium well *because of the room's
+    shape*, not because of anything the controller did. Compare it against the
+    rectangle, where the same controller can be trapped on a closed orbit
+    forever, and you can separate the two contributions.
+
+    Bunimovich, L. A. (1979). On the ergodic properties of nowhere dispersing
+    billiards. *Communications in Mathematical Physics, 65*(3), 295-312.
+    """
+    left = _ellipse(0.0, 0.0, radius, radius)
+    right = _ellipse(straight, 0.0, radius, radius)
+    middle = shapely_box(0.0, -radius, straight, radius)
+    outline = left.union(middle).union(right)
+    # Shift into the positive quadrant, where every other pool lives.
+    boundary = Polygon(np.asarray(outline.exterior.coords) + np.array([radius, radius]))
+    return Pool(
+        boundary=boundary,
+        depth=ConstantDepth(depth),
+        name="stadium",
+        material="tile",
+        features=(
+            Drain(
+                "main_drain",
+                position=(radius + straight / 2, radius),
+                radius=0.25,
+                flow_rate=0.15,
+            ),
+        ),
+    )
+
+
+@POOL_PRESETS.register("mushroom")
+def mushroom(
+    cap_radius: float = 3.2, stem_width: float = 1.4, stem_length: float = 3.0, depth: float = 1.5
+) -> Pool:
+    """A half-disc cap on a rectangular stem. The trap, made of geometry.
+
+    Bunimovich's mushroom has a *mixed* phase space: a set of integrable
+    trajectories that stay in the cap forever, and a chaotic set that visits
+    both cap and stem, sharply divided with nothing in between. It is the
+    cleanest physical demonstration that where a robot ends up can be decided
+    by the room rather than by the algorithm.
+
+    A cleaner started on the wrong side of that divide will never enter the
+    stem, however long it runs and however good its random number generator
+    is. No amount of coverage statistics on the cap will reveal that; only
+    looking at the stem will.
+
+    It is also not a fantasy shape -- an L-shaped pool with a narrow neck to a
+    spa is the same topology with corners.
+
+    Bunimovich, L. A. (2001). Mushrooms and other billiards with divided phase
+    space. *Chaos, 11*(4), 802-808.
+    """
+    cap = _ellipse(cap_radius, cap_radius, cap_radius, cap_radius).intersection(
+        shapely_box(0.0, cap_radius, 2 * cap_radius, 2 * cap_radius)
+    )
+    stem = shapely_box(
+        cap_radius - stem_width / 2,
+        cap_radius - stem_length,
+        cap_radius + stem_width / 2,
+        cap_radius + 0.05,
+    )
+    boundary = Polygon(cap.union(stem).exterior)
+    return Pool(
+        boundary=boundary,
+        depth=ConstantDepth(depth),
+        name="mushroom",
+        material="tile",
+        features=(
+            Drain("main_drain", position=(cap_radius, cap_radius + 0.8), radius=0.2, flow_rate=0.1),
+        ),
+    )
+
+
 @POOL_PRESETS.register("stairs")
 def stairs() -> Pool:
     """Rectangular pool with a corner stair block and a ladder foot.

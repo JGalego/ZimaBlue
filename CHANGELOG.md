@@ -12,6 +12,42 @@ understand.
 ## [Unreleased]
 
 ### Added
+- **`zimablue.dynamics`**: analysis of how a controller *behaves*, rather than
+  what a run achieved. Reads finished recordings; needs nothing installed.
+  - `return_map` — the Poincaré section on the pool wall, and the periodic
+    orbits in it. Contacts are debounced, because 69% of raw bump-switch rising
+    edges in a real run land under half a second apart and counting those as
+    arrivals fills the section with chatter. No attracting orbits were found in
+    any pool or controller tried, which is a real answer and not a broken tool;
+    the detector is verified against a synthetic periodic section.
+  - `transfer_operator` — the Perron-Frobenius operator on a grid. Invariant
+    measure, spectral gap, mixing time, and *almost-invariant sets*: it
+    separates an L-shaped pool into its two arms and a mushroom pool into cap
+    and stem without being told the shape. The mushroom's partition falls below
+    the geometric neck, which is right — the robot leaves the top of the stem
+    freely and the bottom is what traps it.
+  - `ergodic_score` — the Mathew-Mezić metric, with the dirt field as the
+    target measure. One number for "spend time in proportion to how dirty it
+    is". Unlike coverage and dirt removed it is **not monotone**, so it is the
+    only metric here that can see a controller finish early and park: both
+    oracles score their best mid-run and get worse from there.
+  - `divergence` — how fast two runs a millimetre apart stop agreeing, and the
+    horizon past which a rollout of this backend is a sample rather than a
+    prediction. `random_bounce` turns out to be the *least* sensitive
+    controller and `baseline_coverage` the most, which inverts the obvious
+    guess.
+  - `forecast_cleaning` — fit a removal rate on the first few minutes of
+    occupancy and predict the rest of the cycle. Within 3.2% for
+    `random_bounce` and 3.6% for `systematic`; 16.5% for `baseline_coverage`,
+    which changes strategy halfway through. Forecast error is a
+    strategy-change detector.
+  - `zimablue.dynamics.plots` for each of the above, and `docs/dynamics.md`.
+- Pool presets `stadium` and `mushroom`, chosen for their billiard dynamics:
+  one provably ergodic, the other a provable trap. The mushroom's stem is 21%
+  of the floor and takes 58% of the robot's time — 85% on one seed and 37% on
+  another, with no change to the controller.
+- `Simulation(start_pose=...)`, so a run can be started a millimetre from
+  another one. Sensitivity analysis needs it and nothing else does.
 - **Chase cam**: `zimablue replay run.zbr --chase`. A metre behind the robot
   and half a metre up — the view that shows the machine *and* what it is
   leaving behind, which neither the top-down view nor the dirt cam does. The

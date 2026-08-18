@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from shapely.geometry import Point as ShapelyPoint
 
 from zimablue._version import __version__
 from zimablue.backends.base import Event, SimState
@@ -85,6 +86,7 @@ class Simulation:
         dirt_target: float | None = None,
         stop_on_empty_battery: bool = True,
         scenario_name: str = "adhoc",
+        start_pose: tuple[float, float, float] | None = None,
     ) -> None:
         if timestep <= 0:
             raise ValueError(f"timestep must be positive, got {timestep}")
@@ -109,6 +111,18 @@ class Simulation:
 
         self._initial_dirt = self.world.dirt.field.total_grid().copy()
         self.state = self.backend.reset(self.world, self.robot, self.rng)
+        if start_pose is not None:
+            # Overridden after reset rather than passed into it: the backend
+            # protocol does not take a pose, and widening it for this would
+            # oblige every future backend to honour something only sensitivity
+            # analysis needs. Measuring how fast two nearby runs diverge means
+            # being able to start them a millimetre apart.
+            x, y, heading = start_pose
+            if not self.pool.navigable.contains(ShapelyPoint(x, y)):
+                raise ValueError(f"start_pose ({x:.2f}, {y:.2f}) is outside the navigable pool")
+            self.state.x, self.state.y, self.state.heading = float(x), float(y), float(heading)
+            self.state.depth = float(self.pool.depth_at(x, y))
+        self.start_pose = (self.state.x, self.state.y, self.state.heading)
         self.controller.reset(self.robot)
         self.events: list[Event] = []
         self._last_command = DriveCommand.stop()
