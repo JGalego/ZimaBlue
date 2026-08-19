@@ -117,7 +117,7 @@ class CoveragePlanner(Protocol):
     def plan(self, pool: Pool, robot: Cleaner) -> CoveragePath: ...
 
 
-PLANNERS: Registry[CoveragePlanner] = Registry("planner")
+PLANNERS: Registry[CoveragePlanner] = Registry("planner", entry_point_group="zimablue.planners")
 
 
 def make_planner(planner: CoveragePlanner | str, **kwargs: Any) -> CoveragePlanner:

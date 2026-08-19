@@ -164,7 +164,7 @@ class Partitioner(Protocol):
     ) -> Partition: ...
 
 
-PARTITIONS: Registry[Partitioner] = Registry("partition")
+PARTITIONS: Registry[Partitioner] = Registry("partition", entry_point_group="zimablue.partitions")
 
 
 def make_partition(partition: Partitioner | str, **kwargs: Any) -> Partitioner:

@@ -24,7 +24,7 @@ from zimablue.registry import Registry
 
 __all__ = ["POOL_PRESETS", "make_pool"]
 
-POOL_PRESETS: Registry[Pool] = Registry("pool")
+POOL_PRESETS: Registry[Pool] = Registry("pool", entry_point_group="zimablue.pools")
 
 FloatArray = NDArray[np.float64]
 

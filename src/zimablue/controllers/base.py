@@ -82,4 +82,4 @@ class Controller(Protocol):
         ...
 
 
-CONTROLLERS: Registry[Controller] = Registry("controller")
+CONTROLLERS: Registry[Controller] = Registry("controller", entry_point_group="zimablue.controllers")

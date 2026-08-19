@@ -258,6 +258,30 @@ cover a 54 m² pool. In fifteen minutes the robot gets through 10.7% of it.
 Every later decomposition in the literature exists to avoid exactly this, and
 it seemed more useful to show it than to quietly polygon-simplify it away.
 
+## Ship a planner as a package
+
+A planner does not have to be merged here to be compared here. Declare a
+factory under the matching entry-point group:
+
+```toml
+# pyproject.toml of zimablue-lawnfair
+[project.entry-points."zimablue.planners"]
+lawnfair = "zimablue_lawnfair:LawnFair"
+```
+
+After `pip install zimablue-lawnfair` the name resolves everywhere the
+built-ins do — `PathFollower("lawnfair")`, `lawnfair@odometry` in `compare()`,
+`zimablue compare lawnfair@odometry`, and `zimablue list`. Online planners and
+controllers use `zimablue.controllers`; there are groups for pools, dirt,
+robots, designs, partitions, and backends as well, each named after its
+registry. Discovery reads package metadata only — a plugin is imported the
+first time its name is built, and a plugin that fails to import takes its own
+name down, not the registry.
+
+A plugin cannot claim a built-in name. Everything else about writing the
+planner is identical to writing one in-tree: return a `CoveragePath` from
+`plan()`, or satisfy the `Controller` protocol and decide as you go.
+
 ## Comparing them
 
 ```python

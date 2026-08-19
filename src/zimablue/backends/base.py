@@ -155,7 +155,7 @@ class SimulationBackend(Protocol):
         ...
 
 
-BACKENDS: Registry[SimulationBackend] = Registry("backend")
+BACKENDS: Registry[SimulationBackend] = Registry("backend", entry_point_group="zimablue.backends")
 
 
 def wrap_angle(theta: float) -> float:

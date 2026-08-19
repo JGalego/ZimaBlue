@@ -36,6 +36,11 @@ protocol. If you find yourself adding a branch to an existing function to
 support a new variant, the extension point is probably missing — say so in an
 issue.
 
+A contribution does not have to live in this repository at all. Every registry
+also discovers entry points, so a planner, controller, pool, dirt model,
+partition, or backend can ship as its own package — see "Ship a planner as a
+package" in [docs/planners.md](docs/planners.md).
+
 **Do not break determinism.** The contract is: same ZimaBlue version, same
 platform, same scenario, same seed ⇒ bit-identical recording. That means:
 

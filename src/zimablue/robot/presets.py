@@ -26,7 +26,7 @@ from zimablue.sensors.models import IMU, ContactSensor, Encoder, PressureSensor,
 
 __all__ = ["ROBOT_PRESETS", "make_robot"]
 
-ROBOT_PRESETS: Registry[Cleaner] = Registry("robot")
+ROBOT_PRESETS: Registry[Cleaner] = Registry("robot", entry_point_group="zimablue.robots")
 
 
 def _standard_sensors(max_depth: float = 5.0, sonar_range: float = 3.0) -> list:

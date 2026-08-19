@@ -322,7 +322,7 @@ class DirtSpec:
 # ---------------------------------------------------------------------------
 # Presets
 # ---------------------------------------------------------------------------
-DIRT_PRESETS: Registry[DirtSpec] = Registry("dirt")
+DIRT_PRESETS: Registry[DirtSpec] = Registry("dirt", entry_point_group="zimablue.dirt")
 
 
 @DIRT_PRESETS.register("clean")

@@ -273,7 +273,7 @@ def disc(x: float, y: float, radius: float, steps: int = 16) -> FloatArray:
 # ----------------------------------------------------------------------
 # Presets
 # ----------------------------------------------------------------------
-DESIGNS: Registry[CleanerDesign] = Registry("design")
+DESIGNS: Registry[CleanerDesign] = Registry("design", entry_point_group="zimablue.designs")
 
 
 def _tracks(inset: float = 0.44, length: float = 0.86, width: float = 0.11) -> list[Part]:
