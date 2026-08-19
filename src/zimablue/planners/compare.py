@@ -25,6 +25,7 @@ What is measured
 ============== =============================================================
 coverage       fraction of navigable floor the head passed over
 dirt           fraction of the dirt mass removed
+possible       dirt removed over what was reachable in the time -- see below
 evenness       how uniformly it cleaned, rather than how much
 gap            area of the largest patch it never went near, m2
 edges          fraction of the wall the robot ran alongside
@@ -36,6 +37,12 @@ wasted         share of the run after the ergodic score stopped improving
 energy         watt-hours
 trouble        collisions per minute
 ============== =============================================================
+
+``possible`` is the regret column. Its denominator is a physical relaxation
+computed by :mod:`zimablue.planners.oracle`: the heaviest cells that fit in
+the run's swept-area budget, collected with no travel and no revisits. The
+distance from 100% is what the planner cost, in a unit that stays comparable
+when the pool, the dirt or the duration changes.
 
 The worst gap is there because 90% coverage means two different things. A
 planner that leaves a thin margin everywhere and one that leaves a whole
@@ -105,6 +112,7 @@ class Dimension:
 DIMENSIONS: tuple[Dimension, ...] = (
     Dimension("coverage", "coverage", +1, "%", 100.0, 1),
     Dimension("dirt", "dirt", +1, "%", 100.0, 1),
+    Dimension("possible", "of possible", +1, "%", 100.0, 0),
     Dimension("evenness", "evenness", +1, "", 1.0, 2),
     Dimension("gap", "worst gap", -1, "m2", 1.0, 1),
     Dimension("edges", "edges", +1, "%", 100.0, 0),
@@ -403,9 +411,15 @@ def evaluate(
     except Exception:  # pragma: no cover - a run too short to score
         ergodic, wasted = float("nan"), float("nan")
 
+    from zimablue.planners.oracle import dirt_bound
+
+    bound = dirt_bound(
+        recording, geometry, simulation.robot, seconds=metrics.runtime, cell=simulation.world.cell
+    )
     scores = {
         "coverage": metrics.coverage,
         "dirt": metrics.dirt_removed_fraction,
+        "possible": min(metrics.dirt_removed / bound, 1.0) if bound > 0 else float("nan"),
         "evenness": metrics.cleaning_uniformity,
         "gap": largest_gap(result.spatial, simulation.world.cell),
         "edges": metrics.wall_coverage,
@@ -534,6 +548,8 @@ def compare(
 FLEET_DIMENSIONS: tuple[Dimension, ...] = (
     Dimension("coverage", "coverage", +1, "%", 100.0, 1),
     Dimension("dirt", "dirt", +1, "%", 100.0, 1),
+    Dimension("possible", "of possible", +1, "%", 100.0, 0),
+    Dimension("possible", "of possible", +1, "%", 100.0, 0),
     Dimension("speedup", "speedup", +1, "x", 1.0, 2),
     Dimension("overlap", "overlap", -1, "%", 100.0, 0),
     Dimension("balance", "balance", +1, "", 1.0, 2),
@@ -634,10 +650,28 @@ def evaluate_fleet(
     except Exception:  # pragma: no cover - a run too short to score
         ergodic, wasted = float("nan"), float("nan")
 
+    from zimablue.planners.oracle import collectable_bound
+
+    initial = recording.dirt_at(0.0)
+    navigable = geometry.navigable_mask(fleet.world.cell)
+    bound = 0.0
+    if initial.size and navigable.shape == initial.shape:
+        bound = collectable_bound(
+            initial,
+            navigable,
+            cell=fleet.world.cell,
+            # The relaxation extends naturally: a team's swept-area budget is
+            # the sum of its members'.
+            speed=robots * fleet.robots[0].locomotion.max_speed,
+            swath=swath,
+            seconds=metrics.team.runtime,
+            collectable_total=float(initial.sum()),
+        )
     runtime = max(metrics.team.runtime / 60.0, 1e-6)
     scores = {
         "coverage": metrics.team.coverage,
         "dirt": metrics.team.dirt_removed_fraction,
+        "possible": min(metrics.team.dirt_removed / bound, 1.0) if bound > 0 else float("nan"),
         "speedup": metrics.speedup,
         "overlap": metrics.overlap,
         "balance": metrics.balance,

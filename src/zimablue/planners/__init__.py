@@ -94,6 +94,7 @@ from zimablue.planners.partition import (
     make_partition,
     partitioned,
 )
+from zimablue.planners.oracle import collectable_bound, dirt_bound
 from zimablue.planners.seeker import DirtSeeker
 
 __all__ = [
@@ -121,6 +122,8 @@ __all__ = [
     "Partition",
     "Partitioner",
     "PathFollower",
+    "collectable_bound",
+    "dirt_bound",
     "Predictive",
     "SpanningTree",
     "SpectralCoverage",

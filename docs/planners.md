@@ -329,6 +329,7 @@ What gets measured, with no attempt to collapse it into one number:
 |---|---|
 | `coverage` | fraction of navigable floor the head passed over |
 | `dirt` | fraction of the dirt mass removed |
+| `possible` | dirt removed over what was physically reachable in the time |
 | `evenness` | how uniformly it cleaned, rather than how much |
 | `gap` | area of the largest patch it never went near, m² |
 | `edges` | fraction of the wall the robot ran alongside |
@@ -344,6 +345,13 @@ Efficiency and turning are the two that catch what coverage cannot. A planner
 can reach 95% by driving over everything three times, and efficiency is the
 bill. Turning is what costs on real hardware and appears in almost no published
 comparison.
+
+`possible` is the regret column, and its denominator is a bound rather than a
+policy: the heaviest cells that fit in the run's swept-area budget, collected
+with no travel, no turning and no revisits. `dirt_oracle` bounds nothing — it
+is the best myopic policy and its docstring says so — but the physics can be
+bounded, and the distance from 100% is what the planner cost in the one unit
+that stays comparable across pools, dirts and durations.
 
 The worst gap is there because 90% coverage means two different things. A
 planner that leaves a thin margin everywhere and one that leaves a whole corner
