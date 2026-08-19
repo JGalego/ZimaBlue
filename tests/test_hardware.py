@@ -126,7 +126,7 @@ def test_an_undeclared_sensor_is_a_loud_error():
 
 def test_a_recording_replays_as_readings(recording):
     source = RecordedSource(recording)
-    assert set(source.channels) == {"encoder", "imu", "pressure", "contact", "sonar"}
+    assert set(source.channels) == {"encoder", "imu", "pressure", "contact", "sonar", "turbidity"}
     assert source.channels["imu"] == ("ax", "ay", "gz")
 
     readings = source.read(5.0)
