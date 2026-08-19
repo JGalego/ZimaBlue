@@ -506,6 +506,50 @@ def batch(
 
 # ----------------------------------------------------------------------
 @app.command()
+def bench(
+    out: Annotated[Path, typer.Option(help="Directory for the JSON, CSV and markdown.")] = Path(
+        "runs/bench"
+    ),
+    jobs: Annotated[int, typer.Option(help="Worker processes. Runs are independent.")] = 1,
+    quick: Annotated[
+        bool,
+        typer.Option(help="The smoke tier: proves the pipeline in a minute, means nothing."),
+    ] = False,
+) -> None:
+    """Run the frozen benchmark suite and write the leaderboard.
+
+    Nothing about the suite is configurable -- that is what makes two results
+    comparable. Use 'zimablue compare' for a comparison on your own terms.
+    """
+    from zimablue.bench import BENCH_QUICK, BENCH_V1, run_bench
+
+    definition = BENCH_QUICK if quick else BENCH_V1
+    console.print(Panel(BANNER, border_style="cyan"))
+    console.print(f"[bold]{definition.describe()}[/bold]\n")
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(complete_style="cyan"),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("benchmarking", total=definition.runs)
+
+        def tick(trial: Any) -> None:
+            progress.update(task, advance=1, description=f"{trial.planner} on {trial.pool}")
+
+        result = run_bench(definition, jobs=jobs, on_result=tick)
+
+    console.print()
+    console.print(_comparison_table(result.comparison))
+    for kind, path in result.save(out).items():
+        console.print(f"[green]wrote[/green] {path}  [dim]({kind})[/dim]")
+
+
+# ----------------------------------------------------------------------
+@app.command()
 def compare(
     planners: Annotated[
         list[str] | None,
