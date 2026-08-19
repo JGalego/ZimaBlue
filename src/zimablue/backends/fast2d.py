@@ -302,6 +302,9 @@ class Fast2DBackend:
             pool=self.world.pool,
             water=self.world.pool.water,
             neighbours=self.neighbours,
+            dirt_density=self.world.dirt.field.density_at(
+                state.x, state.y, 0.5 * self.robot.swath_width
+            ),
         )
         return self.robot.sensors.update(ctx)
 

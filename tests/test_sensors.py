@@ -218,3 +218,58 @@ def test_sensor_specs_round_trip():
     assert list(restored) == list(suite)
     assert restored.sonar.beam_angles == (0.0, 0.5)
     assert restored.sonar.faults[0].bias == pytest.approx(0.2)
+
+
+# ----------------------------------------------------------------------
+def test_turbidity_probe_reads_the_dirt_under_the_hull():
+    from zimablue.sensors import TurbidityProbe
+
+    suite = SensorSuite([TurbidityProbe("t", SensorConfig(rate_hz=5.0, noise_std=0.0))])
+    suite.attach(RngTree(0))
+    frames = _drive(suite, steps=100, dt=0.01, dirt_density=7.5)
+    values = [frame["t"].values[0] for frame in frames if "t" in frame]
+    assert values, "the probe never produced a reading"
+    assert values[-1] == pytest.approx(7.5)
+
+
+def test_turbidity_probe_cannot_subtract_the_water_haze():
+    from zimablue.pool import Water
+    from zimablue.sensors import TurbidityProbe
+
+    probe = TurbidityProbe("t", SensorConfig(rate_hz=5.0, noise_std=0.0), haze_gain=6.0)
+    suite = SensorSuite([probe])
+    suite.attach(RngTree(0))
+    hazy = Water(turbidity=0.5)
+    frames = _drive(suite, steps=50, dt=0.01, dirt_density=2.0, water=hazy)
+    values = [frame["t"].values[0] for frame in frames if "t" in frame]
+    assert values[-1] == pytest.approx(2.0 + 3.0)
+
+
+def test_turbidity_probe_round_trips_through_a_spec():
+    from zimablue.sensors import TurbidityProbe, sensor_from_spec
+
+    probe = TurbidityProbe(haze_gain=9.0)
+    rebuilt = sensor_from_spec(probe.spec())
+    assert isinstance(rebuilt, TurbidityProbe)
+    assert rebuilt.haze_gain == 9.0
+
+
+def test_the_backend_feeds_the_probe_real_dirt():
+    """On an autumn pool the recorded turbidity channel is alive, and it falls
+    where the robot has cleaned."""
+    import zimablue as zb
+
+    result = zb.Simulation(pool="rectangular", dirt="autumn", seed=6).run(minutes=1.0)
+    recording = result.require_recording()
+    assert "turbidity.density" in recording.channels
+    values = np.asarray(recording.column("turbidity.density"), dtype=float)
+    valid = np.asarray(recording.column("turbidity.valid"), dtype=float) > 0
+    assert np.nanmax(values[valid]) > 0.5, "an autumn pool should read dirty somewhere"
+
+
+def test_a_clean_pool_reads_near_zero():
+    import zimablue as zb
+
+    result = zb.Simulation(pool="rectangular", dirt="clean", seed=6).run(minutes=0.5)
+    values = np.asarray(result.require_recording().column("turbidity.density"), dtype=float)
+    assert np.nanmax(np.abs(values)) < 3.0

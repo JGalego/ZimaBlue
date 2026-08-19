@@ -237,6 +237,14 @@ class SensorContext:
     """The :class:`~zimablue.pool.Water` properties."""
 
     neighbours: tuple[tuple[float, float, float], ...] = ()
+
+    dirt_density: float = 0.0
+    """Mean dirt mass per square metre under the hull, g/m2.
+
+    Ground truth for the turbidity probe, the way ``depth`` is ground truth
+    for the pressure sensor: what a sensor could physically respond to, before
+    its own noise, bias and dropout are layered on. Filled by the backend from
+    the dirt raster around the robot's footprint."""
     """Other robots, as ``(x, y, radius)`` discs.
 
     Empty for a single-robot run. A fleet fills it, and a rangefinder that

@@ -16,6 +16,7 @@ from zimablue.sensors.models import (
     Encoder,
     PressureSensor,
     Sonar,
+    TurbidityProbe,
 )
 from zimablue.sensors.suite import SENSOR_CLASSES, SensorSuite, sensor_from_spec
 
@@ -33,5 +34,6 @@ __all__ = [
     "SensorFault",
     "SensorSuite",
     "Sonar",
+    "TurbidityProbe",
     "sensor_from_spec",
 ]

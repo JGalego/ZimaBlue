@@ -26,6 +26,7 @@ __all__ = [
     "Encoder",
     "PressureSensor",
     "Sonar",
+    "TurbidityProbe",
 ]
 
 FloatArray = NDArray[np.float64]
@@ -156,6 +157,56 @@ class PressureSensor(Sensor):
 
     def _params(self) -> dict[str, Any]:
         return {"max_depth": self.max_depth}
+
+
+class TurbidityProbe(Sensor):
+    """Optical turbidity at the intake, calibrated to dirt under the hull.
+
+    Commercial cleaners ship a version of this as "dirt detect": an LED and a
+    photodiode in the intake throat, reading the light scattered by whatever
+    the brush just lifted. The clean value is the mean dirt mass per square
+    metre under the hull, plus the water's own haze as a baseline the probe
+    cannot subtract -- a hazy pool reads dirty everywhere, which is a property
+    of the instrument and not a bug in it.
+
+    This is the one sensor whose channel *is* the project's thesis: a
+    controller that reads it can chase grams instead of area, and remains
+    deployable, because the probe measures scattered light rather than
+    anything only a simulator knows.
+    """
+
+    channels = ("density",)
+    kind = "turbidity"
+
+    def __init__(
+        self,
+        name: str = "turbidity",
+        config: SensorConfig | None = None,
+        *,
+        haze_gain: float = 6.0,
+    ) -> None:
+        cfg = (
+            config
+            if config is not None
+            else SensorConfig(
+                rate_hz=5.0,
+                noise_std=0.4,
+                latency=0.05,
+                min_value=0.0,
+                max_value=400.0,
+                quantization=0.1,
+            )
+        )
+        super().__init__(name, cfg)
+        self.haze_gain = haze_gain
+        """How many g/m2 a fully hazy pool adds to every reading."""
+
+    def _measure(self, ctx: SensorContext) -> FloatArray:
+        haze = self.haze_gain * float(getattr(ctx.water, "turbidity", 0.0) or 0.0)
+        return np.array([ctx.dirt_density + haze], dtype=float)
+
+    def _params(self) -> dict[str, Any]:
+        return {"haze_gain": self.haze_gain}
 
 
 class ContactSensor(Sensor):

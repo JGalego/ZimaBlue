@@ -14,7 +14,14 @@ from collections.abc import Iterator, Mapping
 from typing import TYPE_CHECKING, Any
 
 from zimablue.sensors.base import Reading, Sensor, SensorConfig, SensorContext
-from zimablue.sensors.models import IMU, ContactSensor, Encoder, PressureSensor, Sonar
+from zimablue.sensors.models import (
+    IMU,
+    ContactSensor,
+    Encoder,
+    PressureSensor,
+    Sonar,
+    TurbidityProbe,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from zimablue.rng import RngTree
@@ -27,6 +34,7 @@ SENSOR_CLASSES: dict[str, type[Sensor]] = {
     "PressureSensor": PressureSensor,
     "ContactSensor": ContactSensor,
     "Sonar": Sonar,
+    "TurbidityProbe": TurbidityProbe,
 }
 
 

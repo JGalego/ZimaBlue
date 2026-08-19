@@ -49,7 +49,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 | ✏️ | **Pools from drawings** | Sketch one on a napkin or in a paint program and trace it. Copes with a lifted pen, notes scribbled inside the outline, and the shadow across a photo of paper. |
 | 🤖 | **Cleaners** | Composed from chassis, drive, cleaning head and power. A custom robot needs no changes to ZimaBlue. |
 | 🎨 | **Cleaner designs** | Silhouettes with real differences, so a domed suction unit does not look like a quad-brush commercial machine. Drawing only — the physics is the chassis. |
-| 📡 | **Sensors that lie** | Encoders, IMU, pressure, bump switches, sonar, all through one noise, bias, latency, dropout and saturation pipeline. Faults on a schedule. |
+| 📡 | **Sensors that lie** | Encoders, IMU, pressure, bump switches, sonar, a turbidity probe, all through one noise, bias, latency, dropout and saturation pipeline. Faults on a schedule. |
 | 🍂 | **Dirt that behaves** | Density, grain size, adhesion and pickup difficulty, settling by Ferguson & Church rather than Stokes. Scenarios from `clean` to `neglected_pool`. |
 | 🧭 | **Controllers** | Boustrophedon coverage, random bounce, an EKF-and-occupancy-map planner, and ground-truth oracles to bound the problem. |
 | 🗺️ | **Coverage path planning** | Offline decompositions and online rules from the classical literature, Spiral-STC through a spectral ergodic controller. See [planners](docs/planners.md). |
@@ -136,10 +136,13 @@ robot = zb.Cleaner(
 )
 ```
 
-Encoders, IMU, pressure/depth, contact and sonar share one pipeline of sampling
-rate, noise, bias with random walk, latency, quantisation, saturation, dropout
-and stuck values. Encoders report *wheel* speed, so odometry drifts because
-the wheels really do slip; no error is injected to make it happen.
+Encoders, IMU, pressure/depth, contact, sonar and a turbidity probe share one
+pipeline of sampling rate, noise, bias with random walk, latency, quantisation,
+saturation, dropout and stuck values. Encoders report *wheel* speed, so
+odometry drifts because the wheels really do slip; no error is injected to
+make it happen. The turbidity probe is the intake's "dirt detect": it reads
+the dirt density under the hull plus the water's own haze, which is the one
+signal that lets a deployable controller chase grams instead of area.
 
 You can break a sensor on purpose:
 

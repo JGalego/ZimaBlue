@@ -115,6 +115,21 @@ class DirtField:
         """Dirt mass per square metre, for a resolution-independent view."""
         return self.total_grid() / self.grid.cell_area
 
+    def density_at(self, x: float, y: float, radius: float) -> float:
+        """Mean areal density within ``radius`` of a point, g/m2.
+
+        Window-scoped like the other hot-loop reads: this feeds a sensor at
+        its sample rate, and summing the whole raster for a value under one
+        hull would cost more than the rest of the tick.
+        """
+        window = self.grid.window(x, y, radius)
+        if window is None or not window.mask.any():
+            return 0.0
+        total = 0.0
+        for layer in self.layers.values():
+            total += float(window.view(layer)[window.mask].sum())
+        return total / (float(window.mask.sum()) * self.grid.cell_area)
+
     # ------------------------------------------------------------------
     # Mutation
     # ------------------------------------------------------------------

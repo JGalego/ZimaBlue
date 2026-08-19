@@ -22,7 +22,14 @@ from zimablue.robot.components import (
     PowerSystem,
     Pump,
 )
-from zimablue.sensors.models import IMU, ContactSensor, Encoder, PressureSensor, Sonar
+from zimablue.sensors.models import (
+    IMU,
+    ContactSensor,
+    Encoder,
+    PressureSensor,
+    Sonar,
+    TurbidityProbe,
+)
 
 __all__ = ["ROBOT_PRESETS", "make_robot"]
 
@@ -41,6 +48,10 @@ def _standard_sensors(max_depth: float = 5.0, sonar_range: float = 3.0) -> list:
         PressureSensor(max_depth=max_depth),
         ContactSensor(),
         Sonar(beam_angles=(0.0, np.deg2rad(40.0), np.deg2rad(-40.0)), max_range=sonar_range),
+        # Commercial units ship a "dirt detect" of some kind, and without one
+        # no controller can chase dirt without cheating -- the whole thesis
+        # would stay out of reach of anything deployable.
+        TurbidityProbe(),
     ]
 
 
