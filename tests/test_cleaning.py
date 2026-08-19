@@ -403,7 +403,9 @@ def test_the_ceiling_counts_exactly_the_debris_that_is_too_big():
     debris = result.world.dirt.debris
     limit = make_robot("tracked").cleaning.pump.max_debris_size
 
-    too_big = np.asarray(debris.size) > limit
+    # The skimmer may take an oversize floater; those stop being "out of
+    # reach", so the ceiling counts oversize items still in the water.
+    too_big = (np.asarray(debris.size) > limit) & ~np.asarray(debris.skimmed)
     assert metrics.debris_oversize == int(too_big.sum())
     assert metrics.uncollectable_dirt == pytest.approx(
         float(np.asarray(debris.mass)[too_big].sum())
@@ -411,9 +413,10 @@ def test_the_ceiling_counts_exactly_the_debris_that_is_too_big():
     assert 0.0 < metrics.dirt_ceiling < 1.0
     assert metrics.dirt_removed_fraction <= metrics.dirt_ceiling + 1e-9
 
-    # And nothing under the limit was left behind for want of trying.
-    collected = np.asarray(debris.collected)
-    assert not (collected & too_big).any(), "an oversize item was somehow swallowed"
+    # And nothing under the limit was swallowed *by the robot* -- the skimmer
+    # answers to a different size limit than the intake.
+    swallowed = np.asarray(debris.collected) & ~np.asarray(debris.skimmed)
+    assert not (swallowed & too_big).any(), "an oversize item was somehow swallowed"
 
 
 def test_a_clean_pool_has_no_ceiling():

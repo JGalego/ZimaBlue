@@ -98,6 +98,15 @@ class Metrics:
 
     debris_remaining: int = 0
     debris_collected: int = 0
+    """Items the robot swallowed. The skimmer's catch is counted apart."""
+
+    debris_skimmed: int = 0
+    """Items the pool's own circulation delivered to a skimmer -- removed,
+    but not by anything the controller did."""
+
+    dirt_skimmed: float = 0.0
+    """Grams in those items. ``dirt_removed`` includes them, so a controller
+    on a windy pool should be read net of this number."""
 
     debris_oversize: int = 0
     """Items too large for this robot's intake. They can never be collected --
@@ -149,6 +158,8 @@ class Metrics:
             "dirt_removed_fraction": self.dirt_removed_fraction,
             "remaining_dirt": self.remaining_dirt,
             "dirt_collected": self.dirt_collected,
+            "debris_skimmed": self.debris_skimmed,
+            "dirt_skimmed": self.dirt_skimmed,
             "dirt_by_type": self.dirt_by_type,
             "removed_by_type": self.removed_by_type,
             "cleaning_uniformity": self.cleaning_uniformity,
@@ -294,7 +305,10 @@ def compute_metrics(
     debris = world.dirt.debris
     if robot is not None and len(debris):
         limit = robot.cleaning.pump.max_debris_size
-        too_big = np.asarray(debris.size) > limit
+        # Oversize and still in the water. An oversize leaf the skimmer took
+        # is not "permanently out of reach" -- something reached it, just not
+        # the robot -- so it stops counting against the ceiling.
+        too_big = (np.asarray(debris.size) > limit) & ~np.asarray(debris.skimmed)
         oversize_count = int(too_big.sum())
         oversize_mass = float(np.asarray(debris.mass)[too_big].sum())
 
@@ -317,7 +331,9 @@ def compute_metrics(
         removed_by_type=removed_by_type,
         cleaning_uniformity=uniformity,
         debris_remaining=len(world.dirt.debris) - world.dirt.debris.collected_count,
-        debris_collected=world.dirt.debris.collected_count,
+        debris_collected=world.dirt.debris.collected_count - world.dirt.debris.skimmed_count,
+        debris_skimmed=world.dirt.debris.skimmed_count,
+        dirt_skimmed=world.dirt.debris.skimmed_mass,
         debris_oversize=oversize_count,
         uncollectable_dirt=oversize_mass,
         dirt_ceiling=(1.0 - oversize_mass / initial_total if initial_total > 0 else 1.0),

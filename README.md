@@ -50,7 +50,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 | 🤖 | **Cleaners** | Composed from chassis, drive, cleaning head and power. A custom robot needs no changes to ZimaBlue. |
 | 🎨 | **Cleaner designs** | Silhouettes with real differences, so a domed suction unit does not look like a quad-brush commercial machine. Drawing only — the physics is the chassis. |
 | 📡 | **Sensors that lie** | Encoders, IMU, pressure, bump switches, sonar, a turbidity probe, all through one noise, bias, latency, dropout and saturation pipeline. Faults on a schedule. |
-| 🍂 | **Dirt that behaves** | Density, grain size, adhesion and pickup difficulty, settling by Ferguson & Church rather than Stokes. Scenarios from `clean` to `neglected_pool`. |
+| 🍂 | **Dirt that behaves** | Density, grain size, adhesion and pickup difficulty, settling by Ferguson & Church rather than Stokes. Fine dirt rides the return jets, what floats drifts to the skimmer, and the robot's own wake stirs up what it drives over. Scenarios from `clean` to `neglected_pool`. |
 | 🧭 | **Controllers** | Boustrophedon coverage, random bounce, an EKF-and-occupancy-map planner, and ground-truth oracles to bound the problem. |
 | 🗺️ | **Coverage path planning** | Offline decompositions and online rules from the classical literature, Spiral-STC through a spectral ergodic controller. See [planners](docs/planners.md). |
 | 🛥️ | **Fleets** | Several cleaners in one pool, sharing the dirt and getting in each other's way. Divide the pool between them, or let them coordinate without dividing it. See [fleets](docs/multi-robot.md). |

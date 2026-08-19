@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from zimablue.dirt.types import DirtType, get_dirt_type
+from zimablue.dirt.types import WATER_DENSITY, DirtType, get_dirt_type
 from zimablue.geometry import Grid, Window
 
 __all__ = ["DebrisSet", "DirtField", "DirtState"]
@@ -353,6 +353,9 @@ class DebrisSet:
         self.mass = np.zeros(n) if mass is None else np.asarray(mass, dtype=float)
         self.size = np.zeros(n) if size is None else np.asarray(size, dtype=float)
         self.collected = np.zeros(n, dtype=bool)
+        self.skimmed = np.zeros(n, dtype=bool)
+        """Items the pool's own circulation delivered to a skimmer. A subset
+        of ``collected``, kept apart so the robot is not credited with them."""
         self._initial_mass = float(self.mass.sum())
 
     def __len__(self) -> int:
@@ -374,6 +377,22 @@ class DebrisSet:
     def collected_count(self) -> int:
         return int(self.collected.sum())
 
+    @property
+    def buoyant(self) -> BoolArray:
+        """Items lighter than water: what rides the surface current."""
+        if not self.types:
+            return np.zeros(len(self), dtype=bool)
+        floats = np.array([t.density < WATER_DENSITY for t in self.types])
+        return floats[self.type_index]
+
+    @property
+    def skimmed_count(self) -> int:
+        return int(self.skimmed.sum())
+
+    @property
+    def skimmed_mass(self) -> float:
+        return float(self.mass[self.skimmed].sum())
+
     def near(self, x: float, y: float, radius: float) -> BoolArray:
         """Active items whose centre is within ``radius`` of ``(x, y)``."""
         return self.active & ((self.x - x) ** 2 + (self.y - y) ** 2 <= radius * radius)
@@ -387,6 +406,36 @@ class DebrisSet:
         mass = float(self.mass[selection].sum())
         self.collected |= selection
         return (mass, count)
+
+    def skim(self, selection: BoolArray) -> tuple[float, int]:
+        """Mark items taken by a skimmer; returns ``(mass, count)``.
+
+        Collected as far as the pool is concerned, but flagged apart so the
+        metrics can say who did the work.
+        """
+        selection = selection & self.active
+        mass, count = self.collect(selection)
+        if count:
+            self.skimmed |= selection
+        return (mass, count)
+
+    def advect(self, dx: FloatArray, dy: FloatArray, inside: Any = None) -> None:
+        """Move every active buoyant item by its own displacement.
+
+        The floor-dwelling kinds stay put -- sand does not sail. An item the
+        flow would push out of the water stays where it is, like a leaf pinned
+        against coping.
+        """
+        selection = self.active & self.buoyant
+        if not selection.any():
+            return
+        new_x = np.where(selection, self.x + dx, self.x)
+        new_y = np.where(selection, self.y + dy, self.y)
+        if inside is not None:
+            allowed = np.asarray(inside(new_x, new_y))
+            new_x = np.where(allowed, new_x, self.x)
+            new_y = np.where(allowed, new_y, self.y)
+        self.x, self.y = new_x, new_y
 
     def nudge(self, selection: BoolArray, dx: float, dy: float, inside: Any = None) -> None:
         """Push items that are too big to swallow out of the way.

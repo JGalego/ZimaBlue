@@ -26,6 +26,7 @@ from zimablue.backends.base import BACKENDS, Event, SimState, StepResult
 from zimablue.physics.cleaning import apply_cleaning
 from zimablue.physics.collision import resolve
 from zimablue.physics.kinematics import exact_arc_step, slip_factors
+from zimablue.pool.features import Skimmer
 from zimablue.sensors import SensorContext
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -61,8 +62,18 @@ class Fast2DBackend:
 
     name = "fast2d"
 
-    def __init__(self, *, enable_dirt_drift: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        enable_dirt_drift: bool = True,
+        wake_strength: float = 0.35,
+        drift_spread: float = 0.12,
+    ) -> None:
         self.enable_dirt_drift = enable_dirt_drift
+        self.wake_strength = wake_strength
+        """How hard the hull's wake stirs whatever it drives over, 0-1."""
+        self.drift_spread = drift_spread
+        """Diffusion per drift step; see :meth:`DirtField.drift`."""
         self.world: World | None = None
         self.neighbours: tuple[tuple[float, float, float], ...] = ()
         """Other robots this tick, as ``(x, y, radius)`` discs.
@@ -267,20 +278,63 @@ class Fast2DBackend:
         if self.enable_dirt_drift and new.time - self._last_drift >= DRIFT_INTERVAL:
             elapsed = new.time - self._last_drift
             vx, vy = pool.flow_grid(world.cell)
-            world.dirt.field.drift(vx, vy, elapsed)
+            world.dirt.field.drift(vx, vy, elapsed, spread=self.drift_spread)
             # The robot's own wake stirs whatever it is currently sitting on.
             # Batched here rather than per tick: over 20 ms the swath barely
             # moves, so diffusing that often costs a third of the step budget
             # and changes nothing.
             wake = pool.grid(world.cell).window(nx, ny, 0.5 * robot.swath_width)
             if wake is not None:
-                world.dirt.field.disturb_window(wake, strength=0.35)
+                world.dirt.field.disturb_window(wake, strength=self.wake_strength)
+            events.extend(self._surface(new.time, elapsed))
             self._last_drift = new.time
 
         self._mark_visit(new)
         return StepResult(state=new, events=events)
 
     # ------------------------------------------------------------------
+    def _surface(self, now: float, elapsed: float) -> list[Event]:
+        """What happens on the water while the robot works the floor.
+
+        Whatever floats rides the return-jet circulation, and a skimmer takes
+        what drifts into its reach. Both are the pool acting on its own: the
+        skimmed items are marked apart from the robot's catch, so the metrics
+        can say who did the work.
+        """
+        assert self.world is not None
+        pool = self.world.pool
+        debris = self.world.dirt.debris
+        events: list[Event] = []
+        if not len(debris):
+            return events
+
+        moving = debris.active & debris.buoyant
+        if moving.any():
+            vx, vy = pool.flow_grid(self.world.cell)
+            grid = pool.grid(self.world.cell)
+            rows = np.clip(((debris.y - grid.miny) / grid.cell).astype(int), 0, grid.nrows - 1)
+            cols = np.clip(((debris.x - grid.minx) / grid.cell).astype(int), 0, grid.ncols - 1)
+            navigable = pool.navigable_mask(self.world.cell)
+
+            def inside(xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
+                r = np.clip(((ys - grid.miny) / grid.cell).astype(int), 0, grid.nrows - 1)
+                c = np.clip(((xs - grid.minx) / grid.cell).astype(int), 0, grid.ncols - 1)
+                return navigable[r, c]
+
+            debris.advect(vx[rows, cols] * elapsed, vy[rows, cols] * elapsed, inside)
+
+        for feature in pool.features:
+            if not isinstance(feature, Skimmer):
+                continue
+            sx, sy = feature.position
+            caught = debris.near(sx, sy, feature.capture_radius) & debris.buoyant
+            mass, count = debris.skim(caught)
+            if count:
+                events.append(
+                    Event(now, "skimmed", {"count": count, "grams": mass, "skimmer": feature.name})
+                )
+        return events
+
     def sense(self, state: SimState) -> dict[str, Reading]:
         if self.world is None or self.robot is None:
             raise RuntimeError("Fast2DBackend.sense() called before reset()")
