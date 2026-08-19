@@ -9,7 +9,7 @@ versions. The `.zbr` schema version is tracked separately and is bumped only
 on an incompatible layout change; readers refuse anything newer than they
 understand.
 
-## [Unreleased]
+## [0.3.0] — 2026-08-19
 
 ### Added
 - `Metrics.debris_oversize`, `uncollectable_dirt` and `dirt_ceiling`: how many
@@ -555,6 +555,6 @@ reproducible, scored replay.
 - Wall climbing is not simulated; wall coverage is tracked as an unrolled
   perimeter visit record.
 
-[Unreleased]: https://github.com/JGalego/ZimaBlue/compare/v0.2.0...HEAD
+[0.3.0]: https://github.com/JGalego/ZimaBlue/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/JGalego/ZimaBlue/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JGalego/ZimaBlue/releases/tag/v0.1.0

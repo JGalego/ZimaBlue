@@ -29,9 +29,9 @@ rather than stubbed. **Shipped.**
 | ✅ | Estimate-vs-truth overlay in replay | done |
 | ✅ | 3D replay renderer (geometry, not physics) | done |
 
-## Since v0.1, unreleased
+## v0.2 — the pool as something you can see, learn and trace
 
-Shipped on `main` and not yet tagged. Same bar: implemented, tested, runnable.
+**Shipped.**
 
 | | Component | State |
 |---|---|---|
@@ -42,14 +42,30 @@ Shipped on `main` and not yet tagged. Same bar: implemented, tested, runnable.
 | ✅ | `SamSegmenter` — SAM over onnxruntime, `zimablue[ml]` | done |
 | ✅ | `zimablue.rl` — Gymnasium env, `PolicyController`, `zimablue[rl]` | done |
 | ✅ | `dirt_oracle` — the cleaning-side counterpart to the lawnmower | done |
+
+## v0.3 — planners, fleets, and what the render was hiding
+
+**Shipped.** Same bar: implemented, tested, runnable.
+
+| | Component | State |
+|---|---|---|
 | ✅ | `zimablue.hardware` — the control loop with no simulator under it | done |
 | ✅ | Estimator scored against a real robot's logged trajectory | done |
 | ✅ | Chase cam — the view from behind, with the machine in shot | done |
-| ✅ | `CleanerDesign` — seven silhouettes, drawing only | done |
+| ✅ | `CleanerDesign` — silhouettes with real differences, drawing only | done |
 | ✅ | `zimablue.dynamics` — sections, transfer operators, ergodic metric | done |
 | ✅ | `stadium` and `mushroom` pools, chosen for their billiard dynamics | done |
+| ✅ | `sketch_pool` — a pool from a hand drawing | done |
+| ✅ | `zimablue.planners` — the offline and online coverage literature | done |
+| ✅ | `compare` — every planner on every pool, and the matrix plot | done |
+| ✅ | `Fleet` — several cleaners in one pool, colliding and talking | done |
+| ✅ | Partitioning (`darp`, `forest`, …) and cooperation (`mstc`, `auction`, …) | done |
+| ✅ | Dirt drift that conserves mass, and a drain that collects the pile | done |
+| ✅ | The `kidney` as a parameterised arc chain | done |
+| ✅ | `dirt_ceiling` — the share of the dirt no intake can lift | done |
+| ✅ | Replay continuity: dirt blends between keyframes, debris moves | done |
 
-## v0.2 — depth
+## Next — depth
 
 - **Wall and waterline cleaning** as a modelled behaviour rather than an
   unrolled-perimeter approximation.
@@ -90,7 +106,7 @@ Shipped on `main` and not yet tagged. Same bar: implemented, tested, runnable.
 - **Scenario sweeps** — parameter grids and randomised distributions, not just
   seed sweeps.
 
-## v0.3 — the 3D backend
+## Later — the 3D backend
 
 Not to be confused with the 3D *renderer*, which ships today: that draws a
 recorded 2D run as a basin with real depth. This is the other half -- actually

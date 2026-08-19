@@ -242,6 +242,10 @@ def test_description_renders_the_way_pypi_renders_it():
     """`twine check` only asks whether it renders, not whether anything
     survives the sanitiser. This asks the second question."""
     renderer = pytest.importorskip("readme_renderer.markdown")
+    # readme_renderer without its [md] extra imports fine and then renders
+    # *nothing* -- render() returns None for every markdown document. That is
+    # a broken environment, not a broken README, so skip rather than fail.
+    pytest.importorskip("cmarkgfm")
     from hatch_build import absolutise
 
     html = renderer.render(absolutise((ROOT / "README.md").read_text()))
