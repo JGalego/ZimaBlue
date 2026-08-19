@@ -21,6 +21,12 @@ mypy
 pytest
 ```
 
+`mypy` is worth running on **3.12**, which is the version CI type-checks with.
+Nothing here is pinned, so the numpy and matplotlib stubs mypy reads are
+whatever resolves on the day, and the newest of them only install on 3.12. A
+run that is clean on 3.11 can be red on CI over a stub that got stricter --
+which has happened, and took a wrong annotation with it.
+
 ## What makes a good contribution here
 
 **Extend through the registries, not through conditionals.** A new pool shape

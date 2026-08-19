@@ -48,6 +48,7 @@ from zimablue.recording import Recording
 __all__ = ["TransferOperator", "transfer_operator"]
 
 FloatArray = NDArray[np.float64]
+ComplexArray = NDArray[np.complex128]
 
 
 @dataclass
@@ -95,8 +96,15 @@ class TransferOperator:
         """Cells visited too rarely for their row to mean anything."""
         return int((self.counts < 5).sum())
 
-    def eigen(self) -> tuple[FloatArray, FloatArray]:
-        """Eigenvalues sorted by magnitude, descending, with their vectors."""
+    def eigen(self) -> tuple[ComplexArray, ComplexArray]:
+        """Eigenvalues sorted by magnitude, descending, with their vectors.
+
+        Complex, and not as a formality: a transfer matrix is not symmetric,
+        and a controller that circulates around the pool puts a conjugate pair
+        in the spectrum rather than a real eigenvalue. Everything downstream
+        already took a real part or a magnitude; only the annotation claimed
+        otherwise, and older numpy stubs let it.
+        """
         values, vectors = np.linalg.eig(self.matrix.T)
         order = np.argsort(-np.abs(values))
         return values[order], vectors[:, order]
@@ -115,7 +123,7 @@ class TransferOperator:
         return measure / total if total > 0 else measure
 
     @property
-    def eigenvalues(self) -> FloatArray:
+    def eigenvalues(self) -> ComplexArray:
         return self.eigen()[0]
 
     @property

@@ -263,6 +263,14 @@ understand.
   4320 degrees.
 
 ### Fixed
+- `TransferOperator.eigen` was annotated as returning real arrays. A transfer
+  matrix is not symmetric, so a controller that circulates around the pool puts
+  a conjugate pair in the spectrum; the spectrum plot already drew the values
+  on the complex plane and every other consumer already took a real part or a
+  magnitude. Only the annotation claimed otherwise, and only an older numpy
+  stub let it through -- the type check runs on 3.12 with whatever numpy
+  resolves that day, so it turned CI red without a line of code changing.
+
 - Dirt appeared in the replay rather than accumulating. It is keyframed every
   ten simulated seconds and every view read the nearest keyframe at or before
   the frame's time, so a cell held still for five hundred rendered frames and
