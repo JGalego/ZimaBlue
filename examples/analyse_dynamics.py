@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{name:<20}{len(section):>10}{section.rate:>9.1f}{len(orbits):>8}"
             f"{section.trapped_fraction():>8.0%}"
         )
-    print("  a trapped fraction of 0 across the board is the finding, not a null result:")
+    print("  a trapped fraction near zero is the finding, not a null result:")
     print("  with this noise model the robot does not settle onto a closed loop.")
 
     # -- 2. mixing and almost-invariant sets -------------------------------

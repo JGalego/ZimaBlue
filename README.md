@@ -107,7 +107,7 @@ Have a photo instead of a spec? `zb.pool_from_image("backyard.jpg",
 sample=(640, 410), width=8.4)` finds the water, traces its edge and scales it.
 A photograph carries no scale of its own, so one real measurement is required;
 for a shot taken from the poolside, four points on a rectangle you can measure
-also undo the perspective, which is worth about 23% of the area. See
+also undo the perspective, which is worth about 27% of the area. See
 [imaging](docs/imaging.md).
 
 Colour rules find the water by default. Point `segmenter=SamSegmenter.load(...)`
@@ -209,15 +209,18 @@ result.save("runs/example.zbr")
 ```
 
 ```
-  coverage            80.8 %   (walls 79 %)
-  dirt removed        58.0 %   (581 g of 1002 g)
-  uniformity          74.4 %
-  revisits            1.95   extra passes/cell
-  distance           384.9 m
+  coverage            83.0 %   (walls 77 %)
+  dirt removed        39.2 %   (385 g of 982 g)
+  uniformity          66.7 %
+  revisits            1.94   extra passes/cell
+  distance           389.1 m
   runtime             30.0 min
   energy              33.3 Wh   (battery 72 % left)
-  collisions           468
+  collisions           513
   stuck                  0 events, 0.0 s
+  debris                39 collected of 59, 20 too big for the intake
+  dirt ceiling        91.8 %   (80 g this intake cannot lift)
+  termination       duration
 ```
 
 Driving it is a boustrophedon baseline, a random-bounce floor, a map-building
@@ -288,8 +291,8 @@ two different things depending on whether it left a thin margin everywhere or
 a whole corner.
 
 The headline is not the winner. It is that `random_bounce` — drive straight,
-turn at random when you hit something — beats thirteen of the eighteen
-planners, four of which have completeness proofs. See
+turn at random when you hit something — beats sixteen of the twenty others,
+four of which have completeness proofs. See
 [coverage path planning](docs/planners.md).
 
 ## Send a fleet
@@ -301,11 +304,11 @@ print(result.summary())
 
 ```
   robots            3
-  team coverage       84.4 %
-  overlap             55.0 %   (floor two or more robots both did)
-  speedup             1.70 x   (against the best single member)
-  balance             0.98     (shortest run / longest)
-  encounters            64     (robot-on-robot)
+  team coverage       90.7 %
+  overlap             83.7 %   (floor two or more robots both did)
+  speedup             1.25 x   (against the best single member)
+  balance             0.85     (shortest run / longest)
+  encounters           136     (robot-on-robot)
 ```
 
 Coverage is the least interesting number there. Speedup has a ceiling equal to
@@ -334,14 +337,15 @@ zb.Fleet(pool="kidney", robots=3, controllers=partitioned("darp", "sweep_optimal
 </div>
 
 Two results worth the trouble. The same DARP partition followed from the true
-pose gives a **2.87x speedup with 0.3% overlap** — near-perfect division of
-labour — and followed on dead reckoning gives 1.88x with 43%. The partition
+pose gives a **2.92x speedup with 0.3% overlap** — near-perfect division of
+labour — and followed on dead reckoning gives 2.05x with 34%. The partition
 survives in the plan and evaporates in the execution.
 
-And on a kidney pool, **the fourth robot makes it worse**: coverage goes 49% →
-70% → 84% → 83% as the fleet grows, dirt removed peaks at three, and collisions
-triple between the third robot and the fourth. See
-[fleets](docs/multi-robot.md).
+And on a kidney pool the **fourth robot is where the team stops being a team**:
+coverage keeps climbing, 43% → 64% → 78% → 84%, while speedup peaks at three
+robots and then falls. Half the pool is already being done twice at three, and
+the fourth buys six points of floor for eight more of overlap and half again as
+many collisions. See [fleets](docs/multi-robot.md).
 
 ## Watch it
 
@@ -439,15 +443,15 @@ The oracle makes it obvious. Over 30 minutes in a kidney pool:
 
 | controller | coverage | dirt removed | distance |
 |---|---|---|---|
-| `lawnmower_oracle` (ground truth) | **88.3%** | 33.3% | 180 m |
-| `random_bounce` | 84.7% | 44.8% | 393 m |
-| `baseline_coverage` | 80.8% | **58.0%** | 385 m |
+| `lawnmower_oracle` (ground truth) | **88.5%** | 33.1% | 181 m |
+| `random_bounce` | 84.3% | **49.5%** | 382 m |
+| `baseline_coverage` | 83.0% | 39.2% | 389 m |
 
-The ranking inverts completely. Best coverage is worst cleaning, and worst
-coverage is best cleaning. The oracle drives a perfect path, finishes early and
-stops; the scrappier controllers keep going over the same adhered dirt, which
-is what actually removes it. Report only coverage and you get the order exactly
-backwards.
+The ranking inverts. Best coverage is worst cleaning: the oracle drives a
+perfect path, finishes early and stops, while the scrappier controllers keep
+going over the same adhered dirt, which is what actually removes it — twice as
+much driving for sixteen more points of dirt. Report only coverage and you rank
+these three exactly backwards.
 
 Better localisation currently makes things worse. Calibrating the odometry
 improves the mapping controller's position estimate fivefold and halves its

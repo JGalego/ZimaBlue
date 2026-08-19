@@ -172,14 +172,15 @@ class DirtOracle:
     which no cleaner can measure.
 
     **Greedy, not optimal.** It is worth being clear about this, because the
-    name invites the other reading. Maximising the next few seconds is not
-    maximising the run: on a kidney pool with autumn dirt it removes 50% in
-    ten minutes against the baseline's 18%, and is *behind* the baseline by
-    twenty-five. It works the richest patch until the easy mass there is gone
-    and the returns flatten, while a systematic sweep is still finding fresh
-    dirt. So it is an upper bound on nothing -- it is the best myopic policy,
-    which makes it a good teacher for imitation early in a run and a bad one
-    to copy for a long one.
+    name invites the other reading. On a kidney pool with autumn dirt it does
+    remove more than the baseline at both horizons -- 37% against 16% in ten
+    minutes, 59% against 39% in thirty -- but it gets there having driven over
+    a quarter of the pool, against the baseline's four fifths. It works the
+    richest patch until the easy mass is gone and the returns flatten, then
+    crosses to the next one, and the floor it leaves is clean in blotches. So
+    it is an upper bound on nothing: it is the best myopic policy, which makes
+    it a good teacher for imitation early in a run and a bad one to copy for a
+    long one.
 
     ``travel_cost`` is the exponent distance is discounted by, and it defaults
     to 0: go to the dirtiest cell in the pool, however far away it is. That

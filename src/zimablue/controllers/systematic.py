@@ -20,32 +20,41 @@ Everything is in the estimated frame, so estimation error and mapping error
 compound exactly as they would on hardware. When the map is wrong, the plan is
 wrong, and the coverage metric shows it.
 
-A measured result worth knowing before you use this
----------------------------------------------------
+A result that turned out to be a bug
+------------------------------------
 
-Calibrating the odometry makes the *estimate* much better and the *coverage*
-worse. On the kidney pool over 25 minutes, seed 42:
+This docstring used to carry a table showing that calibrating the odometry made
+the *estimate* five times better and *halved* the coverage, and the roadmap and
+the dynamics notes both built on it. It was an artefact.
 
-===============  ==============  ============  ========
-encoder_scale    position error  filter sigma  coverage
-===============  ==============  ============  ========
-1.00 (default)         13.67 m        4.54 m      73.9%
-0.96                   12.45 m        3.70 m      67.1%
-0.94                    3.84 m        1.51 m      52.6%
-0.92                    2.66 m        0.99 m      35.9%
-===============  ==============  ============  ========
+The map only ever gained walls: ``mark_free`` refused to overwrite one, and
+walls are stamped from the *estimated* pose, so a drifting estimate painted a
+few spurious ones in open water every minute. Over twenty-five minutes they
+joined up. The frontier search walks over non-wall cells, so it eventually
+reported nothing reachable while a third of the pool sat uncovered on the far
+side, and the controller stopped for good. The better the calibration, the
+sooner the cage closed -- which is what the table was measuring.
 
-The estimator is not at fault -- 2.7 m after 340 m of travel with no absolute
-reference is respectable dead reckoning. The planner is. With a poor estimate
-the robot's lane plan is effectively randomised and it wanders widely, which
-covers ground the way ``random_bounce`` does; with a good estimate it executes
-disciplined short lanes and spends its time turning instead of sweeping
-(182 m travelled against 340 m). Coverage here is being won by accident.
+With the hull now clearing walls under itself, the same sweep over five seeds
+says calibration changes nothing much either way:
 
-So this controller is an alternative to ``baseline_coverage``, not yet a
-replacement for it, and the honest headline is that **better localisation does
-not help until the planner can spend it.** That is the next roadmap item, and
-it is now backed by a number rather than an intuition.
+===============  ==============  ============  ========  ========
+encoder_scale    position error  filter sigma  coverage  distance
+===============  ==============  ============  ========  ========
+1.00 (default)         10.13 m        5.70 m      67.9%     329 m
+0.98                   13.74 m       10.21 m      73.8%     325 m
+0.96                   16.21 m        7.76 m      74.2%     329 m
+0.94                    7.07 m       10.01 m      71.8%     329 m
+0.92                   15.17 m        8.61 m      75.7%     315 m
+===============  ==============  ============  ========  ========
+
+Which is its own finding, and a duller one. ``encoder_scale`` corrects a
+distance bias, and over twenty-five minutes with no absolute reference the
+position error is dominated by heading, not distance -- so correcting the one
+that is not dominant is lost in the noise. Better localisation would still have
+to be spent by a planner that can use it; there is just no longer a measurement
+here claiming the planner actively wastes it.
+
 """
 
 from __future__ import annotations
@@ -107,8 +116,22 @@ class OccupancyMap:
 
     # -- updating ---------------------------------------------------------
     def mark_free(self, x: float, y: float, radius: float) -> None:
-        """The robot is here, so this is floor."""
-        self._disk(x, y, radius, MapCell.FREE, overwrite_walls=False)
+        """The robot is here, so this is floor -- including over a wall.
+
+        Clearing walls under the hull is the one piece of evidence strong
+        enough to overrule them. Without it a cell marked wall stays a wall for
+        the whole run, and since walls are stamped from the *estimated* pose, a
+        drifting estimate paints a few spurious ones in open water every
+        minute. On a long kidney run they eventually joined up into a cage:
+        the frontier search is a breadth-first walk over non-wall cells, so it
+        reported nothing reachable while 367 uncovered cells sat on the far
+        side, and the controller declared the pool finished at 23% coverage
+        with twenty minutes left.
+
+        A real wall wrongly cleared costs nothing -- the next bump against it
+        stamps it straight back.
+        """
+        self._disk(x, y, radius, MapCell.FREE, overwrite_walls=True)
 
     def mark_covered(self, x: float, y: float, radius: float) -> None:
         rows, cols = self._disk_indices(x, y, radius)
@@ -390,6 +413,7 @@ class SystematicCoverage:
         self._target: tuple[float, float] | None = None
         self._frontier_failures = 0
         self._empty_frontiers = 0
+        self._covered_mark = -1
         self._last_replan = -1e9
         self._shift_heading = 0.0
         self._pause_until = -1e9
@@ -555,7 +579,16 @@ class SystematicCoverage:
             # give-up budget without moving.
             if ctl.time - self._last_replan > 2.0:
                 self._last_replan = ctl.time
-                self._frontier_failures += 1
+                # Failures only count while the robot is achieving nothing.
+                # Squeezing along a wall towards a frontier is blocked on most
+                # ticks and still cleaning; charging the budget for it is what
+                # had the robot declaring a kidney finished at 23% coverage,
+                # parked against the waist with twenty minutes left.
+                covered = self.map.covered_cells
+                self._frontier_failures = (
+                    0 if covered > self._covered_mark else (self._frontier_failures + 1)
+                )
+                self._covered_mark = covered
                 return self._start_seek(ctl, pose, top)
             return self._rotate_away(top)
 
@@ -585,8 +618,14 @@ class SystematicCoverage:
             self._resume_lanes(ctl, pose)
             return self._drive(top, pose, self._lane_heading)
         if self._frontier_failures > 25:
-            self._enter(Phase.DONE, ctl.time)
-            return DriveCommand.stop()
+            # Out of patience, not out of pool. Back up, turn, and start the
+            # budget again -- stopping for good is only correct when the map
+            # says there is nothing left, which is the branch above.
+            self._frontier_failures = 0
+            self._covered_mark = -1
+            self._recover_turn = -self._recover_turn
+            self._enter(Phase.RECOVER, ctl.time)
+            return self._do_recover(ctl, pose, top, 0.0, True)
         self._empty_frontiers = 0
         self._target = target
         self._enter(Phase.SEEK, ctl.time)

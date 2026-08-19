@@ -129,15 +129,16 @@ class OnlineTuning:
 class EvidenceMap(OccupancyMap):
     """An occupancy grid that can change its mind about a wall.
 
-    :class:`~zimablue.controllers.systematic.OccupancyMap` writes a wall the
-    first time it sees one and never takes it back, which is fine for a
-    controller that uses the map only to find frontiers. It is fatal for these
-    planners, because the map *is* the plan: three minutes of sonar echoes
-    scattered by a drifting pose estimate turned an eight-metre pool into 552
-    wall cells around 108 of floor, and the robot declared the job finished
-    having cleaned an eighth of it.
+    :class:`~zimablue.controllers.systematic.OccupancyMap` writes a wall on the
+    first echo. For these planners the map *is* the plan, so that is fatal:
+    three minutes of sonar scattered by a drifting pose estimate turned an
+    eight-metre pool into 552 wall cells around 108 of floor, and the robot
+    declared the job finished having cleaned an eighth of it. (The base map
+    turned out not to survive it either, just more slowly -- the same failure
+    took twenty-five minutes to close on a kidney. It now clears walls under
+    the hull; the vote counting below is still this class's own.)
 
-    Two changes fix that, and both are things the robot actually knows:
+    Two changes fix it, and both are things the robot actually knows:
 
     * a wall needs corroboration -- ``votes`` sightings before the cell counts
       as blocked, and a beam that passes *through* a cell takes a vote away;

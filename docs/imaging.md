@@ -44,9 +44,9 @@ against a known pool in the test suite:
 
 | | traced area | error |
 |---|---|---|
-| `width=` alone, oblique photo | 42.4 m² | **−22.7%** |
-| `corners=` on the same photo | 55.1 m² | **+0.5%** |
-| truth | 54.8 m² | |
+| `width=` alone, oblique photo | 39.7 m² | **−26.7%** |
+| `corners=` on the same photo | 54.5 m² | **+0.6%** |
+| truth | 54.1 m² | |
 
 `corners` takes four image points that form a rectangle you can measure in the
 real world — a patio slab, a towel laid square, the pool's own coping if it is

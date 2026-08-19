@@ -172,59 +172,59 @@ marks the best in a column.
 ```
                                  coverage       dirt   evenness  worst gap      edges efficiency    turning    to half    ergodic     wasted     energy    trouble
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-baseline_coverage                   52.5%      35.6%       0.46     12.8m2        43%       0.45       37.2       795s      0.061        38%     16.6Wh   12.7/min
-random_bounce                       65.0%      35.1%       0.51     12.1m2        42%       0.55       48.7       472s      0.021        19%     16.6Wh   30.7/min
-systematic                          53.9%     *36.4%       0.47     17.6m2        41%       0.51       37.4       638s      0.032        39%     16.7Wh   12.9/min
-spiral_stc                          49.1%      23.3%       0.48     14.7m2        64%       0.63      198.0       825s      0.096        63%     16.0Wh    8.0/min
-full_stc                            39.3%      22.4%       0.47     18.0m2        79%       0.62      257.2      never      0.098        48%     16.3Wh   20.0/min
-bsa                                 38.4%      23.4%       0.47     16.8m2       *88%      *0.64      256.6      never      0.112        41%    *15.9Wh   18.4/min
-ba_star                             57.2%      26.0%       0.40     17.9m2        45%       0.50       60.6       765s      0.063        *0%     16.6Wh    4.5/min
-brick_and_mortar                    38.6%      16.8%       0.43     32.5m2        44%       0.61      161.0      never      0.358        39%     16.0Wh    8.9/min
-binn                                69.5%      33.3%       0.45     10.2m2        49%       0.59       57.7       518s      0.014         0%     16.6Wh    3.3/min
-epsilon_star                       *71.1%      35.4%       0.53     *4.7m2        60%       0.58       65.3       480s     *0.014         2%     16.6Wh    5.7/min
-ppcpp                               67.5%      26.8%       0.44      8.6m2        61%       0.54       69.9      *450s      0.045        44%     16.6Wh    8.0/min
-frontier                            68.2%      31.1%       0.50      6.4m2        64%       0.56       60.4       472s      0.076        47%     16.7Wh    6.1/min
-smc                                 51.9%      28.1%      *0.53      4.8m2        86%       0.53      120.9       562s      0.059        58%     16.5Wh    9.5/min
-boustrophedon@odometry              51.7%      30.4%       0.49     16.5m2        60%       0.48       30.2       720s      0.114        83%     16.9Wh    3.7/min
-sweep_optimal@odometry              44.9%      30.4%       0.49     19.7m2        52%       0.35       30.4      never      0.234        83%     16.9Wh    3.9/min
-trapezoidal@odometry                34.8%      18.0%       0.49     45.6m2        18%       0.35       43.4      never      0.361        56%     16.8Wh    2.8/min
-boustrophedon_cells@odometry        51.7%      30.4%       0.49     16.5m2        60%       0.48       30.2       720s      0.114        83%     16.9Wh    3.7/min
-morse@odometry                      52.5%      30.4%       0.43     20.3m2        44%       0.43       59.9       802s      0.132        *0%     16.9Wh    3.6/min
-contour@odometry                    46.7%      29.8%       0.47     15.7m2        73%       0.40      *28.4      never      0.093        82%     16.9Wh   *1.3/min
-wavefront@odometry                  42.9%      29.5%       0.51     19.1m2        85%       0.43       36.6      never      0.219        *0%     16.9Wh    4.1/min
-spanning_tree@odometry              39.1%      26.3%       0.45     25.0m2        38%       0.39       72.0      never      0.224        62%     16.7Wh    1.7/min
+baseline_coverage                   49.1%      22.1%       0.61     19.9m2        42%       0.45       37.7       892s      0.062        38%     16.6Wh   12.7/min
+random_bounce                       65.0%      31.7%       0.63     12.1m2        42%       0.55       48.7       458s      0.036        38%     16.6Wh   30.7/min
+systematic                          53.9%      31.1%       0.62     14.3m2        41%       0.57       55.9       758s      0.061        49%     16.6Wh   13.3/min
+spiral_stc                          53.7%      35.1%       0.62      7.6m2        64%       0.63      163.1       608s      0.096        58%     16.0Wh    8.0/min
+full_stc                            50.5%      27.7%       0.62     13.3m2        79%       0.62      188.8       772s      0.096        19%     16.4Wh   16.7/min
+bsa                                 48.6%      31.0%       0.61     15.7m2        72%      *0.64      206.2       892s      0.112        14%    *15.9Wh   18.3/min
+ba_star                             60.2%      25.0%       0.62     13.0m2        47%       0.50       60.6       638s      0.044        *0%     16.6Wh    6.1/min
+brick_and_mortar                    38.6%      17.6%       0.62     32.5m2        51%       0.61      161.0      never      0.358        *0%     16.0Wh   10.9/min
+binn                               *68.9%      27.8%       0.62     10.2m2        49%       0.53       53.8      *412s     *0.019        40%     16.7Wh    3.3/min
+epsilon_star                        66.4%      31.6%       0.61      5.9m2        45%       0.56       57.0       472s      0.032        *0%     16.6Wh    5.7/min
+ppcpp                               66.0%     *36.3%       0.63      8.6m2        56%       0.53       69.9       450s      0.045        37%     16.6Wh    8.0/min
+frontier                            68.2%      27.3%       0.63      6.4m2        71%       0.56       60.4       472s      0.076        47%     16.7Wh    6.1/min
+smc                                 59.0%      30.3%       0.63     *4.1m2       *83%       0.58      113.7       450s      0.042        58%     16.5Wh    9.5/min
+boustrophedon@odometry              49.2%      30.6%       0.63     16.5m2        60%       0.48       30.2       848s      0.170        83%     16.9Wh    3.7/min
+sweep_optimal@odometry              39.6%      35.8%       0.62     19.7m2        52%       0.35       31.2      never      0.234        83%     16.9Wh    3.9/min
+trapezoidal@odometry                34.8%      28.3%       0.61     45.6m2        18%       0.35       43.4      never      0.361        83%     16.8Wh    2.8/min
+boustrophedon_cells@odometry        49.2%      30.6%       0.63     16.5m2        60%       0.48       30.2       848s      0.170        83%     16.9Wh    3.7/min
+morse@odometry                      53.3%      35.7%       0.61     15.0m2        77%       0.43       56.3       848s      0.132        *0%     16.9Wh    3.6/min
+contour@odometry                    48.9%      25.1%      *0.63     15.7m2        75%       0.38      *28.4       825s      0.072        40%     16.9Wh   *1.3/min
+wavefront@odometry                  51.7%      33.9%       0.63     19.1m2        82%       0.42       36.6      never      0.219        *0%     16.8Wh    2.7/min
+spanning_tree@odometry              47.0%      27.6%       0.63     10.8m2        73%       0.46       70.5      never      0.224        32%     16.8Wh    2.5/min
 ```
 
 Five things in there are worth saying out loud.
 
-**`random_bounce` at 65% beats thirteen of the eighteen planners.** Not on a
+**`random_bounce` at 65% beats sixteen of the twenty other planners.** Not on a
 technicality — it beats them on coverage, on the pool, in the same fifteen
 minutes. Anything here that scores below it is not paying for the machinery it
 carries, and that includes four planners with completeness proofs. This is the
 whole reason the comparison exists.
 
-**The three at the top are field methods, not sweeps.** `epsilon_star` (71.1%),
-`binn` (69.5%) and `frontier` (68.2%) share a property: they never commit to a
-route. On a pool where the map is built by bumping into things, a plan made
-early is a plan made from bad information, and the methods that re-decide every
-cell win.
+**The three at the top are field methods, not sweeps.** `binn` (68.9%),
+`frontier` (68.2%) and `epsilon_star` (66.4%) share a property: they never
+commit to a route. On a pool where the map is built by bumping into things, a
+plan made early is a plan made from bad information, and the methods that
+re-decide every cell win.
 
 **Turning splits the table in two, and coverage does not see it.** The STC
-family turns 200–257 degrees per metre; the sweep family turns 28–37. That is
-an eightfold difference in the quantity that costs a tracked machine time and
-traction, between planners whose coverage numbers are three points apart.
+family turns 161–206 degrees per metre; the sweep family turns 28–37. That is
+a sixfold difference in the quantity that costs a tracked machine time and
+traction, between planners whose coverage numbers are five points apart.
 
-**The worst-gap column separates planners that look identical.** `bsa` and
-`spiral_stc` are within a point of each other on coverage and leave 16.8 m² and
-14.7 m² in one piece; `epsilon_star` leaves 4.7 m². Same nominal coverage, very
-different pool at the end of it.
+**The worst-gap column separates planners that look identical.** `binn` and
+`frontier` are within a point of each other on coverage; `binn` leaves 10.2 m²
+of floor in one untouched piece and `frontier` leaves 6.4 m². Same nominal
+coverage, noticeably different pool at the end of it.
 
 **Eighty-three per cent wasted, for the planners that finish.** `boustrophedon`
-and `contour` complete their route and stop, and the run has minutes left. That
-is not a bug in the planner — a finished plan *is* finished — but it is a
-planner-shaped hole: the honest response is to re-plan against what the run
-actually covered, and none of the classical offline methods has anything to say
-about that.
+and `sweep_optimal` complete their route and stop, and the run has minutes
+left. That is not a bug in the planner — a finished plan *is* finished — but it
+is a planner-shaped hole: the honest response is to re-plan against what the
+run actually covered, and none of the classical offline methods has anything to
+say about that.
 
 The plans themselves, before anyone tried to drive them:
 
@@ -233,10 +233,11 @@ The plans themselves, before anyone tried to drive them:
 </div>
 
 `trapezoidal` is the outlier, and it is correct rather than broken. Trapezoidal
-decomposition cuts at every vertex of the boundary, a traced kidney has
-hundreds, and the result is 3041 m of driving to cover a 50 m² pool. Every
-later decomposition in the literature exists to avoid exactly this, and it
-seemed more useful to show it than to quietly polygon-simplify it away.
+decomposition cuts at every vertex of the boundary, the kidney's arc chain has
+534, and the result is 2893 m of driving and 225,880 degrees of turning to
+cover a 54 m² pool. In fifteen minutes the robot gets through 10.7% of it.
+Every later decomposition in the literature exists to avoid exactly this, and
+it seemed more useful to show it than to quietly polygon-simplify it away.
 
 ## Comparing them
 

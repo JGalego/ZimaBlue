@@ -129,14 +129,14 @@ The output looks like:
 
 ```
 episodes           100
-success_rate       94.0 %
-mean_coverage      78.4 %  (sd 4.1, min 61.2, max 86.9)
-mean_dirt_removed  52.7 %  (sd 3.8, min 40.1, max 60.4)
-mean_runtime       29.4 min
-mean_energy        41.2 Wh
-stuck_rate         12.0 %
-mean_collisions    431
-worst_episode      seed 71 (61.2 % coverage)
+success_rate       100.0 %
+mean_coverage      81.2 %  (sd 5.0, min 63.7, max 86.9)
+mean_dirt_removed  55.4 %  (sd 11.5, min 25.4, max 78.1)
+mean_runtime       30.0 min
+mean_energy        33.3 Wh
+stuck_rate         0.0 %
+mean_collisions    467
+worst_episode      seed 130 (63.7 % coverage)
 ```
 
 Two of those deserve comment.
@@ -150,7 +150,7 @@ aggregate mean tells you the middle; the interesting engineering is almost
 always in the tail:
 
 ```bash
-zimablue run scenarios/kidney.yaml --seed 71 --record runs/worst.zbr
+zimablue run scenarios/kidney.yaml --seed 130 --record runs/worst.zbr
 zimablue replay runs/worst.zbr
 ```
 

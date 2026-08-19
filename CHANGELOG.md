@@ -66,9 +66,10 @@ understand.
 - `examples/fleet.py` (including `--scaling`, which prints what the second,
   third and fourth robot are actually worth) and
   [docs/multi-robot.md](docs/multi-robot.md). On a kidney pool with `auction`,
-  coverage goes 49% -> 70% -> 84% -> 83% as the fleet grows to four: the
-  fourth robot loses a point of coverage and six of dirt removed, and triples
-  the collisions.
+  coverage goes 43% -> 64% -> 78% -> 84% as the fleet grows to four, while
+  speedup peaks at three robots and then falls: half the pool is already being
+  done twice at three, and the fourth buys six points of floor for eight more
+  of overlap and half again as many collisions.
 - **Coverage path planning** (`zimablue.planners`): eighteen planners, which is
   most of the single-robot 2D literature. Eight offline -- `boustrophedon`,
   `sweep_optimal`, `trapezoidal`, `boustrophedon_cells`, `morse`, `contour`,
@@ -256,12 +257,37 @@ understand.
   map is what let the planners reuse it instead of copying it.
 - `sweep_optimal` minimises `length + turn_cost * turning` rather than a
   length-dominated proxy. Lane count is the right criterion on a convex region,
-  where it *is* the turn count; on the kidney pool the shortest sweep turns
-  5400 degrees and the least-turning one is 40 metres longer, so the weighting
-  is a real choice. The new cost finds 169 m at the same turning as the fixed
-  sweep's 204 m.
+  where it *is* the turn count; on the kidney pool the shortest sweep is 161 m
+  and turns 6480 degrees while the least-turning one is 189 m and turns 3600,
+  so the weighting is a real choice. The new cost picks neither, at 164 m and
+  4320 degrees.
 
 ### Fixed
+- `OccupancyMap` could only ever gain walls. `mark_free` refused to overwrite
+  one, and walls are stamped from the *estimated* pose, so a drifting estimate
+  painted a few spurious ones in open water every minute; over twenty-five
+  minutes they joined up into a cage. The frontier search walks over non-wall
+  cells, so it reported nothing reachable while a third of the pool sat
+  uncovered on the far side, and `SystematicCoverage` declared a kidney
+  finished at 23% coverage with twenty minutes of battery left. The hull now
+  clears walls under itself, which is the one piece of evidence strong enough
+  to overrule them -- a real wall wrongly cleared is stamped straight back by
+  the next bump. `EvidenceMap` had already learned this for the online
+  planners; the base map had not.
+
+  This takes a documented result with it. The `systematic` docstring, the
+  roadmap and the dynamics notes all carried a measurement showing that
+  calibrating the odometry improved the estimate five-fold and *halved*
+  coverage. The better the calibration, the sooner the cage closed; that was
+  all it was measuring. Over five seeds, calibration now changes neither
+  materially, and all three places say so.
+
+- `SystematicCoverage` gave up permanently after 25 failed frontier attempts.
+  Failures are now only counted while the robot is covering nothing new --
+  squeezing along a wall towards a frontier is blocked on most ticks and still
+  cleaning -- and running out of patience backs up and turns rather than
+  parking for the rest of the run. Stopping for good is still what it does when
+  the map genuinely has no frontier left.
 - Dirt drift moved mass with an off-by-one upwind gate: it decided whether a
   cell could give dirt away by looking at the cell downstream, then rescaled
   the whole layer to put the difference back. Advection with no diffusion at

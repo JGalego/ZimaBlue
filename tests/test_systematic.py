@@ -24,16 +24,26 @@ def test_driving_marks_free_and_covered():
     assert grid.covered_cells > 0
 
 
-def test_walls_are_not_overwritten_by_free_space():
-    """A wall seen once must not be erased by a later free-space observation.
+def test_a_sonar_beam_does_not_erase_a_wall_it_passes_through():
+    """A drifted beam that sails through a known wall does not clear it.
 
-    Otherwise the robot forgets obstacles as soon as its estimate drifts a
-    little, and plans straight through them.
+    Otherwise the robot forgets obstacles as soon as its estimate wanders, and
+    plans straight through them.
     """
     grid = OccupancyMap(cell=0.25)
     grid.mark_wall(1.0, 0.0)
-    grid.mark_free(1.0, 0.0, 0.3)
+    grid.observe_ray(0.0, 0.0, 0.0, 2.0, hit=True)
     assert grid.state_at(1.0, 0.0) == MapCell.WALL
+
+
+def test_driving_over_a_cell_clears_a_wall_marked_there():
+    """The hull is stronger evidence than a range reading: it cannot be inside
+    a wall. Without this the map only ever gains walls, and a run long enough
+    to drift eventually fences the robot into a corner of its own map."""
+    grid = OccupancyMap(cell=0.25)
+    grid.mark_wall(1.0, 0.0)
+    grid.mark_free(1.0, 0.0, 0.3)
+    assert grid.state_at(1.0, 0.0) == MapCell.FREE
 
 
 def test_sonar_ray_carves_free_space_and_marks_the_hit():

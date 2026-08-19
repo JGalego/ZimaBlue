@@ -55,7 +55,7 @@ def _arc(
     a0 = np.arctan2(start[1] - cy, start[0] - cx)
     a1 = np.arctan2(end[1] - cy, end[0] - cx)
     sweep = (a1 - a0) % (2 * np.pi) if ccw else -((a0 - a1) % (2 * np.pi))
-    t = np.linspace(a0, a0 + sweep, max(8, int(round(abs(sweep) * radius / step))))
+    t = np.linspace(a0, a0 + sweep, max(8, round(abs(sweep) * radius / step)))
     return np.column_stack([cx + radius * np.cos(t), cy + radius * np.sin(t)])
 
 

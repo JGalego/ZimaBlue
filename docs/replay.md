@@ -25,14 +25,20 @@ zimablue replay runs/kidney.zbr
 │        │              it is (if estimated)│                │
 │        ╰──────────────────────────────────╯                │
 ├────────────────────────────────────────────────────────────┤
-│ coverage 58%  dirt removed 34%  battery 88%  filter 49%    │
+│ coverage 58%  dirt removed 34%▏ battery 88%  filter 49%    │
 │ where it drove   what it cleaned                           │
+│              debris 27/59, 20 too big   controller ...     │
 └────────────────────────────────────────────────────────────┘
 ```
 
 The two left-hand meters are the point of the whole project, which is why they
 sit side by side with those subtitles. Watching **58% driven / 34% cleaned**
 diverge over a run makes the argument better than any amount of prose.
+
+The amber tick on the dirt bar is where that bar physically cannot go past.
+Some of the pool's debris is wider than the intake, so a run that lifted
+everything it could still stops short of 100%, and without the tick it reads
+as a run that gave up. The footer says how many items are in that category.
 
 Layer order is deliberate: the cleaned wash is drawn *under* the dirt, so a
 patch the robot has driven over but failed to clean still shows as dirty. If
@@ -53,7 +59,8 @@ look at the dirt cam, and it is recognisably a leaf.
 They wink out as they are collected. The winking looks like flashing because
 debris is stored as keyframes every ten simulated seconds, not per frame: a
 leaf is there in one keyframe and gone in the next, with no fade between. A
-typical autumn kidney run starts with 60 and finishes with 19 still down.
+typical autumn kidney run starts with 59 and finishes with 20 still down --
+all twenty of them wider than the intake, which the HUD says in as many words.
 
 **A red star at the robot** is a bump: it appears on any frame where a contact
 switch is closed, and in a tight corner it can strobe for several seconds.

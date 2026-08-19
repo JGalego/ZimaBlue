@@ -48,9 +48,10 @@ channel the robot really does touch opposite walls a moment apart.
 ±90° is sliding along it. Two earlier conventions each put every contact in the
 same half of the range and wasted the axis.
 
-**What we found: nothing.** Across every pool and controller tried, the
-detector reports only *repelling* orbits lasting tens of seconds. With this
-noise model, sustained traps do not occur. That is a real answer and not a
+**What we found: almost nothing.** Across every pool and controller tried, the
+detector reports repelling orbits lasting tens of seconds and a trapped
+fraction of zero or one per cent. With this noise model, sustained traps do not
+occur. That is a real answer and not a
 broken tool — the detector is verified against a synthetic periodic section in
 [`tests/test_dynamics.py`](../tests/test_dynamics.py), including that the sign
 of the multiplier comes out right.
@@ -124,12 +125,13 @@ formalism that already existed for it.
 <img src="assets/dynamics-ergodic.png" alt="Ergodic score over time for five controllers, showing the oracles improving then degrading" width="760">
 </div>
 
-The shape is the result. `lawnmower_oracle` reaches **0.0085 at twelve
-minutes** — the best distribution any controller here achieves, three times
-better than anyone else's best — and then climbs to 0.54 as it finishes and
-parks. A perfect V. `dirt_oracle` peaks at three and a half minutes and
-degrades for 86% of the run. `baseline_coverage` is the only one still
-improving at the cutoff.
+The shape is the result. `lawnmower_oracle` reaches **0.0091 at twelve
+minutes** — the best distribution any controller here achieves — and then
+climbs to 0.58 as it finishes and parks. A perfect V. `dirt_oracle` peaks
+thirty seconds in and degrades for 98% of the run, which is what a greedy
+policy looks like from this angle: it goes where the grams are and then keeps
+going back. `random_bounce` and `systematic` are the two still improving at the
+cutoff, and they are the two with no idea where the dirt is.
 
 That is visible **because the metric is not monotone**. Coverage can only go
 up; dirt removed can only go up; so neither can see a robot spending the second
@@ -153,18 +155,19 @@ sensitive controller, not the most:
 
 | controller | lambda | twins that ended a quarter-pool apart |
 |---|---|---|
-| `baseline_coverage` | 0.0062 /s | 50% |
-| `systematic` | 0.0055 /s | 50% |
-| `random_bounce` | ~0 | 17% |
+| `systematic` | 0.0161 /s | 100% |
+| `baseline_coverage` | 0.0067 /s | 50% |
+| `random_bounce` | ~0 | 25% |
 
 The reason is that random bounce draws its turn angles from a seeded generator
 rather than from the state, so twins sharing a seed make identical choices,
 while both planners' decisions depend on where the robot is and compound. The
 expected "chaos mixes, so high lambda buys coverage" trade-off does not appear.
 
-The two planners are indistinguishable from each other, which is itself a
-correction: before the start-pose bug below was fixed they looked three times
-apart, and that gap was the bug.
+`systematic` is the most sensitive of the three by a factor of two, and every
+one of its twins ended up a quarter-pool apart. That is the map compounding on
+top of the estimate: two robots a millimetre apart write slightly different
+walls, then plan against them.
 
 Read that as a statement about the *deterministic skeleton* of random bounce.
 On hardware the noise is independent and it would diverge.
@@ -198,13 +201,12 @@ first few minutes of occupancy and predict the rest.
 <img src="assets/dynamics-forecast.png" alt="Predicted against actual dirt curves for three controllers, with the fitting window shaded" width="860">
 </div>
 
-Fit six minutes, predict twenty-five: `random_bounce` 3.2% error,
-`systematic` 3.6%, `baseline_coverage` **16.5%**. So occupancy density really
-is a sufficient statistic — for a controller with a stationary strategy.
-
-The baseline's failure is the useful part, and it is visible in the plot as a
-cliff at thirteen minutes where it switches from a perimeter pass to lanes.
-**Forecast error is a strategy-change detector.**
+Fit six minutes, predict nineteen: `baseline_coverage` 4.1% error,
+`systematic` 4.6%, `random_bounce` **9.0%**. So occupancy density really is a
+sufficient statistic — near enough, for a controller whose strategy holds
+still. Where it is not, the error says so: a fit made during one strategy and
+spent on another is exactly what a large error means, which makes this a
+strategy-change detector as much as a predictor.
 
 ## Two pools chosen for their dynamics
 
@@ -237,14 +239,15 @@ the same topology with corners.
 
 Two predictions made before implementing, both wrong, both left in the record:
 
-**The spectral gap does not explain the localisation paradox.** The claim was
-that calibrating the odometry slows mixing and that is why coverage falls.
-Measured across four `encoder_scale` values, coverage tracks **distance
-travelled** (242 → 226 → 138 → 71 m) far better than mixing time (378 → 1605 →
-847 → 7615 s), and the second-best-mixing configuration has the best coverage.
-The operator does add one thing: at scale 0.92 the mixing time is two hours for
-a twenty-five-minute run, so that configuration cannot even out whatever else
-is true. But the tidy story was wrong.
+**The spectral gap does not explain the localisation paradox, and there was no
+paradox.** The claim was that calibrating the odometry slows mixing and that is
+why coverage falls. Measured across four `encoder_scale` values, coverage
+tracked **distance travelled** far better than mixing time — which should have
+been the tell, since a controller with twenty-five minutes of battery has no
+business travelling 71 m. It was not mixing and it was not planning: the
+occupancy map could never unmark a wall, so spurious walls stamped from a
+drifting estimate slowly fenced the robot in and it stopped early. With that
+fixed the effect is gone entirely. Two tidy stories for one bug.
 
 **Random bounce is the predictable one**, as above.
 

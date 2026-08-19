@@ -284,7 +284,7 @@ python examples/tune_controller.py --minutes 10
 
 Five of `BaselineCoverage`'s parameters, searched with a (1+1) evolution
 strategy over a batch of seeds. On a four-minute two-seed budget — a couple of
-CPU-minutes — it took dirt removed from 11.6% to 14.4% in ten iterations.
+CPU-minutes — it took dirt removed from 13.5% to 15.6% in ten iterations.
 Search for coverage instead and it finds a different setting, which is the same
 disagreement the reward section is about.
 
@@ -298,19 +298,25 @@ dirt removed:
 
 | minutes | 10 | 15 | 20 | 25 | 30 |
 |---|---|---|---|---|---|
-| `dirt_oracle` | **50.2%** | **53.9%** | **55.0%** | 55.5% | 55.6% |
-| `baseline_coverage` | 17.6% | 44.2% | 48.6% | **57.1%** | **58.0%** |
+| `dirt_oracle` | **37.0%** | **49.7%** | **55.9%** | **58.5%** | **59.0%** |
+| `baseline_coverage` | 16.1% | 24.0% | 28.0% | 38.6% | 39.2% |
+| `dirt_oracle` coverage | 16.5% | — | — | — | 23.9% |
 
-Greedy is three times better at ten minutes and behind by twenty-five. It works
-the richest patch until the easy mass is gone and the returns flatten, while a
-systematic sweep is still finding fresh dirt. So `dirt_oracle` is an upper
-bound on nothing — it is the best *myopic* policy, which makes it a good
-teacher for the first half of a run and a bad one to copy for the whole thing.
-Both oracles need `Simulation(expose_truth=True)` and neither is deployable.
+Greedy is more than twice as good at ten minutes and still twenty points ahead
+at thirty, and the third row is why that is not a recommendation: it removes
+three fifths of the dirt having driven over a quarter of the pool. It works
+the richest patch until the easy mass is gone and the returns flatten, then
+crosses to the next one, and what it leaves behind is clean in blotches. So
+`dirt_oracle` is an upper bound on nothing — it is the best *myopic* policy,
+which makes it a good teacher for what to head towards and a bad one to copy
+wholesale. Both oracles need `Simulation(expose_truth=True)` and neither is
+deployable.
 
-That the horizon flips the ranking is the same shape of result as coverage
-versus cleanliness, one level down: a reward, an oracle and an episode length
-have to be chosen together or the answer means nothing.
+That two oracles built from the same ground truth disagree this completely —
+one covers 88% and lifts a third of the dirt, the other covers 24% and lifts
+three fifths — is the coverage-versus-cleanliness result one level down: a
+reward, an oracle and an episode length have to be chosen together or the
+answer means nothing.
 
 The genuinely interesting RL problem here is not driving. It is that the pool
 has no absolute reference, so a policy from raw sensors has to be recurrent.

@@ -14,14 +14,14 @@ print(result.summary())
 
 ```
   robots            3
-  team coverage       84.4 %
-  dirt removed        47.2 %
-  overlap             55.0 %   (floor two or more robots both did)
-  speedup             1.70 x   (against the best single member)
-  balance             0.98     (shortest run / longest)
-  distance           252.3 m  (all robots)
-  encounters            64     (robot-on-robot)
-  per robot         r0 50%  r1 49%  r2 48%
+  team coverage       90.7 %
+  dirt removed        62.7 %
+  overlap             83.7 %   (floor two or more robots both did)
+  speedup             1.25 x   (against the best single member)
+  balance             0.85     (shortest run / longest)
+  distance           636.3 m  (all robots)
+  encounters           136     (robot-on-robot)
+  per robot         r0 65%  r1 60%  r2 73%
 ```
 
 Coverage is the least interesting number there. **Speedup** — team coverage
@@ -74,11 +74,11 @@ ways to cut, each failing differently:
 
 | | | fairness on a kidney, 3 robots |
 |---|---|---|
-| `voronoi` | nearest robot wins, in a straight line | 0.49 |
-| `geodesic` | nearest robot wins, through the water | 0.55 |
-| `strips` | equal-area bands across the long axis | 0.98 |
-| `darp` | iterate until the shares are equal | 0.95 |
-| `forest` | split a spanning tree into balanced subtrees | 0.93 |
+| `voronoi` | nearest robot wins, in a straight line | 0.51 |
+| `geodesic` | nearest robot wins, through the water | 0.54 |
+| `strips` | equal-area bands across the long axis | 0.99 |
+| `darp` | iterate until the shares are equal | 0.96 |
+| `forest` | split a spanning tree into balanced subtrees | 0.82 |
 
 Fairness is the smallest share over the largest. `voronoi` hands the robot in
 the waist of a kidney a third of what the robot in a lobe gets, and it will
@@ -105,13 +105,13 @@ robots — followed from the true pose and from dead reckoning:
 
 | | team coverage | overlap | speedup |
 |---|---|---|---|
-| `localisation="truth"` | 62.9% | 0.3% | **2.87x** |
-| `localisation="odometry"` | 73.5% | 43.4% | 1.88x |
+| `localisation="truth"` | 60.7% | 0.3% | **2.92x** |
+| `localisation="odometry"` | 68.5% | 33.6% | 2.05x |
 
-On truth the division of labour is nearly perfect: 2.87 of a possible 3.0, and
+On truth the division of labour is nearly perfect: 2.92 of a possible 3.0, and
 three tenths of one per cent of the floor done twice. On dead reckoning the
 partition survives in the plan and has evaporated in the execution — the robots
-drift into each other's territories and 43% of the pool gets done twice.
+drift into each other's territories and a third of the pool gets done twice.
 
 And coverage goes **up**, because the drifting robots wander into the margin
 along the wall that the plans never covered. The same effect the `systematic`
@@ -146,64 +146,67 @@ for a team -- speedup, overlap, balance -- in place of the ones that do not.
 ```
                              coverage       dirt    speedup    overlap    balance  worst gap efficiency    turning    to half      bumps     energy
 ---------------------------------------------------------------------------------------------------------------------------------------------------
-bsa                             66.3%      29.6%     *2.09x        35%       0.91      7.3m2       0.53      219.9      never    5.3/min     26.2Wh
-frontier                        75.2%      38.9%      1.77x        50%       0.84      4.5m2       0.41       86.1      never    7.8/min     26.6Wh
-binn                            80.8%      39.9%      1.68x        55%       0.91      2.4m2       0.41       66.6      never    9.1/min     26.6Wh
-epsilon_star                    80.5%      37.9%      1.63x        54%       0.95      3.2m2       0.42       68.6      never   11.1/min     26.6Wh
-ppcpp                           62.1%      47.4%      1.67x        48%       0.87     15.2m2       0.36       99.0      never   15.0/min     26.5Wh
-smc                             79.8%      48.7%      1.58x        59%       0.85      1.4m2       0.40       66.4       480s   16.9/min     26.7Wh
-auction                        *84.4%      47.2%      1.70x        55%      *0.98     *1.1m2       0.43       66.4      never    8.0/min     26.6Wh
-binn_swarm                      77.6%      44.0%      1.62x        61%       0.88      5.2m2       0.38       57.2      *472s   14.3/min     26.7Wh
-smc_swarm                       72.0%      34.9%      1.83x        37%       0.97      1.8m2       0.48      160.1      never    5.9/min     26.5Wh
-mstc                            68.8%      44.4%      1.74x        37%       0.51      2.9m2       0.46       74.1      never   19.0/min     22.6Wh
-mstc_nobt                       43.0%      31.5%      1.18x        *8%       0.08     15.6m2      *0.67      111.3      never   66.3/min    *11.6Wh
-voronoi+sweep_optimal           78.2%     *52.6%      2.09x        26%       0.84      2.0m2       0.37       38.4      never   13.8/min     27.0Wh
-geodesic+sweep_optimal          72.9%      43.2%      1.72x        30%       0.61      2.5m2       0.44       39.7      never    9.0/min     27.0Wh
-strips+sweep_optimal            77.3%      52.1%      1.87x        37%       0.89      1.5m2       0.36       32.7      never   25.6/min     27.0Wh
-darp+sweep_optimal              73.5%      41.1%      1.88x        43%       0.72      2.9m2       0.37       38.8      never   12.3/min     27.0Wh
-forest+sweep_optimal            70.3%      45.0%      1.55x        51%       0.59      2.6m2       0.35      *30.4      never   64.8/min     27.0Wh
-darp+boustrophedon_cells        79.1%      42.8%      1.89x        39%       0.71      2.0m2       0.40       40.1      never   *4.4/min     27.0Wh
+bsa                             54.5%     *57.6%      1.68x        43%       0.81     16.6m2       0.44      231.5      never   22.5/min     26.2Wh
+frontier                        79.9%      41.0%      1.74x        44%       0.87      2.0m2       0.44       91.9      never    7.3/min     26.6Wh
+binn                           *82.5%      47.4%      1.54x        66%       0.92      2.7m2       0.40       52.3      *420s    7.1/min     26.7Wh
+epsilon_star                    80.8%      48.7%      1.82x        46%       0.88      3.2m2       0.42       75.3      never    8.6/min     26.6Wh
+ppcpp                           80.5%      50.2%      1.62x        52%       0.86      1.5m2       0.41       70.1      never    3.9/min     26.6Wh
+smc                             75.8%      50.6%      1.66x        58%       0.91      2.1m2       0.40       77.6      never    7.8/min     26.6Wh
+auction                         77.5%      44.7%      1.72x        50%       0.84      3.1m2       0.42       86.1      never   12.4/min     26.6Wh
+binn_swarm                      80.7%      46.0%      1.54x        62%       0.93      3.1m2       0.38       50.0      never    4.6/min     26.7Wh
+smc_swarm                       55.3%      48.7%      1.81x        38%       0.92      5.3m2       0.41      194.7      never   22.0/min     26.4Wh
+mstc                            67.7%      35.8%      1.77x        35%       0.38      3.3m2       0.42       68.4      never   12.4/min     22.4Wh
+mstc_nobt                       46.9%      40.1%      1.33x       *30%       0.08     12.0m2      *0.50       76.2      never   24.6/min    *13.9Wh
+voronoi+sweep_optimal           73.3%      47.9%      1.95x        31%       0.63      2.5m2       0.36       39.1      never   *0.5/min     26.9Wh
+geodesic+sweep_optimal          71.5%      38.2%      1.89x        38%      *0.99      6.7m2       0.32       40.0      never   28.1/min     26.9Wh
+strips+sweep_optimal            79.1%      47.7%      1.74x        41%       0.83     *1.2m2       0.40       35.0      never   23.8/min     27.0Wh
+darp+sweep_optimal              68.5%      41.2%      2.05x        34%       0.79      5.5m2       0.37      *32.4      never   22.6/min     27.0Wh
+forest+sweep_optimal            74.8%      48.3%      1.67x        48%       0.87      7.2m2       0.35       41.6      never    5.8/min     27.0Wh
+darp+boustrophedon_cells        77.4%      53.2%     *2.15x        34%       0.75      2.8m2       0.39       39.3      never    9.9/min     26.9Wh
 ```
 
 Six things are worth saying out loud.
 
-**Partitioning does what it claims: it halves the overlap.** The five
-partition-and-sweep rows sit at 26–51% overlap; the cooperative rows sit at
-35–61%. `voronoi+sweep_optimal` at 26% is doing a third less duplicate work
-than `binn_swarm` at 61%, and it removes more dirt while doing it.
+**Partitioning does what it claims: it cuts the overlap.** The six
+partition-and-sweep rows sit at 31–48% overlap; the cooperative rows sit at
+38–66%. `voronoi+sweep_optimal` at 31% is doing half the duplicate work of
+`binn` at 66%, and it removes more dirt while doing it.
 
-**No method gets near 3x.** The best speedup here is 2.09, from two entirely
-different methods -- a Voronoi partition and three `bsa` robots sharing a map.
-Everything else is between 1.5 and 1.9. Three robots in a domestic pool spend a
-real fraction of their time being three robots in a domestic pool.
+**No method gets near 3x.** The best speedup here is 2.15, from a DARP
+partition driving a boustrophedon plan, with the other two DARP and Voronoi
+rows just behind it. Every cooperative method is between 1.3 and 1.9. Three
+robots in a domestic pool spend a real fraction of their time being three
+robots in a domestic pool.
 
 **MSTC demonstrates its own paper's point.** Where the robots happen to sit on
 the circuit decides how long an arc each gets, and nothing balances that: plain
-MSTC (`mstc_nobt`) scores a balance of 0.08 -- one robot did almost nothing
-while another did almost everything -- and 43% coverage. Turning on the
+MSTC (`mstc_nobt`) scores a balance of 0.08 — one robot did almost nothing
+while another did almost everything — and 46.9% coverage. Turning on the
 backtracking variant, where a finished robot takes the back half of the busiest
-team-mate's remaining stretch and announces it, takes coverage to 68.8% and
-balance to 0.51.
+team-mate's remaining stretch and announces it, takes coverage to 67.7% and
+balance to 0.38. Better, and still the worst balance in the table.
 
-**`mstc_nobt` wins two columns by failing.** It has the lowest overlap (8%) and
-the highest path efficiency (0.67) in the table, because a fleet that barely
-moves does not repeat itself. This is the strongest argument in the package for
-not ranking on one number.
+**`mstc_nobt` wins three columns by failing.** It has the lowest overlap (30%),
+the highest path efficiency (0.50) and by far the lowest energy (13.9 Wh),
+because a fleet that barely moves does not repeat itself. This is the strongest
+argument in the package for not ranking on one number.
 
-**The swarm variants trade coverage for coordination, explicitly.**
-`smc_swarm` covers eight points less than plain `smc` and does it with 37%
-overlap instead of 59%, balance 0.97 instead of 0.85, and a third of the
-collisions. That is what sharing one ergodic time-average *does*: the objective
-is to match a distribution, and three robots serving one distribution spread
-out. `binn_swarm` is the negative result -- peer inhibition makes the neural
-field worse on coverage *and* on overlap, because it pushes robots off work
-they were in the middle of.
+**The swarm variants trade coverage for spread, and the bill is collisions.**
+`smc_swarm` covers twenty points less than plain `smc` and does it with 38%
+overlap instead of 58% — that is what sharing one ergodic time-average *does*,
+since three robots serving one distribution have to spread out. But it also
+turns four times as much and bumps into things three times as often, because
+spreading out in a pool this size means driving through each other to get
+there. `binn_swarm` against plain `binn` is the small version of the same
+trade: two points of coverage for four of overlap.
 
-**Sharing the covered map buys less than it should.** Three `frontier` robots
-with the blackboard against three without, three seeds: overlap 57.5% to 50.0%,
-and team coverage does not move. Knowing where your colleague has been is worth
-about seven points of overlap and nothing else, because by the time you hear
-about a cell you were usually not going there anyway.
+**Sharing the covered map buys less than it should, and it is not free.** Three
+`frontier` robots with the blackboard against three without, three seeds:
+overlap 58.4% to 52.6%, and team coverage goes *down*, 79.2% to 77.5%. Knowing
+where your colleague has been is worth about six points of overlap and costs
+about two of coverage, because by the time you hear about a cell you were
+usually not going there anyway — and occasionally you were, and now you are
+driving somewhere else.
 
 ## What a second robot is worth
 
@@ -215,21 +218,22 @@ Kidney pool, eight minutes, `auction`, one seed:
 
 | robots | coverage | dirt | speedup | overlap | balance | bumps |
 |---|---|---|---|---|---|---|
-| 1 | 49.0% | 24.2% | 1.00 | 0% | 1.00 | 0 |
-| 2 | 70.0% | 36.1% | 1.51 | 24% | 1.00 | 28 |
-| 3 | 84.4% | 47.2% | 1.70 | 55% | 0.98 | 64 |
-| 4 | **83.4%** | **41.5%** | 1.83 | 63% | 0.86 | 192 |
+| 1 | 42.6% | 17.6% | 1.00 | 0% | 1.00 | 0 |
+| 2 | 64.4% | 31.0% | 1.33 | 27% | 0.88 | 18 |
+| 3 | 77.5% | 44.7% | **1.72** | 50% | 0.84 | 99 |
+| 4 | 83.6% | 55.7% | 1.67 | 58% | 0.80 | 156 |
 
-**The fourth robot makes it worse.** Coverage falls by a point, dirt removed
-falls by six, and collisions triple. Four machines with a 34 cm swath in a
-fifty square metre pool spend enough of their time getting out of each other's
-way to lose more than the fourth one brings.
+Coverage climbs the whole way, and reading only that column you would buy a
+fifth robot. Speedup says otherwise: it rises to 1.72 at three robots and then
+*falls*. The fourth machine is the first one that leaves the team worse at
+being a team — half the pool is already being done twice at three robots, and
+the fourth adds eight more points of overlap and half again as many collisions
+for six points of floor.
 
-Note what speedup does while that happens: it keeps going *up*, to 1.83. It is
-team coverage over the best single member's, and the fourth robot pushes the
-denominator down faster than the numerator. A rising speedup with falling
-coverage means each robot is doing less, not that the team is doing more --
-which is exactly why there are eleven columns and not one.
+Speedup is team coverage over the best single member's, so a fall means the
+best member is now covering more of the pool on its own than the extra robot
+adds to the total. There is a fleet size past which you are buying company for
+your cleaner, and eleven columns rather than one is how you find it.
 
 
 ## Pictures

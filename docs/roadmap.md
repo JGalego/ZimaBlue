@@ -53,16 +53,17 @@ Shipped on `main` and not yet tagged. Same bar: implemented, tested, runnable.
 
 - **Wall and waterline cleaning** as a modelled behaviour rather than an
   unrolled-perimeter approximation.
-- **A planner that can spend a good estimate.** This is now the top item, and
-  it is backed by a measurement rather than a hunch. Calibrating the odometry
-  improves the `systematic` controller's position estimate five-fold (13.7 m
-  to 3.8 m of error over a 25-minute kidney run) and *halves* its coverage,
-  because with a poor estimate the lane plan is effectively randomised and the
-  robot wanders widely, while with a good one it executes short disciplined
-  lanes and spends its time turning (182 m travelled against 340 m). Coverage
-  is currently being won by accident. Candidate fixes: plan over the map
-  instead of locally, decompose concave pools into cells, and cost turns
-  properly.
+- **A planner that can spend a good estimate.** The `systematic` controller
+  sweeps lanes locally and falls back to nearest-frontier search; nothing in it
+  plans over the map it went to the trouble of building. This used to be
+  backed by a striking measurement -- calibrate the odometry, watch coverage
+  halve -- which turned out to be a bug in the map rather than a fact about
+  planning, and is written up in
+  [`controllers/systematic.py`](../src/zimablue/controllers/systematic.py).
+  With that fixed, calibration changes neither the estimate nor the coverage
+  much, so this item is back to being an argument rather than a number.
+  Candidate fixes: plan over the map instead of locally, decompose concave
+  pools into cells, and cost turns properly.
 
 - **Loop closure.** The estimator has no absolute reference, so position error
   grows without bound -- the filter reports several metres of uncertainty by

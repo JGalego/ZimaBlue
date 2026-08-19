@@ -271,11 +271,12 @@ class OptimalSweep:
     What is minimised is ``length + turn_cost * turning``, not lane count.
     Lane count is the right criterion for a convex region, where it *is* the
     turn count; on a concave one a line can break into several chords and the
-    two come apart. On the kidney pool the shortest sweep is 164 m with 5400
-    degrees of turning and the least-turning one is 204 m with 3780, so the
+    two come apart. On the kidney pool the shortest sweep is 161 m with 6480
+    degrees of turning and the least-turning one is 189 m with 3600, so the
     weighting is a real choice rather than a formality: ``turn_cost`` is how
     many metres of driving a radian of turning is worth, and 0.35 is roughly
-    what a tracked cleaner pays.
+    what a tracked cleaner pays. It picks neither, and lands on 164 m at 4320
+    degrees.
     """
 
     samples: int = 36
