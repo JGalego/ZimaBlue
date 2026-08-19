@@ -34,6 +34,7 @@ from zimablue.replay._deps import require_matplotlib
 from zimablue.replay.renderer import PALETTE
 
 __all__ = [
+    "export_mosaic",
     "plot_comparison",
     "plot_curves",
     "plot_matrix",
@@ -343,3 +344,112 @@ def _outline(pool_name: str):
         return np.asarray(zb.make_pool(pool_name).boundary.exterior.coords)
     except Exception:  # pragma: no cover - a pool built from a file
         return None
+
+
+# ----------------------------------------------------------------------
+def export_mosaic(
+    recordings: dict[str, Any],
+    path: Any,
+    *,
+    columns: int = 4,
+    fps: int = 10,
+    frames: int = 72,
+    dpi: int = 100,
+) -> Any:
+    """Animate every recording side by side over the same pool, as one GIF.
+
+    The table says who won; this shows *how*. A sweep filling lane by lane, a
+    random walk scribbling, spiral-STC wrapping its tree, a follower parking
+    when its plan runs out -- these are the mechanisms the scalar columns
+    summarise, and they are legible at a glance when the runs play together on
+    a shared clock.
+
+    Each panel is the bare pool with the trajectory growing across it; there
+    is deliberately no dirt overlay, because at this size it reads as noise
+    and buries the one thing the mosaic exists to show, which is the path.
+    Panels are ordered by final coverage, so the mosaic doubles as the
+    leaderboard.
+
+    ``recordings`` maps a label to a :class:`~zimablue.recording.Recording`.
+    The runs are expected to be of the same pool; each panel is drawn from its
+    own recording's geometry, so nothing breaks if they are not, but the
+    shared clock stops meaning much.
+    """
+    require_matplotlib()
+    from pathlib import Path
+
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation, PillowWriter
+
+    from zimablue.planners.compare import coverage_curve
+    from zimablue.replay.renderer import load_scene
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    scenes = {name: load_scene(recording) for name, recording in recordings.items()}
+    curves = {
+        name: coverage_curve(recording, scenes[name].pool, swath=scenes[name].swath)
+        for name, recording in recordings.items()
+    }
+    order = sorted(recordings, key=lambda name: -float(curves[name][1][-1]))
+
+    duration = min(recording.duration for recording in recordings.values())
+    clock = np.linspace(0.0, duration, max(frames, 2))
+
+    rows = -(-len(order) // columns)
+    aspect = next(iter(scenes.values())).grid.extent
+    panel_ratio = (aspect[1] - aspect[0]) / max(aspect[3] - aspect[2], 1e-9)
+    width = 3.2 * columns
+    figure = plt.figure(
+        figsize=(width, rows * (width / columns) / panel_ratio * 1.22),
+        facecolor=PALETTE["panel"],
+    )
+    grid_spec = figure.add_gridspec(rows, columns, hspace=0.42, wspace=0.06)
+
+    panels = []
+    for index, name in enumerate(order):
+        recording, scene = recordings[name], scenes[name]
+        ax = figure.add_subplot(grid_spec[index // columns, index % columns])
+        ax.set_facecolor(PALETTE["panel"])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_color("#24384c")
+        water = np.zeros((*scene.navigable.shape, 4))
+        water[scene.navigable] = (*_rgb(PALETTE["mid"]), 1.0)
+        ax.imshow(water, extent=scene.grid.extent, origin="lower", interpolation="nearest")
+        ax.set_aspect("equal")
+        xs = np.asarray(recording.frames["x"], dtype=float)
+        ys = np.asarray(recording.frames["y"], dtype=float)
+        times = np.asarray(recording.frames["time"], dtype=float)
+        (trail,) = ax.plot([], [], color=PALETTE["trail"], linewidth=0.55, alpha=0.75)
+        (dot,) = ax.plot([], [], "o", color=PALETTE["accent"], markersize=2.6)
+        title = ax.set_title("", color=INK, fontsize=7.5, family="monospace", pad=2.5)
+        panels.append((name, xs, ys, times, trail, dot, title))
+
+    stamp = figure.suptitle("", color=INK, fontsize=10, family="monospace", y=0.995)
+    pool_name = next(iter(recordings.values())).manifest.get("scenario", {}).get("pool", "")
+
+    def draw(step: int) -> tuple:
+        t = float(clock[step])
+        stamp.set_text(f"{pool_name} · {int(t // 60):02d}:{int(t % 60):02d}".lstrip(" ·"))
+        for name, xs, ys, times, trail, dot, title in panels:
+            i = int(np.searchsorted(times, t, side="right"))
+            trail.set_data(xs[: i : max(1, i // 700)], ys[: i : max(1, i // 700)])
+            if i:
+                dot.set_data([xs[i - 1]], [ys[i - 1]])
+            curve_t, curve_c = curves[name]
+            at = int(np.clip(np.searchsorted(curve_t, t), 0, len(curve_c) - 1))
+            title.set_text(f"{name}  {float(curve_c[at]):4.0%}")
+        return ()
+
+    animation = FuncAnimation(figure, draw, frames=len(clock), blit=False)
+    animation.save(str(path), writer=PillowWriter(fps=fps), dpi=dpi)
+    plt.close(figure)
+    return path
+
+
+def _rgb(value: str) -> tuple[float, float, float]:
+    value = value.lstrip("#")
+    return tuple(int(value[i : i + 2], 16) / 255.0 for i in (0, 2, 4))  # type: ignore[return-value]

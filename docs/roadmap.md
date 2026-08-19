@@ -1,7 +1,7 @@
 # Roadmap
 
-Honest status. Nothing is marked done until it is implemented, tested and
-runnable from the CLI.
+Nothing here is marked done until it is implemented, tested and runnable
+from the CLI.
 
 ## v0.1 — the vertical slice
 

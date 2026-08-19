@@ -171,7 +171,7 @@ class DirtOracle:
     ``Simulation(expose_truth=True)`` and reads the remaining mass per cell,
     which no cleaner can measure.
 
-    **Greedy, not optimal.** It is worth being clear about this, because the
+    **Greedy is not optimal.** It is worth being clear about this, because the
     name invites the other reading. On a kidney pool with autumn dirt it does
     remove more than the baseline at both horizons -- 37% against 16% in ten
     minutes, 59% against 39% in thirty -- but it gets there having driven over

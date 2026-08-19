@@ -286,7 +286,7 @@ def test_spiral_stc_visits_every_cell_exactly_once():
 
 
 def test_a_wall_that_clips_one_cell_breaks_spiral_stc_s_spiral():
-    """The published limitation, and the published fix, measured.
+    """This measures the published limitation, and the published fix.
 
     Spiral-STC will not enter a 2x2 cell unless all four sub-cells are clear,
     so one chipped corner puts the other three off the tree and the walk has
@@ -483,3 +483,19 @@ def test_the_table_marks_the_winner_in_every_column():
     table = Comparison(trials).table()
     assert "*90.0%" in table
     assert "*50.0%" not in table
+
+
+def test_the_mosaic_is_a_gif_of_everyone_on_a_shared_clock(tmp_path):
+    """A quick one with a pair of short runs; the asset script does the rest."""
+    from PIL import Image
+
+    from zimablue.planners.plots import export_mosaic
+
+    recordings = {
+        name: zb.Simulation(pool="rectangular", controller=name, seed=1).run(minutes=1).recording
+        for name in ("bsa", "random_bounce")
+    }
+    out = export_mosaic(recordings, tmp_path / "mosaic.gif", columns=2, fps=5, frames=6, dpi=40)
+    gif = Image.open(out)
+    assert gif.n_frames == 6
+    assert gif.size[0] > gif.size[1], "a pair of pool panels side by side lies wider than tall"

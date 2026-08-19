@@ -230,6 +230,21 @@ is a planner-shaped hole: the honest response is to re-plan against what the
 run actually covered, and none of the classical offline methods has anything to
 say about that.
 
+The table says who won. Watching the runs side by side on a shared clock says
+*how* — a sweep fills lane by lane, a random walk scribbles, spiral-STC wraps
+its tree, and a follower parks the moment its plan runs out. Panels are ordered
+by where each planner finished, so the mosaic doubles as the leaderboard:
+
+<div align="center">
+<img src="assets/planners-mosaic.gif" alt="Every planner cleaning the kidney pool at once, each in its own panel" width="900">
+</div>
+
+```python
+from zimablue.planners.plots import export_mosaic
+
+export_mosaic(recordings, "mosaic.gif")  # {label: Recording}
+```
+
 The plans themselves, before anyone tried to drive them:
 
 <div align="center">

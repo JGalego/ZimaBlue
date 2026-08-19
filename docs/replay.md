@@ -178,7 +178,7 @@ coordinates rather than to the screen, because without something sliding past
 underneath, a colour field only changes shade and the view reads as a gradient
 instead of as motion.
 
-Two approximations worth knowing. The ray geometry treats the floor as flat
+The projection cuts corners in ways worth knowing. It treats the floor as flat
 even where the depth model slopes, which costs a little foreshortening accuracy
 at the far edge of frame and saves a ray–surface intersection per pixel. And
 anything off the navigable floor is shaded as wall rather than raycast against

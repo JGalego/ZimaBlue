@@ -9,6 +9,21 @@ versions. The `.zbr` schema version is tracked separately and is bumped only
 on an incompatible layout change; readers refuse anything newer than they
 understand.
 
+## [Unreleased]
+
+### Added
+- `export_mosaic` animates every recording side by side over the same pool --
+  every planner cleaning the kidney at once, each panel the bare pool with the
+  trajectory growing across it, ordered by where each planner finished. The
+  table says who won; this shows how. `tools/make_assets.py mosaic` builds
+  `docs/assets/planners-mosaic.gif`, and [docs/planners.md](docs/planners.md)
+  embeds it.
+
+### Changed
+- The prose lost its verbless fragments -- "the classical literature,
+  implemented", "The waste, drawn.", "The trap, made of geometry." -- in
+  favour of sentences.
+
 ## [0.3.0] — 2026-08-19
 
 ### Added
@@ -71,8 +86,8 @@ understand.
   speedup peaks at three robots and then falls: half the pool is already being
   done twice at three, and the fourth buys six points of floor for eight more
   of overlap and half again as many collisions.
-- **Coverage path planning** (`zimablue.planners`): most of the single-robot
-  2D literature. Offline -- `boustrophedon`, `sweep_optimal`, `trapezoidal`,
+- **Coverage path planning** (`zimablue.planners`) covers most of the
+  single-robot 2D literature. Offline -- `boustrophedon`, `sweep_optimal`, `trapezoidal`,
   `boustrophedon_cells`, `morse`, `contour`, `wavefront`, `spanning_tree` --
   each returning a `CoveragePath` that `PathFollower` drives. Online,
   registered as ordinary controllers: `spiral_stc`, `full_stc`, `bsa`,
@@ -103,8 +118,8 @@ understand.
 - `zimablue.planners.compare`: a harness that runs every planner on every pool
   and scores each run on coverage, dirt, evenness, the largest patch left
   untouched, edge coverage, path efficiency, turning per metre, time to half
-  the pool, ergodic error, wasted time, energy and collisions. Deliberately no
-  scalar ranking.
+  the pool, ergodic error, wasted time, energy and collisions. There is
+  deliberately no scalar ranking.
   `zimablue.planners.plots` draws it as a normalised matrix, the trajectories
   side by side, coverage against time, and any two dimensions against each
   other with the Pareto front. `plot_plans` draws the offline
@@ -555,6 +570,7 @@ reproducible, scored replay.
 - Wall climbing is not simulated; wall coverage is tracked as an unrolled
   perimeter visit record.
 
+[Unreleased]: https://github.com/JGalego/ZimaBlue/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/JGalego/ZimaBlue/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/JGalego/ZimaBlue/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JGalego/ZimaBlue/releases/tag/v0.1.0

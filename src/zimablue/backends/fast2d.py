@@ -8,7 +8,7 @@ Known approximations, stated rather than hidden:
 
 * **Walls are 1D.** The robot moves on the floor plane. Wall climbing is not
   simulated; wall coverage is tracked as an unrolled perimeter visit record.
-* **Kinematic, not dynamic.** Motors are rate- and acceleration-limited and
+* **The model is kinematic, not dynamic.** Motors are rate- and acceleration-limited and
   slip is modelled, but there is no explicit force balance or momentum. At
   cleaner speeds (< 0.4 m/s) and masses (< 20 kg) the difference does not
   change navigation outcomes.

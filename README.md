@@ -52,7 +52,7 @@ No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
 | 📡 | **Sensors that lie** | Encoders, IMU, pressure, bump switches, sonar, all through one noise, bias, latency, dropout and saturation pipeline. Faults on a schedule. |
 | 🍂 | **Dirt that behaves** | Density, grain size, adhesion and pickup difficulty, settling by Ferguson & Church rather than Stokes. Scenarios from `clean` to `neglected_pool`. |
 | 🧭 | **Controllers** | Boustrophedon coverage, random bounce, an EKF-and-occupancy-map planner, and ground-truth oracles to bound the problem. |
-| 🗺️ | **Coverage path planning** | The classical literature, implemented — offline decompositions and online rules, from Spiral-STC to a spectral ergodic controller. See [planners](docs/planners.md). |
+| 🗺️ | **Coverage path planning** | Offline decompositions and online rules from the classical literature, Spiral-STC through a spectral ergodic controller. See [planners](docs/planners.md). |
 | 🛥️ | **Fleets** | Several cleaners in one pool, sharing the dirt and getting in each other's way. Divide the pool between them, or let them coordinate without dividing it. See [fleets](docs/multi-robot.md). |
 | ⚖️ | **Scored on what actually differs** | Coverage, overlap, turning, the worst gap left behind, anytime behaviour, energy. No single winner, and a matrix plot that shows why. |
 | 📊 | **Metrics that disagree** | Coverage and cleanliness scored separately, each with a spatial companion. The whole point is that they rank controllers differently. |
@@ -250,9 +250,9 @@ from changes.
 
 ## Plan it
 
-Most of the single-robot coverage literature, implemented. The **offline**
-planners are given the pool and compute a whole route; the **online** ones
-decide the next move from what the sensors just said.
+`zimablue.planners` covers most of the single-robot coverage literature.
+The **offline** planners are given the pool and compute a whole route; the
+**online** ones decide the next move from what the sensors just said.
 
 ```python
 from zimablue.planners import PathFollower
@@ -293,8 +293,9 @@ everywhere or a whole corner.
 
 The headline is not the winner. It is that `random_bounce` — drive straight,
 turn at random when you hit something — beats most of the table, including
-planners with completeness proofs. See
-[coverage path planning](docs/planners.md).
+planners with completeness proofs. [Coverage path planning](docs/planners.md)
+has the full table, and an animated mosaic of every planner cleaning the
+kidney at once.
 
 ## Send a fleet
 

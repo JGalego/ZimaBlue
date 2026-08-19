@@ -292,7 +292,7 @@ def test_a_territory_is_a_pool_a_planner_can_sweep():
 
 
 def test_a_partitioned_fleet_overlaps_less_than_an_unpartitioned_one():
-    """The whole argument for partitioning, measured.
+    """This measures the whole argument for partitioning.
 
     Three robots all running the same greedy rule cover the pool in plaid.
     Give each one a region and the overlap collapses to the seams.
@@ -324,7 +324,7 @@ def test_an_arc_wraps_around_the_end_of_the_circuit():
 
 
 def test_backtracking_mstc_shares_out_the_work_that_plain_mstc_leaves():
-    """The paper's own point, measured.
+    """This measures the paper's own point.
 
     Where the robots happen to sit on the circuit decides how long an arc each
     gets, and nothing balances that. Plain MSTC therefore has a robot that

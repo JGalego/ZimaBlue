@@ -363,7 +363,7 @@ def stadium(straight: float = 6.0, radius: float = 2.5, depth: float = 1.5) -> P
 def mushroom(
     cap_radius: float = 3.2, stem_width: float = 1.4, stem_length: float = 3.0, depth: float = 1.5
 ) -> Pool:
-    """A half-disc cap on a rectangular stem. The trap, made of geometry.
+    """A half-disc cap on a rectangular stem -- a trap made of geometry.
 
     Bunimovich's mushroom has a *mixed* phase space: a set of integrable
     trajectories that stay in the cap forever, and a chaotic set that visits

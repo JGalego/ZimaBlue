@@ -507,8 +507,8 @@ def test_the_mushroom_really_has_a_stem():
 
 
 def test_a_cleaner_spends_longer_in_the_stem_than_its_share_of_the_floor():
-    """The trap, measured. Nothing about the controller causes this -- it is
-    the room."""
+    """This measures the trap itself. Nothing about the controller causes it
+    -- it is the room."""
     from shapely.geometry import box
 
     pool = zb.make_pool("mushroom")

@@ -1,4 +1,4 @@
-"""Coverage path planning: the classical literature, implemented.
+"""Coverage path planning, from the classical literature.
 
 Coverage path planning asks how to move a robot so that a sensor or tool
 passes over every point of a region.  It is the oldest question in cleaning

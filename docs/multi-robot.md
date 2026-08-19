@@ -252,11 +252,11 @@ None of the views is enough on its own:
 - **paths** — every robot's trajectory in its own colour. A partition is
   obvious at a glance here, and a partition that went wrong is more obvious
   still.
-- **territory** — which robot actually covered each cell. Not the plan: the
-  outcome. Put it next to the partition the partitioner drew, and the
-  difference is the follower's error.
-- **overlap** — how many different robots went over each cell. The waste,
-  drawn. A good partition leaves a thin seam along its internal borders; a
+- **territory** — which robot actually covered each cell. This is the
+  outcome rather than the plan; put it next to the partition the partitioner
+  drew, and the difference is the follower's error.
+- **overlap** — how many different robots went over each cell, which is the
+  waste itself. A good partition leaves a thin seam along its internal borders; a
   cooperative fleet with no partition covers the pool in plaid.
 - **progress** — team coverage over time with each robot's own curve under it,
   so a robot that finished early and parked shows up as a line that goes flat

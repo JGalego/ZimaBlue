@@ -17,7 +17,7 @@ One function per view, and :func:`plot_fleet` assembles them:
     A partitioned fleet should reproduce its partition here, and where it does
     not is where the follower failed.
 :func:`plot_overlap`
-    How many different robots went over each cell. The waste, drawn.
+    How many different robots went over each cell -- it draws the waste.
 :func:`plot_progress`
     Team coverage against time, with each robot's contribution stacked under
     it, so a robot that finished early and parked is visible as a line that

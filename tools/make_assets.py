@@ -98,6 +98,46 @@ def make_chase() -> None:
     )
 
 
+MOSAIC = {"pool": "kidney", "dirt": "autumn", "seed": 42, "minutes": 12.0}
+
+
+def _mosaic_run(entry: str) -> Path:
+    """One planner's recording for the mosaic, cached like everything else."""
+    import zimablue as zb
+    from zimablue.planners.compare import _controller
+
+    path = CACHE / "mosaic" / f"{entry.replace('@', '-')}.zbr"
+    if path.exists():
+        return path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    spec = dict(MOSAIC)
+    minutes = float(spec.pop("minutes"))
+    controller, needs_truth = _controller(entry)
+    if not needs_truth and isinstance(controller, str):
+        needs_truth = getattr(zb.CONTROLLERS.create(controller), "needs_truth", False)
+    print(f"  simulating {entry}...")
+    result = zb.Simulation(controller=controller, expose_truth=needs_truth, **spec).run(
+        minutes=minutes
+    )
+    result.save(path)
+    return path
+
+
+def make_mosaic() -> None:
+    """Every planner on the kidney at once, racing on a shared clock."""
+    from concurrent.futures import ProcessPoolExecutor
+
+    from zimablue.planners.compare import default_entries
+    from zimablue.planners.plots import export_mosaic
+    from zimablue.recording import Recording
+
+    entries = default_entries(localisation="odometry")
+    with ProcessPoolExecutor(max_workers=4) as pool:
+        paths = list(pool.map(_mosaic_run, entries))
+    recordings = {entry: Recording.load(path) for entry, path in zip(entries, paths, strict=True)}
+    export_mosaic(recordings, ASSETS / "planners-mosaic.gif", columns=4, fps=9, frames=56, dpi=54)
+
+
 def make_3d() -> None:
     """The basin renders: an orbit of the sloped pool, and a kidney sheet."""
     from zimablue.replay import export_3d_frames, export_3d_movie
@@ -113,6 +153,7 @@ TARGETS = {
     "replay": make_replay,
     "dirtcam": make_dirtcam,
     "chase": make_chase,
+    "mosaic": make_mosaic,
     "3d": make_3d,
 }
 
