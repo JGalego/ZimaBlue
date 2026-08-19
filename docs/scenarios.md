@@ -42,6 +42,7 @@ termination:
   dirt_target: 0.9            # stop once 90% of the dirt is gone
   coverage_target: 0.95       # ...or 95% of the floor is covered
   stop_on_empty_battery: true
+  stop_on_full_filter: false   # end the run when the bag is full
 ```
 
 Every section except `name` has a default, so the shortest valid scenario is

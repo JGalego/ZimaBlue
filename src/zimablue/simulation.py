@@ -95,6 +95,7 @@ class Simulation:
         coverage_target: float | None = None,
         dirt_target: float | None = None,
         stop_on_empty_battery: bool = True,
+        stop_on_full_filter: bool = False,
         scenario_name: str = "adhoc",
         start_pose: tuple[float, float, float] | None = None,
     ) -> None:
@@ -107,6 +108,7 @@ class Simulation:
         self.coverage_target = coverage_target
         self.dirt_target = dirt_target
         self.stop_on_empty_battery = stop_on_empty_battery
+        self.stop_on_full_filter = stop_on_full_filter
         self.scenario_name = scenario_name
 
         self.pool = make_pool(pool) if isinstance(pool, str) else pool
@@ -287,6 +289,13 @@ class Simulation:
         state = self.state
         if self.stop_on_empty_battery and state.battery_fraction <= self.robot.power.battery.cutoff:
             return "battery_empty"
+        if self.stop_on_full_filter and state.filter_load >= self.robot.cleaning.filter.capacity:
+            # A full filter is not merely inefficient: suction falls with the
+            # square of the load, so past capacity the pump is decoration. Off
+            # by default because real cleaners run on regardless -- and that
+            # behaviour deserves to stay measurable.
+            return "filter_full"
+
         if self.dirt_target is not None and self.world.dirt.removed_fraction >= self.dirt_target:
             return "target_reached"
         if self.coverage_target is not None:

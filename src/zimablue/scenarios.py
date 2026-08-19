@@ -110,6 +110,7 @@ class Scenario:
     coverage_target: float | None = None
     dirt_target: float | None = None
     stop_on_empty_battery: bool = True
+    stop_on_full_filter: bool = False
 
     source: Path | None = None
 
@@ -141,7 +142,9 @@ class Scenario:
 
         term = dict(data.get("termination") or {})
         _check_keys(
-            "termination", term, {"coverage_target", "dirt_target", "stop_on_empty_battery"}
+            "termination",
+            term,
+            {"coverage_target", "dirt_target", "stop_on_empty_battery", "stop_on_full_filter"},
         )
 
         return cls(
@@ -167,6 +170,7 @@ class Scenario:
                 float(term["dirt_target"]) if term.get("dirt_target") is not None else None
             ),
             stop_on_empty_battery=bool(term.get("stop_on_empty_battery", True)),
+            stop_on_full_filter=bool(term.get("stop_on_full_filter", False)),
             source=source,
         )
 
@@ -203,6 +207,8 @@ class Scenario:
         }
         if not self.stop_on_empty_battery:
             termination["stop_on_empty_battery"] = False
+        if self.stop_on_full_filter:
+            termination["stop_on_full_filter"] = True
         if termination:
             out["termination"] = termination
         return out
@@ -252,6 +258,7 @@ class Scenario:
             coverage_target=self.coverage_target,
             dirt_target=self.dirt_target,
             stop_on_empty_battery=self.stop_on_empty_battery,
+            stop_on_full_filter=self.stop_on_full_filter,
             scenario_name=self.name,
         )
 

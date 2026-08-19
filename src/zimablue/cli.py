@@ -94,6 +94,7 @@ def _metrics_table(metrics: Any, title: str = "results") -> Table:
     row("distance", f"{metrics.distance_traveled:.1f} m")
     row("runtime", f"{metrics.runtime / 60:.1f} min")
     row("energy", f"{metrics.energy_consumed:.1f} Wh", "yellow")
+    row("", f"{getattr(metrics, 'grams_per_wh', 0.0):.1f} g captured per Wh")
     row("battery left", f"{metrics.battery_remaining * 100:.0f} %", "yellow")
     row("collisions", str(metrics.collisions))
     row("stuck events", str(metrics.stuck_events))

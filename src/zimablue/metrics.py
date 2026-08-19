@@ -117,6 +117,16 @@ class Metrics:
     energy_consumed: float = 0.0
     """Watt-hours."""
 
+    grams_per_wh: float = 0.0
+    """Grams captured in the filter per watt-hour spent -- what "efficient"
+    ought to mean for a cleaner. A high coverage number bought with three
+    passes over everything shows up here as an expensive one."""
+
+    filter_load_fraction: float = 0.0
+    """How full the filter ended, 0-1. Capture efficiency falls as the square
+    of this, so a run that ends near 1.0 spent its last minutes pushing dirt
+    around rather than swallowing it."""
+
     battery_remaining: float = 0.0
     stuck_time: float = 0.0
     stuck_events: int = 0
@@ -148,6 +158,8 @@ class Metrics:
             "uncollectable_dirt": self.uncollectable_dirt,
             "dirt_ceiling": self.dirt_ceiling,
             "energy_consumed": self.energy_consumed,
+            "grams_per_wh": self.grams_per_wh,
+            "filter_load_fraction": self.filter_load_fraction,
             "battery_remaining": self.battery_remaining,
             "stuck_time": self.stuck_time,
             "stuck_events": self.stuck_events,
@@ -175,7 +187,8 @@ class Metrics:
                 f"  revisits          {self.revisits:6.2f}   extra passes/cell",
                 f"  distance          {self.distance_traveled:6.1f} m",
                 f"  runtime           {self.runtime / 60:6.1f} min",
-                f"  energy            {self.energy_consumed:6.1f} Wh   "
+                f"  energy            {self.energy_consumed:6.1f} Wh "
+                f"({self.grams_per_wh:.1f} g/Wh)   "
                 f"(battery {self.battery_remaining * 100:.0f} % left)",
                 f"  collisions        {self.collisions:6d}",
                 f"  stuck             {self.stuck_events:6d} events, {self.stuck_time:.1f} s",
@@ -309,6 +322,14 @@ def compute_metrics(
         uncollectable_dirt=oversize_mass,
         dirt_ceiling=(1.0 - oversize_mass / initial_total if initial_total > 0 else 1.0),
         energy_consumed=state.energy_used_wh,
+        grams_per_wh=(
+            state.dirt_collected / state.energy_used_wh if state.energy_used_wh > 1e-9 else 0.0
+        ),
+        filter_load_fraction=(
+            min(state.filter_load / robot.cleaning.filter.capacity, 1.0)
+            if robot is not None and robot.cleaning.filter.capacity > 0
+            else 0.0
+        ),
         battery_remaining=state.battery_fraction,
         stuck_time=state.stuck_time,
         stuck_events=stuck_events,

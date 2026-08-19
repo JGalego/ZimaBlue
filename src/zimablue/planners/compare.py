@@ -35,6 +35,7 @@ half           seconds to cover half the pool -- the anytime question
 ergodic        how far the time distribution is from uniform, at the end
 wasted         share of the run after the ergodic score stopped improving
 energy         watt-hours
+thrift         grams captured per watt-hour
 trouble        collisions per minute
 ============== =============================================================
 
@@ -122,6 +123,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
     Dimension("ergodic", "ergodic", -1, "", 1.0, 3),
     Dimension("wasted", "wasted", -1, "%", 100.0, 0),
     Dimension("energy", "energy", -1, "Wh", 1.0, 1),
+    Dimension("thrift", "g/Wh", +1, "", 1.0, 1),
     Dimension("trouble", "trouble", -1, "/min", 1.0, 1),
 )
 
@@ -432,6 +434,7 @@ def evaluate(
         "ergodic": ergodic,
         "wasted": wasted,
         "energy": metrics.energy_consumed,
+        "thrift": metrics.grams_per_wh,
         "trouble": metrics.collisions / max(metrics.runtime / 60.0, 1e-6),
     }
     path = np.column_stack(
@@ -559,6 +562,7 @@ FLEET_DIMENSIONS: tuple[Dimension, ...] = (
     Dimension("half", "to half", -1, "s", 1.0, 0),
     Dimension("bumps", "bumps", -1, "/min", 1.0, 1),
     Dimension("energy", "energy", -1, "Wh", 1.0, 1),
+    Dimension("thrift", "g/Wh", +1, "", 1.0, 1),
 )
 """What a *team* is judged on.
 
@@ -681,6 +685,11 @@ def evaluate_fleet(
         "half": half,
         "bumps": metrics.encounters / runtime,
         "energy": metrics.team.energy_consumed,
+        "thrift": (
+            metrics.team.dirt_collected / metrics.team.energy_consumed
+            if metrics.team.energy_consumed > 1e-9
+            else 0.0
+        ),
         "ergodic": ergodic,
         "wasted": wasted,
     }

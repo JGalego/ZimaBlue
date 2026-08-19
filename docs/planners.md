@@ -339,6 +339,7 @@ What gets measured, with no attempt to collapse it into one number:
 | `ergodic` | how far the time distribution is from uniform, at the end |
 | `wasted` | share of the run after the ergodic score stopped improving |
 | `energy` | watt-hours |
+| `thrift` | grams captured per watt-hour — what "efficient" ought to mean for a cleaner |
 | `trouble` | collisions per minute |
 
 Efficiency and turning are the two that catch what coverage cannot. A planner

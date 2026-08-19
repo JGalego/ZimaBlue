@@ -86,6 +86,7 @@ from zimablue.planners.online import (
     Predictive,
     SpiralSTC,
 )
+from zimablue.planners.oracle import collectable_bound, dirt_bound
 from zimablue.planners.partition import (
     PARTITIONS,
     Partition,
@@ -94,7 +95,6 @@ from zimablue.planners.partition import (
     make_partition,
     partitioned,
 )
-from zimablue.planners.oracle import collectable_bound, dirt_bound
 from zimablue.planners.seeker import DirtSeeker
 
 __all__ = [
@@ -122,8 +122,6 @@ __all__ = [
     "Partition",
     "Partitioner",
     "PathFollower",
-    "collectable_bound",
-    "dirt_bound",
     "Predictive",
     "SpanningTree",
     "SpectralCoverage",
@@ -133,6 +131,8 @@ __all__ = [
     "Territory",
     "Trapezoidal",
     "Wavefront",
+    "collectable_bound",
+    "dirt_bound",
     "make_partition",
     "make_planner",
     "mstc",
