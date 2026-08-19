@@ -31,6 +31,16 @@ CACHE = ROOT / "runs" / "assets"
 KIDNEY = {"pool": "kidney", "dirt": "autumn", "seed": 42, "minutes": 25.0}
 REPLAY_SPEED = 260.0
 
+# Close-up cameras are limited by `speed / fps` -- the simulated seconds
+# between one displayed frame and the next -- rather than by playback speed on
+# its own. The robot covers its own length in about a second, so past two or
+# three seconds a frame the floor arrives already swept and dirt reads as
+# popping into existence. The top-down view has no such limit: it shows the
+# whole pool and nothing in it moves far between frames, which is why that one
+# runs the entire clean at 260x and these two show a window.
+CLOSE_UP_SPEED = 24.0
+CLOSE_UP_FPS = 12
+
 SLOPED = {"pool": "sloped", "dirt": "autumn", "seed": 7, "minutes": 12.0}
 
 
@@ -61,19 +71,31 @@ def make_replay() -> None:
 
 
 def make_dirtcam() -> None:
-    """The bumper view, with the top-down panel beside it."""
+    """The bumper view, with the top-down panel beside it.
+
+    The first two minutes, at two simulated seconds a displayed frame. Both
+    numbers matter: a camera this close needs frames near enough in time to
+    show a patch *being* swept rather than already swept, and at that rate the
+    whole twenty-five minutes is not a GIF anyone would download. The opening
+    is the stretch worth having anyway -- the floor starts as a silt plain and
+    you watch the first lanes cut through it.
+    """
     from zimablue.replay import export_dirtcam
 
     rec = recording_for("kidney", **KIDNEY)
-    export_dirtcam(rec, ASSETS / "dirtcam.gif", speed=440.0, fps=11, dpi=58)
+    export_dirtcam(
+        rec, ASSETS / "dirtcam.gif", speed=CLOSE_UP_SPEED, fps=CLOSE_UP_FPS, seconds=120.0, dpi=52
+    )
 
 
 def make_chase() -> None:
-    """The chase cam, from a metre behind the robot."""
+    """The chase cam, from a metre behind the robot. Same window, same rate."""
     from zimablue.replay import export_chasecam
 
     rec = recording_for("kidney", **KIDNEY)
-    export_chasecam(rec, ASSETS / "chase.gif", speed=320.0, fps=11, dpi=54)
+    export_chasecam(
+        rec, ASSETS / "chase.gif", speed=CLOSE_UP_SPEED, fps=CLOSE_UP_FPS, seconds=120.0, dpi=54
+    )
 
 
 def make_3d() -> None:

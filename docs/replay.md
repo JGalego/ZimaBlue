@@ -35,6 +35,15 @@ The two left-hand meters are the point of the whole project, which is why they
 sit side by side with those subtitles. Watching **58% driven / 34% cleaned**
 diverge over a run makes the argument better than any amount of prose.
 
+A close-up camera is limited by `speed / fps` — the simulated time between one
+*displayed* frame and the next — rather than by playback speed on its own. The
+robot covers its own length in about a second, so past two or three seconds a
+frame the floor arrives already swept and dirt reads as popping into existence
+instead of lifting. The dirt cam and chase cam therefore show a window of a
+long run (`seconds=`) rather than the whole of it wound up to 440x. The
+top-down view has no such limit and plays the entire clean at 260x: it shows
+the whole pool at once, and nothing in it moves a body length between frames.
+
 The amber tick on the dirt bar is where that bar physically cannot go past.
 Some of the pool's debris is wider than the intake, so a run that lifted
 everything it could still stops short of 100%, and without the tick it reads

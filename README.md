@@ -373,7 +373,8 @@ Headless? `zimablue replay run.zbr --gif out.gif`.
 <div align="center">
 <img src="docs/assets/chase.gif" alt="Chase cam: the cleaner seen from a metre behind, working across a tiled pool floor with dirt ahead of it" width="720">
 
-<sub>Chase cam. Close enough to see the brushes, far enough to see the swath.</sub>
+<sub>Chase cam. Close enough to see the brushes, far enough to see the swath.<br>
+Same two minutes: near enough in time to watch the dirt line recede.</sub>
 </div>
 
 ```bash
@@ -396,7 +397,8 @@ and the turn reads as the robot swinging across frame.
 <div align="center">
 <img src="docs/assets/dirtcam.gif" alt="The pool floor seen from the cleaner's own bumper, silt and leaves passing beneath it, with the top-down view alongside" width="820">
 
-<sub>Dirt cam, with the top-down view alongside. The two disagree constantly.</sub>
+<sub>Dirt cam, with the top-down view alongside — the first two minutes, at two<br>
+simulated seconds a frame. The two panels disagree constantly.</sub>
 </div>
 
 ```bash

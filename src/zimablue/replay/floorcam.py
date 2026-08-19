@@ -34,7 +34,7 @@ from zimablue.replay.renderer import PALETTE, Scene, load_scene, pile_range
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from zimablue.recording import Recording
 
-__all__ = ["FloorCamConfig", "FloorCamera", "rgb"]
+__all__ = ["FloorCamConfig", "FloorCamera", "frame_window", "rgb"]
 
 FloatArray = NDArray[np.float64]
 
@@ -75,6 +75,24 @@ class FloorCamConfig:
 
     def aspect(self) -> float:
         return self.height / self.width
+
+
+def frame_window(recording: Recording, start: float, seconds: float | None, step: int) -> list[int]:
+    """Frame indices covering ``seconds`` from ``start``, every ``step`` frames.
+
+    Shared by the two close-up exporters. An empty window would hand
+    FuncAnimation nothing to draw, so it always yields at least one frame.
+    """
+    times = np.asarray(recording.frames["time"], dtype=float)
+    first = int(np.searchsorted(times, start, side="left"))
+    last = (
+        recording.n_frames
+        if seconds is None
+        else int(np.searchsorted(times, start + seconds, side="right"))
+    )
+    first = int(np.clip(first, 0, recording.n_frames - 1))
+    last = int(np.clip(last, first + 1, recording.n_frames))
+    return list(range(first, last, max(1, step))) or [first]
 
 
 class FloorCamera:

@@ -34,7 +34,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from zimablue.replay._deps import require_matplotlib
-from zimablue.replay.floorcam import FloorCamConfig, FloorCamera
+from zimablue.replay.floorcam import FloorCamConfig, FloorCamera, frame_window
 from zimablue.replay.floorcam import rgb as _rgb
 from zimablue.replay.renderer import PALETTE
 
@@ -312,10 +312,19 @@ def export_chasecam(
     fps: int = 20,
     dpi: int = 80,
     config: ChaseCamConfig | None = None,
+    start: float = 0.0,
+    seconds: float | None = None,
 ) -> Path:
-    """Render the run as a chase-cam animation.
+    """Render part of the run as a chase-cam animation.
 
     ``speed=1.0`` writes a file exactly as long as the run, as everywhere else.
+
+    ``speed / fps`` is the simulated time between one *displayed* frame and the
+    next, and for a camera this close it is the number that decides whether the
+    result reads as motion or as a slideshow. The robot covers its own length
+    in about a second; much past that and it jumps between frames and the floor
+    arrives already swept. Use ``start`` and ``seconds`` to show a window of a
+    long run rather than winding the speed up until it tears.
     """
     require_matplotlib()
     import matplotlib.pyplot as plt
@@ -326,8 +335,8 @@ def export_chasecam(
 
     cam = ChaseCam(recording, config)
     dt = max(recording.frame_dt, 1e-6)
-    stride = max(speed / (fps * dt), 1.0)
-    indices = [int(i * stride) for i in range(max(int(recording.n_frames / stride), 1))]
+    stride = max(round(speed / (fps * dt)), 1)
+    indices = frame_window(recording, start, seconds, stride)
 
     figure, ax = plt.subplots(figsize=(7.2, 4.05), facecolor=PALETTE["panel"])
     ax.set_axis_off()

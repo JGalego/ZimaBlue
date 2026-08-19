@@ -130,3 +130,62 @@ def test_export_an_animation(recording, tmp_path, with_map):
         with_map=with_map,
     )
     assert out.exists() and out.stat().st_size > 0
+
+
+# ----------------------------------------------------------------------
+# How far apart displayed frames are in simulated time
+# ----------------------------------------------------------------------
+def test_a_window_covers_what_it_says_and_is_never_empty(recording):
+    from zimablue.replay.floorcam import frame_window
+
+    times = np.asarray(recording.frames["time"], dtype=float)
+    picked = frame_window(recording, start=20.0, seconds=30.0, step=5)
+    assert picked, "an empty window gives FuncAnimation nothing to draw"
+    assert 20.0 <= times[picked[0]] < 20.0 + recording.frame_dt * 5
+    assert times[picked[-1]] <= 50.0 + recording.frame_dt * 5
+    assert np.all(np.diff(picked) == 5)
+
+    whole = frame_window(recording, start=0.0, seconds=None, step=1)
+    assert len(whole) == recording.n_frames
+    # Past the end of the run, rather than raising or returning nothing.
+    assert frame_window(recording, start=1e6, seconds=10.0, step=1) == [recording.n_frames - 1]
+
+
+def test_the_close_up_cameras_default_to_a_rate_you_can_follow():
+    """``speed / fps`` is the simulated time between displayed frames.
+
+    The robot covers its own length in about a second. Past two or three
+    seconds a frame a close-up camera shows a floor that is already swept
+    rather than being swept, and dirt reads as popping into existence -- which
+    is what the dirt cam did at 440x, forty seconds of pool between one frame
+    and the next. The top-down view is exempt and stays fast: it shows the
+    whole pool, and nothing in it moves a body length between frames.
+    """
+    import inspect
+
+    from zimablue.replay import export_chasecam, export_dirtcam
+
+    for export in (export_dirtcam, export_chasecam):
+        args = inspect.signature(export).parameters
+        speed = args["speed"].default
+        fps = args["fps"].default
+        assert speed / fps <= 3.0, f"{export.__name__} defaults to {speed / fps:.0f} s per frame"
+
+
+def test_a_window_renders_fewer_frames_than_the_whole_run(recording, tmp_path):
+    from PIL import Image
+
+    whole = export_dirtcam(
+        recording, tmp_path / "whole.gif", speed=24.0, fps=12, with_map=False, dpi=30
+    )
+    part = export_dirtcam(
+        recording,
+        tmp_path / "part.gif",
+        speed=24.0,
+        fps=12,
+        with_map=False,
+        dpi=30,
+        seconds=30.0,
+    )
+    assert Image.open(part).n_frames < Image.open(whole).n_frames
+    assert Image.open(part).n_frames > 1

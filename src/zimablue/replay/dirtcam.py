@@ -38,7 +38,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from zimablue.replay._deps import require_matplotlib
-from zimablue.replay.floorcam import FloorCamConfig, FloorCamera
+from zimablue.replay.floorcam import FloorCamConfig, FloorCamera, frame_window
 from zimablue.replay.floorcam import rgb as _rgb
 from zimablue.replay.renderer import PALETTE
 
@@ -205,17 +205,33 @@ def export_dirtcam(
     recording: Recording,
     path: str | Path,
     *,
-    speed: float = 240.0,
-    fps: int = 14,
+    speed: float = 24.0,
+    fps: int = 12,
     dpi: int = 72,
     with_map: bool = True,
     config: DirtCamConfig | None = None,
+    start: float = 0.0,
+    seconds: float | None = None,
 ) -> Path:
-    """Render the run as a dirt-cam animation.
+    """Render part of the run as a dirt-cam animation.
 
     ``with_map`` keeps a small top-down panel alongside, which is the version
     worth watching: the two disagree constantly, and the disagreement is the
     interesting part.
+
+    ``start`` and ``seconds`` cut a window out of the run, because a close-up
+    camera and a whole twenty-five-minute run do not go together. What decides
+    that is ``speed / fps`` -- the simulated seconds between one *displayed*
+    frame and the next. The robot clears its own length in about a second, so
+    at more than two or three seconds a frame you never see a patch being
+    swept, only that it has been: the floor arrives already clean and the dirt
+    reads as popping rather than lifting. The default here is two seconds a
+    frame; the whole run at that rate is not a GIF anyone wants, which is what
+    ``seconds`` is for.
+
+    The top-down view has no such limit and is happy at 260x, because it shows
+    the whole pool at once and nothing in it moves a body length between
+    frames.
     """
     require_matplotlib()
     # Deliberately not switching the global backend to Agg. Writing a file
@@ -234,7 +250,7 @@ def export_dirtcam(
 
     cam = DirtCam(recording, config)
     step = max(1, round(speed / (fps * max(recording.frame_dt, 1e-6))))
-    indices = list(range(0, recording.n_frames, step))
+    indices = frame_window(recording, start, seconds, step)
 
     if with_map:
         figure = plt.figure(figsize=(11.0, 4.0), facecolor=PALETTE["panel"])

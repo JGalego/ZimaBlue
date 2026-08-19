@@ -271,6 +271,21 @@ understand.
   stub let it through -- the type check runs on 3.12 with whatever numpy
   resolves that day, so it turned CI red without a line of code changing.
 
+- The dirt cam and chase cam still jumped after that, for a second reason:
+  the GIFs sampled the run more coarsely than the keyframes they read from.
+  `speed / fps` is the simulated time between one *displayed* frame and the
+  next, and at 440x/11fps that was **forty seconds** -- four whole dirt
+  keyframes, and twelve metres of driving, between one frame and the one after
+  it. No amount of interpolation survives that. Both exporters take `start` and
+  `seconds` now, and both assets show the opening two minutes at two seconds a
+  frame. Measured on the files themselves, pixels changing by more than 10%
+  between consecutive frames fall from 13.0% to 6.4% for the dirt cam and from
+  32.6% to 8.4% for the chase cam.
+
+  The top-down view keeps playing the whole clean at 260x, which is the same
+  rule rather than an exception to it: it shows the entire pool, nothing in it
+  moves a body length between frames, and it measures at 0.8%.
+
 - Dirt appeared in the replay rather than accumulating. It is keyframed every
   ten simulated seconds and every view read the nearest keyframe at or before
   the frame's time, so a cell held still for five hundred rendered frames and
