@@ -94,6 +94,7 @@ from zimablue.planners.partition import (
     make_partition,
     partitioned,
 )
+from zimablue.planners.seeker import DirtSeeker
 
 __all__ = [
     "BSA",
@@ -107,6 +108,7 @@ __all__ = [
     "Contour",
     "CoveragePath",
     "CoveragePlanner",
+    "DirtSeeker",
     "EpsilonStar",
     "Frontier",
     "FullSTC",

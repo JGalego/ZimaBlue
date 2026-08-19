@@ -224,7 +224,7 @@ class Scenario:
         from zimablue.controllers.base import CONTROLLERS
 
         params = dict(self.controller_params)
-        if self.controller == "random_bounce":
+        if self.controller in ("random_bounce", "dirt_seeker"):
             # Seed the controller from the scenario so a batch of episodes
             # actually varies, rather than every episode bouncing identically.
             params.setdefault("seed", self.seed)

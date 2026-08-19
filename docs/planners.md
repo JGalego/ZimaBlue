@@ -74,6 +74,7 @@ them, and that is the entire reason BCD was invented.
 | `ppcpp` | greedy on a reward, with a short lookahead (Hassan & Liu, 2019) |
 | `frontier` | always drive to the nearest thing you have not done (Yamauchi, 1997) |
 | `smc` | match a distribution rather than visit a set (Mathew & Mezić, 2011) |
+| `dirt_seeker` | chase the turbidity probe, not the map: scrub finds, remember them, wander between them |
 
 They differ in exactly one method apiece. `OnlineCoverage` owns the EKF, the
 occupancy grid, the recovery behaviour and the business of driving to a cell; a
@@ -84,6 +85,23 @@ That is not a convenience. If each algorithm brought its own motion layer, a
 difference in coverage could always be the motion layer's fault. Here the
 estimator, the grid resolution, the speeds and the bump recovery are the same
 code, so a difference in the numbers is a difference in the decision rule.
+
+### The one that is not chasing coverage at all
+
+`dirt_seeker` stands apart from the table: it never builds a map of where it
+has been, because it does not care. It reads the turbidity probe — the intake's
+"dirt detect" — and layers three habits: spiral over a reading that spikes
+above the running ambient level, bin the find into a coarse memory in the
+estimated frame, and wander when the trail goes cold. Everything it reads is
+measurable on a real machine, which makes it the deployable sibling of the
+`dirt_oracle` benchmark.
+
+On the kidney with autumn dirt it ends a ten-minute run with more of the dirt
+and less of the floor than `random_bounce` — the two metrics rank the two
+controllers in opposite orders, which is the package's thesis with a motor
+attached. Where the dirt hugs the walls (`corner_heavy`) its spirals fight the
+geometry and it gives a couple of points back; edge dirt wants an edge
+follower, and it does not have one.
 
 ### The map had to change first
 

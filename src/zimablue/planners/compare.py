@@ -450,6 +450,7 @@ ONLINE = (
     "ppcpp",
     "frontier",
     "smc",
+    "dirt_seeker",
 )
 OFFLINE = (
     "boustrophedon",
