@@ -6,8 +6,8 @@
     python examples/compare_planners.py --plots out/          # write the figures
     python examples/compare_planners.py --localisation both   # plan vs plan+odometry
 
-Twenty-one planners, three pools, eleven measurements each. The point is not
-to crown one. It is that the ranking changes with the pool and with which
+Every planner, on every pool, measured every way the harness knows. The
+point is not to crown one. It is that the ranking changes with the pool and with which
 column you read, and that the two columns nobody reports -- how much of the
 path was wasted overlap, and how much the robot had to turn -- separate
 planners that look identical on coverage.

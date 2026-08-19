@@ -28,7 +28,7 @@ controller           the idea
 The shared substrate
 --------------------
 
-All nine differ in exactly one method. :class:`OnlineCoverage` owns the EKF,
+They differ in exactly one method apiece. :class:`OnlineCoverage` owns the EKF,
 the occupancy grid, the recovery behaviour and the business of driving to a
 cell; a subclass implements :meth:`~OnlineCoverage.choose`, which is handed the
 cell the robot is standing in and returns the cells to drive through next.
@@ -138,7 +138,7 @@ class EvidenceMap(OccupancyMap):
     took twenty-five minutes to close on a kidney. It now clears walls under
     the hull; the vote counting below is still this class's own.)
 
-    Two changes fix it, and both are things the robot actually knows:
+    The fix is built from things the robot actually knows:
 
     * a wall needs corroboration -- ``votes`` sightings before the cell counts
       as blocked, and a beam that passes *through* a cell takes a vote away;
@@ -226,7 +226,7 @@ class OnlineCoverage:
     ) -> None:
         """Join a fleet. Called by :class:`~zimablue.fleet.Fleet` before reset.
 
-        Two things arrive with the invitation. The **origin** is where this
+        With the invitation comes the **origin**: where this
         robot starts in the frame the fleet shares, and starting the estimator
         there is what makes one robot's grid cells mean the same as another's
         -- up to the drift each of them accumulates afterwards, which is the

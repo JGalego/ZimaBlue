@@ -9,7 +9,7 @@ With no ``--photo`` this synthesises one, so the example runs anywhere and the
 answer can be checked: the fake is a render of the ``kidney`` preset, and the
 script prints how close the trace came to the pool it was drawn from.
 
-Three things a photograph does not tell you, and how each is handled:
+What a photograph does not tell you, and how each gap is handled:
 
 * **Scale.** Nothing in an image separates a small pool nearby from a large one
   far away, so a real measurement is required. ``--width`` is the easy one.

@@ -17,7 +17,7 @@ expectation is a tension rather than a ranking: chaos mixes, so a *high* rate
 should go with *better* coverage and *worse* repeatability. Whether that
 tension shows up is the interesting part.
 
-Two things make this cheap and honest here. The simulator is bit-reproducible,
+What makes this cheap and honest here: the simulator is bit-reproducible,
 so a run repeated with the same seed is identical to the last bit and any
 divergence at all comes from the perturbation. And the perturbation can be
 applied where it belongs -- to the initial pose -- rather than to the seed,

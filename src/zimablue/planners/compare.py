@@ -2,12 +2,13 @@
 
 A planner comparison usually reports coverage, sometimes coverage and path
 length, and calls it a result. That ranking is not wrong so much as
-underdetermined: the three planners at the top of it are typically within a
+underdetermined: the planners at the top of it are typically within a
 couple of points of each other on coverage while differing by a factor of two
 in how far they drove, how much they turned, how early they got most of the
 work done, and whether they finish at all on a pool with a waist in it.
 
-So this measures twelve things, and refuses to collapse them into one number.
+So this measures everything that differs, and refuses to collapse it into
+one number.
 There is no scalar "best planner" here, and the matrix plot exists precisely so
 that the shape of a planner is visible instead of its rank.
 

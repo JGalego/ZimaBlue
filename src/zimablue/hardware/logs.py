@@ -83,7 +83,7 @@ class Trajectory:
         """Forward speed and yaw rate, differentiated from the poses.
 
         Differentiating a real tracker's output is not the two-line job it
-        looks like. Three things bite, and all three were found by doing it
+        looks like. Everything below bites, and each was found by doing it
         wrong on a real file first:
 
         *Uneven sampling.* Mocap timestamps are not a grid. A pair of samples

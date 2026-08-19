@@ -3,8 +3,7 @@
 The tests that matter here are the ones a single-robot suite cannot have: that
 the robots are really in the same water rather than in parallel copies of it,
 that what they tell each other is limited to what they could actually know, and
-that dividing a pool five different ways produces five measurably different
-divisions.
+that each way of dividing a pool produces a measurably different division.
 """
 
 from __future__ import annotations

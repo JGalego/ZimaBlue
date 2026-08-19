@@ -1,8 +1,8 @@
 """The Gymnasium environment.
 
-Two things matter more than the rest here. One is that an episode is
-reproducible from its seed, because an RL result nobody can re-run is not a
-result. The other is that the reward is exactly the quantity it claims to be:
+What matters more than the rest here is that an episode is reproducible
+from its seed, because an RL result nobody can re-run is not a result -- and
+that the reward is exactly the quantity it claims to be:
 a reward that is *nearly* grams collected trains a policy to exploit the
 difference.
 """

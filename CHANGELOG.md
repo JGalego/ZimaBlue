@@ -25,7 +25,8 @@ understand.
   reset against one `World`, which is what makes the dirt shared. Nothing in
   the single-robot path changed to allow it.
 
-  Three things are genuinely new. They **collide** -- every backend is told
+  What is genuinely new is everything between the robots. They **collide**
+  -- every backend is told
   where the others are as discs before each tick, the resolver pushes them
   apart, and the sonar sees them, with `Contact.is_robot` separating a
   team-mate from a wall. They **talk badly** -- `Blackboard` is a radio, not a
@@ -41,15 +42,15 @@ understand.
   robot did) and `balance` (shortest robot's distance over the longest's,
   which catches one robot working while another parks).
 
-- **Five ways to divide a pool** (`zimablue.planners.partition`): `voronoi`,
+- **Dividing a pool between robots** (`zimablue.planners.partition`): `voronoi`,
   `geodesic`, `strips`, `darp` (Kapoutsis et al., 2017) and `forest` (Zheng et
-  al., 2005). Each territory becomes a small `Pool`, so all eight offline
-  planners work inside one unchanged:
+  al., 2005). Each territory becomes a small `Pool`, so every offline
+  planner works inside one unchanged:
   `controllers=partitioned("darp", "sweep_optimal")`. On a kidney with three
   robots the fairness -- smallest share over largest -- runs 0.51 for Voronoi,
   0.54 geodesic, 0.82 forest, 0.96 DARP, 0.99 strips.
 
-- **Five ways to cooperate without dividing** (`zimablue.planners.cooperative`):
+- **Cooperating without dividing** (`zimablue.planners.cooperative`):
   `mstc` and `mstc_backtracking` (Hazon & Kaminka, 2005), `auction` (Zlot et
   al., 2002), `binn_swarm` (Luo & Yang, 2008) and `smc_swarm` (multi-agent
   Mathew & Mezic). Plus a sixth that needed no code: every online planner
@@ -70,22 +71,23 @@ understand.
   speedup peaks at three robots and then falls: half the pool is already being
   done twice at three, and the fourth buys six points of floor for eight more
   of overlap and half again as many collisions.
-- **Coverage path planning** (`zimablue.planners`): eighteen planners, which is
-  most of the single-robot 2D literature. Eight offline -- `boustrophedon`,
-  `sweep_optimal`, `trapezoidal`, `boustrophedon_cells`, `morse`, `contour`,
-  `wavefront`, `spanning_tree` -- each returning a `CoveragePath` that
-  `PathFollower` drives. Ten online, registered as ordinary controllers:
-  `spiral_stc`, `full_stc`, `bsa`, `ba_star`, `brick_and_mortar`, `binn`,
-  `epsilon_star`, `ppcpp`, `frontier` and `smc`.
+- **Coverage path planning** (`zimablue.planners`): most of the single-robot
+  2D literature. Offline -- `boustrophedon`, `sweep_optimal`, `trapezoidal`,
+  `boustrophedon_cells`, `morse`, `contour`, `wavefront`, `spanning_tree` --
+  each returning a `CoveragePath` that `PathFollower` drives. Online,
+  registered as ordinary controllers: `spiral_stc`, `full_stc`, `bsa`,
+  `ba_star`, `brick_and_mortar`, `binn`, `epsilon_star`, `ppcpp`, `frontier`
+  and `smc`.
 
-  The online ten share one substrate. `OnlineCoverage` owns the EKF, the
+  The online planners share one substrate. `OnlineCoverage` owns the EKF, the
   occupancy grid, the bump recovery and the driving; each algorithm implements
   one method that returns the next cell. If they each brought their own motion
   layer, a difference in coverage could always be the motion layer's fault.
 
 - `EvidenceMap`, an occupancy grid that can change its mind about a wall. The
-  online planners drive on the map they build, and the first version of all ten
-  covered about an eighth of a pool before declaring it finished -- not because
+  online planners drive on the map they build, and the first version of every
+  one of them covered about an eighth of a pool before declaring it
+  finished -- not because
   of any of the algorithms, but because `OccupancyMap` never retracts a wall,
   and three minutes of sonar echoes scattered by a drifting pose turned an
   eight-metre pool into 552 wall cells around 108 of floor. A wall now needs
@@ -99,13 +101,13 @@ understand.
   gap is the most informative number in the package.
 
 - `zimablue.planners.compare`: a harness that runs every planner on every pool
-  and scores twelve dimensions -- coverage, dirt, evenness, the largest patch
-  left untouched, edge coverage, path efficiency, turning per metre, time to
-  half the pool, ergodic error, wasted time, energy and collisions.
-  Deliberately no scalar ranking.
-  `zimablue.planners.plots` draws four views of it: a normalised matrix, the
-  trajectories side by side, coverage against time, and any two dimensions
-  against each other with the Pareto front. `plot_plans` draws the offline
+  and scores each run on coverage, dirt, evenness, the largest patch left
+  untouched, edge coverage, path efficiency, turning per metre, time to half
+  the pool, ergodic error, wasted time, energy and collisions. Deliberately no
+  scalar ranking.
+  `zimablue.planners.plots` draws it as a normalised matrix, the trajectories
+  side by side, coverage against time, and any two dimensions against each
+  other with the Pareto front. `plot_plans` draws the offline
   routes and their decompositions before anyone has tried to drive them.
 
 - `smc`, spectral multiscale coverage (Mathew & Mezic). It never chooses a
@@ -121,7 +123,7 @@ understand.
   filling, tracing, scale, simplify, smooth -- is the same code the photograph
   path uses.
 
-  Three things make a drawing hard and each is handled: a lifted pen leaves
+  What makes a drawing hard is handled case by case: a lifted pen leaves
   gaps in the outline (the stroke is dilated to bridge them), sketches have
   arrows and labels inside the outline (filling inward from the page border
   includes them, which is correct), and a phone photo of paper has a shadow
@@ -173,7 +175,7 @@ understand.
   leaving behind, which neither the top-down view nor the dirt cam does. The
   camera's heading lags the robot's, so a turn reads as the robot swinging
   across frame rather than as the pool rotating.
-- **Cleaner designs**: `CleanerDesign`, `Part`, and seven archetypes —
+- **Cleaner designs**: `CleanerDesign`, `Part`, and the archetypes —
   `tracked`, `compact`, `heavy_duty`, `domed`, `flat_scrubber`, `quad_brush`,
   `suction_disc`. Both the top-down view and the chase cam draw the robot from
   its design, so a domed suction unit no longer looks like a quad-brush

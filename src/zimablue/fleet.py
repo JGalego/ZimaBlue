@@ -22,7 +22,7 @@ which is what makes the dirt shared. Nothing in the single-robot path changed
 to make this work, and a :class:`~zimablue.simulation.Simulation` is still the
 right thing to reach for when there is one robot.
 
-Three things are genuinely new.
+What is genuinely new is everything between the robots.
 
 **They collide.** Before each tick every backend is told where the others are,
 as discs. The collision resolver pushes them apart and the sonar sees them.

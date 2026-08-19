@@ -38,7 +38,7 @@ are reset against **one** `World`, which is what makes the dirt shared. Nothing
 in the single-robot path changed, and `Simulation` is still the right thing for
 one robot.
 
-Three things are new.
+What is new is everything between the robots.
 
 **They collide.** Every backend is told where the others are before each tick,
 as discs. The collision resolver pushes them apart and the sonar sees them, so
@@ -69,8 +69,8 @@ follow one member, instead of refusing to open it.
 ## Dividing the pool
 
 Most multi-robot coverage in the literature is one idea: cut the area into as
-many pieces as there are robots, then run a single-robot planner in each. Five
-ways to cut, each failing differently:
+many pieces as there are robots, then run a single-robot planner in each. Each
+way of cutting fails differently:
 
 | | | fairness on a kidney, 3 robots |
 |---|---|---|
@@ -88,7 +88,7 @@ the concavity. `geodesic` fixes the wall and not the fairness. `darp`
 and reports whether it converged. `forest` cannot produce a disconnected share
 because it cuts a tree, not a map.
 
-Every territory becomes a small `Pool`, so all eight offline planners work
+Every territory becomes a small `Pool`, so every offline planner works
 inside one unchanged:
 
 ```python
@@ -127,19 +127,19 @@ help until the planner can spend it.
 | `binn_swarm` | the neural field, with team-mates as inhibition |
 | `smc_swarm` | one ergodic time-average, shared across the fleet |
 
-There is a sixth that needed no code. Every online planner becomes cooperative
+One more needed no code at all. Every online planner becomes cooperative
 when the fleet hands it a blackboard: it publishes what it has covered and
 skips what its team-mates say they have done. `Fleet(..., share=True)` is that,
-it is the default, and it is the baseline the five above have to beat.
+it is the default, and it is the baseline the methods above have to beat.
 
 ### What the measurements said
 
-Three robots, kidney pool, eight minutes, one seed. Eleven dimensions, the same
-harness as the single-robot comparison with the three that only mean something
-for a team -- speedup, overlap, balance -- in place of the ones that do not.
+Three robots, kidney pool, eight minutes, one seed. The same harness as the
+single-robot comparison, with the dimensions that only mean something for a
+team -- speedup, overlap, balance -- in place of the ones that do not.
 
 <div align="center">
-<img src="assets/fleet-matrix.png" alt="Seventeen multi-robot methods scored on eleven dimensions" width="900">
+<img src="assets/fleet-matrix.png" alt="Every multi-robot method scored on every team dimension" width="900">
 </div>
 
 ```
@@ -164,9 +164,9 @@ forest+sweep_optimal            74.8%      48.3%      1.67x        48%       0.8
 darp+boustrophedon_cells        77.4%      53.2%     *2.15x        34%       0.75      2.8m2       0.39       39.3      never    9.9/min     26.9Wh
 ```
 
-Six things are worth saying out loud.
+A few things are worth saying out loud.
 
-**Partitioning does what it claims: it cuts the overlap.** The six
+**Partitioning does what it claims: it cuts the overlap.** The
 partition-and-sweep rows sit at 31–48% overlap; the cooperative rows sit at
 38–66%. `voronoi+sweep_optimal` at 31% is doing half the duplicate work of
 `binn` at 66%, and it removes more dirt while doing it.
@@ -232,7 +232,7 @@ for six points of floor.
 Speedup is team coverage over the best single member's, so a fall means the
 best member is now covering more of the pool on its own than the extra robot
 adds to the total. There is a fleet size past which you are buying company for
-your cleaner, and eleven columns rather than one is how you find it.
+your cleaner, and it takes more than the coverage column to find it.
 
 
 ## Pictures
@@ -247,7 +247,7 @@ plot_fleet(result).savefig("fleet.png")
 <img src="assets/fleet-views.png" alt="Paths, territory, overlap and progress for a three-robot fleet" width="900">
 </div>
 
-Four views, because none of them is enough on its own:
+None of the views is enough on its own:
 
 - **paths** — every robot's trajectory in its own colour. A partition is
   obvious at a glance here, and a partition that went wrong is more obvious

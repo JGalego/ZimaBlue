@@ -176,7 +176,7 @@ class RecordedSource:
     objects, so a controller can be driven from a recorded run without a
     simulator underneath it.
 
-    ``jitter`` and ``dropout`` inject the two things a simulator never produces
+    ``jitter`` and ``dropout`` inject what a simulator never produces
     and hardware always does.  They are the point: a controller that only ever
     sees a metronome is a controller whose timing assumptions have never been
     tested.  Both draw from a seeded generator, so a failure reproduces.

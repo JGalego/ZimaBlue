@@ -1,11 +1,11 @@
 """The control loop, with the simulator taken out from under it.
 
-``Simulation.step`` does four things in order: sense, decide, actuate, record.
-Only two of them are the simulator's -- sensing and actuating are the backend's
-job, and on a robot they are the driver's.  Deciding and recording are the same
-work either way, and this module is what is left when the other two are pulled
-out and replaced with a :class:`~zimablue.hardware.sources.ReadingSource` and a
-callable that writes motors.
+``Simulation.step`` runs sense, decide, actuate, record, in that order.
+Sensing and actuating are the backend's job, and on a robot they are the
+driver's.  Deciding and recording are the same work either way, and this
+module is what is left when the backend's half is pulled out and replaced
+with a :class:`~zimablue.hardware.sources.ReadingSource` and a callable that
+writes motors.
 
 The consequence is the point of the whole exercise: a controller written and
 tuned against the simulator runs here unmodified, because

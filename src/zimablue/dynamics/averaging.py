@@ -19,7 +19,7 @@ in the first few minutes and the rest of the cycle is spent waiting on the
 badly-served ones. A single exponential cannot produce the long tail every
 cleaning curve has; a distribution of them does it naturally.
 
-Which is useful in two ways.  Fit ``eta`` from the first few minutes and you
+Which earns its keep twice over.  Fit ``eta`` from the first few minutes and you
 can **predict the rest of the cycle** without simulating it -- if the
 prediction holds, the occupancy density is a sufficient statistic and every
 question about cleaning reduces to a question about where the robot spends its

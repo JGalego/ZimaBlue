@@ -19,7 +19,7 @@ planner                       the idea
 ``spanning_tree``             cover the pool by circumnavigating a tree
 ============================  =========================================
 
-Two things are shared and worth stating once.
+Some decisions are shared and worth stating once.
 
 **Lane spacing is the swath, not a guess.** Every sweep here spaces its lanes
 by the cleaning width the robot actually has, with a small overlap. A planner

@@ -4,7 +4,7 @@
     python examples/custom_robot.py
     python examples/custom_robot.py --minutes 5
 
-Two things worth noticing:
+Worth noticing:
 
 * No ZimaBlue file was edited to add this robot. A cleaner is a composition of
   components, so a new design is a call, not a patch.

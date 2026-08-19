@@ -24,7 +24,7 @@ What makes a drawing hard
 -------------------------
 
 Not the colours -- a sketch is usually the highest-contrast image you will ever
-segment. Three other things:
+segment. The trouble is elsewhere:
 
 **The line is not closed.** A hand-drawn loop has gaps where the pen lifted,
 and a paint-program stroke drawn fast has gaps where the mouse jumped. The
@@ -130,7 +130,7 @@ class SketchSegmenter:
     fill_from_border: bool = True
     """Take everything the page border cannot reach.
 
-    Two reasons this is the default over flood filling outward from a seed.
+    Why this is the default over flood filling outward from a seed:
     It needs no seed, so a drawing can be traced without being told where the
     inside is. And it fails safe: when the outline has a gap the bridge cannot
     close, this returns almost nothing and says so, where a seed fill leaks

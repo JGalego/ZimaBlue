@@ -44,7 +44,7 @@ and is sometimes the sky -- in a photo taken from the poolside the pool is
 foreshortened and the sky is not, so the sky can genuinely be bigger.
 
 **For a photograph, pass** ``sample=(x, y)`` **-- any pixel inside the
-water.** Two things then change. The water's colour is read off the water
+water.** That changes the reading. The water's colour is read off the water
 rather than assumed, which matters because pools go green and tiles go navy;
 and the region *containing that pixel* is taken rather than the biggest one.
 That second part is what settles the sky, which no colour rule can: a pool and
@@ -690,7 +690,7 @@ def trace_pool(
     inventing one would put every area and coverage number downstream quietly
     out by a factor nobody could see.
 
-    Two ways to tidy the outline, and they are not interchangeable.
+    The outline can be tidied, and the knobs are not interchangeable.
     ``smooth_edges`` is a radius in metres: a rolling ball that shaves the
     pixel staircase and fillets the corners by exactly that much, which is what
     a real pool's corners are anyway. ``smooth`` is a count of Fourier

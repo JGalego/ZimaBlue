@@ -7,9 +7,9 @@ literature is large — the most recent survey ([Shen et al.,
 hundred algorithms.
 
 `zimablue.planners` implements the 2D branch of it: every distinct *mechanism*,
-rather than every published variant. Eighteen single-robot planners, split by
-what they are allowed to know, and ten multi-robot methods on top of them --
-those are in [fleets](multi-robot.md).
+rather than every published variant. The single-robot planners are split by
+what they are allowed to know; the multi-robot methods built on top of them
+are in [fleets](multi-robot.md).
 
 ```python
 import zimablue as zb
@@ -41,7 +41,7 @@ same question with the policy learned rather than written.
 | `wavefront` | grid, distance transform, steepest descent |
 | `spanning_tree` | cover the pool by circumnavigating a tree |
 
-Two things are shared and worth stating once.
+Some decisions are shared across the whole registry and worth stating once.
 
 **Lane spacing is the swath, not a guess.** Every sweep spaces its lanes by the
 cleaning width the robot actually has. A planner that used a constant would
@@ -75,7 +75,7 @@ them, and that is the entire reason BCD was invented.
 | `frontier` | always drive to the nearest thing you have not done (Yamauchi, 1997) |
 | `smc` | match a distribution rather than visit a set (Mathew & Mezić, 2011) |
 
-All nine differ in exactly one method. `OnlineCoverage` owns the EKF, the
+They differ in exactly one method apiece. `OnlineCoverage` owns the EKF, the
 occupancy grid, the recovery behaviour and the business of driving to a cell; a
 subclass implements `choose`, which is handed the cell the robot is standing in
 and returns where to go next.
@@ -162,14 +162,14 @@ aiming at the far end of the lane instead, reverses out, finds itself more than
 a lookahead from the corner again, and turns back. It paced a 15 cm stretch of
 tile for the entire run at 4% coverage. There is a test named after it.
 
-## What eighteen planners actually do
+## What the planners actually do
 
 Fifteen minutes each, three pools (rectangular, kidney, L-shaped), one seed,
 median across pools. Offline planners are followed on dead reckoning. A `*`
 marks the best in a column.
 
 <div align="center">
-<img src="assets/planners-matrix.png" alt="Twenty-one planners scored on twelve dimensions" width="900">
+<img src="assets/planners-matrix.png" alt="Every planner scored on every dimension the harness measures" width="900">
 </div>
 
 ```
@@ -198,16 +198,17 @@ wavefront@odometry                  51.7%      33.9%       0.63     19.1m2      
 spanning_tree@odometry              47.0%      27.6%       0.63     10.8m2        73%       0.46       70.5      never      0.224        32%     16.8Wh    2.5/min
 ```
 
-Five things in there are worth saying out loud.
+A few things in there are worth saying out loud.
 
-**`random_bounce` at 65% beats sixteen of the twenty other planners.** Not on a
-technicality — it beats them on coverage, on the pool, in the same fifteen
-minutes. Anything here that scores below it is not paying for the machinery it
-carries, and that includes four planners with completeness proofs. This is the
-whole reason the comparison exists.
+**`random_bounce` at 65% beats most of the table.** Not on a technicality — it
+beats them on coverage, on the pool, in the same fifteen minutes. Anything here
+that scores below it is not paying for the machinery it carries, and that
+includes planners with completeness proofs. This is the whole reason the
+comparison exists.
 
-**The three at the top are field methods, not sweeps.** `binn` (68.9%),
-`frontier` (68.2%) and `epsilon_star` (66.4%) share a property: they never
+**The top of the table belongs to the field methods, not the sweeps.**
+`binn` (68.9%), `frontier` (68.2%) and `epsilon_star` (66.4%) share a
+property: they never
 commit to a route. On a pool where the map is built by bumping into things, a
 plan made early is a plan made from bad information, and the methods that
 re-decide every cell win.
@@ -232,7 +233,7 @@ say about that.
 The plans themselves, before anyone tried to drive them:
 
 <div align="center">
-<img src="assets/planners-plans.png" alt="Eight offline plans on the kidney pool" width="900">
+<img src="assets/planners-plans.png" alt="The offline plans on the kidney pool" width="900">
 </div>
 
 `trapezoidal` is the outlier, and it is correct rather than broken. Trapezoidal
@@ -259,7 +260,7 @@ or from the command line:
 python examples/compare_planners.py --minutes 20 --jobs 4 --plots out/
 ```
 
-Twelve measurements, and no attempt to collapse them into one:
+What gets measured, with no attempt to collapse it into one number:
 
 | | |
 |---|---|
@@ -286,7 +287,7 @@ planner that leaves a thin margin everywhere and one that leaves a whole corner
 untouched score the same, and only one of them has left a pool with a visibly
 dirty end.
 
-Four views, because one is not enough:
+No single view is enough:
 
 - **`plot_matrix`** — planners down, dimensions across, colour normalised
   within each column. Reads the *shape* of a planner rather than its rank.

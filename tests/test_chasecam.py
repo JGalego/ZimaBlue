@@ -1,8 +1,8 @@
 """The chase camera, and the cleaner designs it exists to show off.
 
-Two things are being defended here. That the projection is right -- a camera
+What is being defended here: that the projection is right -- a camera
 behind the robot has to put the robot in front of it, at a size that shrinks
-with distance, sitting on the floor rather than floating over it. And that a
+with distance, sitting on the floor rather than floating over it -- and that a
 design is *only* a drawing: swapping one must move pixels and nothing else.
 """
 

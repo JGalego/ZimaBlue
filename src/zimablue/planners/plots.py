@@ -1,8 +1,7 @@
-"""Pictures of a planner comparison. Four views, because one is not enough.
+"""Pictures of a planner comparison, because one view is not enough.
 
-A table of twelve columns is a reference, not an argument. These are the four
-readings of it that turned out to be worth having, and they answer different
-questions:
+A wide table is a reference, not an argument. These are the readings of it
+that turned out to be worth having, and they answer different questions:
 
 :func:`plot_matrix`
     All planners, all dimensions, rescaled so the best in each column is full
@@ -321,7 +320,7 @@ def plot_plans(pool: Any, planners=None, *, robot: Any = None, columns: int = 4)
 
 
 def plot_comparison(comparison: Comparison, *, pool: str | None = None) -> Any:
-    """All four views in one figure."""
+    """All the views in one figure."""
     require_matplotlib()
 
     pool_name = pool or comparison.pools[0]

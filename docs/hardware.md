@@ -59,7 +59,7 @@ Every number in the README has to be re-run afterwards.
 **Speed-loop gains.** `kp` and `ki` default to a starting point for a small
 geared drive. Measure the step response: command a fixed effort, log the
 encoder, fit a first-order lag, and set the gains from the time constant. Then
-check the two things that are easy to get wrong and painful to debug on a
+check what is easy to get wrong and painful to debug on a
 robot — that a saturating turn keeps its radius, and that a jammed track does
 not store up a lurch. Both are tested in
 [`tests/test_hardware.py`](../tests/test_hardware.py); neither is tested by
@@ -128,7 +128,7 @@ velocity by inverse kinematics. A real drivetrain's encoders run long, and that
 bias is the largest single term in dead-reckoning drift. The estimator is being
 flattered here, in a known direction.
 
-Two things it did tell us anyway. The estimator handles real motion without
+It told us something anyway. The estimator handles real motion without
 falling over, which means the 13.7 m of drift it shows over a 25-minute
 simulated run comes from the slip model rather than from real trajectories
 being hard to integrate. And `pioneer_slam2` ends 39° out on heading while the

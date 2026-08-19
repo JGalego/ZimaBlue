@@ -1,6 +1,6 @@
 """Coverage path planning: the plans, the followers, and the decision rules.
 
-Two kinds of test here, and the split is deliberate.
+The split here is deliberate.
 
 The **decision rules** are tested without a simulator. An online planner is a
 function from a grid to a next cell, and walking it over a synthetic grid tests

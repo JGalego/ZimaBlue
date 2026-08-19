@@ -68,7 +68,7 @@ moment that was never recorded.
 
 ### The dots
 
-Three unrelated things are drawn as dots, which is worth spelling out because
+Several unrelated things are drawn as dots, which is worth spelling out because
 at 260x playback they all read as flicker.
 
 **Rust-coloured flecks** are debris. Each is drawn as its own silhouette --

@@ -4,7 +4,7 @@
     python examples/fleet.py                              # three robots, one pool
     python examples/fleet.py --robots 4 --pool l_shaped
     python examples/fleet.py --controllers darp+sweep_optimal
-    python examples/fleet.py --plots out/                 # the four fleet views
+    python examples/fleet.py --plots out/                 # the fleet views
     python examples/fleet.py --compare --jobs 4           # every method, scored
     python examples/fleet.py --scaling                    # 1, 2, 3, 4 robots
 

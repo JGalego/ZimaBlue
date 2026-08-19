@@ -273,7 +273,7 @@ seed and prints what each returns. On a ten-minute kidney pool the baseline
 collects several times what a random policy does, and that is the number to
 beat — worth knowing before spending a GPU-day discovering it.
 
-Two things likely to beat a from-scratch policy for a thousandth of the
+What is likely to beat a from-scratch policy, for a thousandth of the
 compute:
 
 **Tune the baseline.**

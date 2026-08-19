@@ -1,9 +1,9 @@
 """Dynamical-systems analysis.
 
-Two kinds of test here, and the distinction matters. Some feed a *synthetic*
-signal with a known answer -- a perfectly periodic section, a uniform
-trajectory -- because that is the only way to know a detector detects. The rest
-run real simulations and check the analysis says something structurally true
+Some tests feed a *synthetic* signal with a known answer -- a perfectly
+periodic section, a uniform trajectory -- because that is the only way to know
+a detector detects. The rest run real simulations and check the analysis says
+something structurally true
 about them: that the mushroom's stem is found, that a parked robot scores
 worse, that identical runs do not diverge.
 

@@ -5,7 +5,7 @@
     python examples/tune_controller.py --objective coverage --iterations 40
     python examples/tune_controller.py --episodes 5 --minutes 8
 
-``BaselineCoverage`` has five numbers in it worth arguing about. This searches
+``BaselineCoverage`` has a handful of numbers in it worth arguing about. This searches
 them with a (1+1) evolution strategy -- propose a mutation, keep it if it
 scores better, shrink the step when it does not -- scoring each candidate on a
 batch of seeds so a lucky episode cannot win.

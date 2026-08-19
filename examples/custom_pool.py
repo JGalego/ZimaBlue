@@ -5,7 +5,7 @@
     python examples/custom_pool.py --minutes 5
 
 Pools are not a fixed menu. A pool is a boundary polygon, a depth model, a
-surface material and a list of features -- supply those four things and the
+surface material and a list of features -- supply those and the
 simulator treats yours exactly like a built-in preset.
 
 This builds a lap pool with a beach entry, a shallow ledge, an island planter

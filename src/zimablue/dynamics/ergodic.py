@@ -7,8 +7,8 @@ argument in one number instead, and it is a slight embarrassment that we got
 this far without naming it.
 
 Mathew and Mezić define the *ergodicity* of a trajectory against a target
-distribution as a Sobolev-space distance between two things: the fraction of
-time the trajectory has spent in each region, and the fraction of the target
+distribution as a Sobolev-space distance between the fraction of time the
+trajectory has spent in each region and the fraction of the target
 distribution that lives there.  Expand both in a Fourier basis and the distance
 is a weighted sum over modes::
 

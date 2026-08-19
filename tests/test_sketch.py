@@ -93,7 +93,7 @@ def test_it_works_on_a_dark_background():
     assert not mask[2, 2]
 
 
-# -- the three things that make a drawing hard -----------------------------
+# -- what makes a drawing hard ----------------------------------------------
 
 
 def test_bridging_closes_a_lifted_pen():

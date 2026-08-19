@@ -1,6 +1,6 @@
 """Spatial dirt state: a continuous field plus discrete debris.
 
-Two representations, because pools contain two genuinely different things:
+Separate representations, because pools contain genuinely different stuff:
 
 * :class:`DirtField` -- a mass raster, one layer per dirt type, in grams per
   cell.  Right for sediment, sand, algae and biofilm, which are spread thin and

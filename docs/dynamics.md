@@ -34,7 +34,7 @@ doing the same loop forever — and if it is *attracting*, the robot falls into
 it and coverage stops improving while every dashboard still says the machine is
 working.
 
-Two things about the implementation are not details.
+Some implementation choices are not details.
 
 **Contacts are debounced.** In a real run, 69% of raw bump-switch rising edges
 land less than half a second after the previous one: the robot bumps, backs off
@@ -89,7 +89,7 @@ moves through the top of the stem freely, and it is the bottom it cannot leave.
 Almost-invariant sets find where the traffic is thin, which is a different
 place from where the walls are.
 
-Two traps in the estimate, both hit while building this:
+Traps in the estimate, each hit while building this:
 
 - **Unvisited cells must be dropped, not made absorbing.** Each self-looping
   cell contributes an eigenvalue of exactly 1. Twenty-one unreachable cells in
@@ -176,7 +176,7 @@ On hardware the noise is independent and it would diverge.
 <img src="assets/dynamics-divergence.png" alt="Separation between perturbed twins over ten minutes on a log scale, for three controllers" width="760">
 </div>
 
-Two implementation notes, both from getting it wrong first. The start pose
+Implementation notes, each from getting it wrong first. The start pose
 comes from `Simulation.start_pose`, not from frame zero of the recording —
 frame zero is written after the first step and stored as float32, which
 displaced every twin by a third of a millimetre before the perturbation was
@@ -208,7 +208,7 @@ still. Where it is not, the error says so: a fit made during one strategy and
 spent on another is exactly what a large error means, which makes this a
 strategy-change detector as much as a predictor.
 
-## Two pools chosen for their dynamics
+## Pools chosen for their dynamics
 
 ```bash
 zimablue run stadium --minutes 20
@@ -237,7 +237,7 @@ the same topology with corners.
 
 ## What this cost us in honesty
 
-Two predictions made before implementing, both wrong, both left in the record:
+Predictions made before implementing, both wrong, both left in the record:
 
 **The spectral gap does not explain the localisation paradox, and there was no
 paradox.** The claim was that calibrating the odometry slows mixing and that is

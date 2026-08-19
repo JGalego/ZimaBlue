@@ -6,7 +6,7 @@ It is not a dodge. Coverage of a region is a solved problem, the partition is
 where the multi-robot content lives, and a good partition turns N robots into
 something close to N times one robot -- which is the most anyone has managed.
 
-Four ways to cut, each failing differently:
+Each way of cutting fails differently:
 
 ====================  ====================================================
 ``voronoi``           nearest robot wins, by straight-line distance
@@ -24,8 +24,8 @@ ignore where the robots actually are. ``darp`` is the one that gets both, and
 pays for it with an iteration that does not always converge. ``forest``
 guarantees each share is connected, because it cuts a tree rather than a map.
 
-Every territory becomes a small :class:`~zimablue.pool.Pool`, so all eight
-offline planners work inside one unchanged::
+Every territory becomes a small :class:`~zimablue.pool.Pool`, so every
+offline planner works inside one unchanged::
 
     from zimablue.planners.partition import partitioned
 

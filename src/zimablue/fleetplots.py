@@ -6,7 +6,7 @@ quantities are all *relations* -- who covered what, who did more than their
 share, where two robots went over the same tile, when each of them stopped
 being useful. None of that is visible in a picture of three robots driving.
 
-Four views, one function each, and :func:`plot_fleet` assembles them:
+One function per view, and :func:`plot_fleet` assembles them:
 
 :func:`plot_paths`
     Every robot's trajectory in its own colour, on the pool. The one view
@@ -299,7 +299,7 @@ def _curve_for(recording, pool, prefixes, swath, samples):
 
 
 def plot_fleet(result: Any) -> Any:
-    """All four views in one figure."""
+    """All the views in one figure."""
     require_matplotlib()
     import matplotlib.pyplot as plt
 

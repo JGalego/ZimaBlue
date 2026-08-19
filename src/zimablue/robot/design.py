@@ -9,7 +9,7 @@ are the first thing anybody notices and the last thing a simulator usually
 models.
 
 A :class:`CleanerDesign` is a silhouette and a handful of parts, in normalised
-body coordinates.  Two things follow from that:
+body coordinates.  What follows from that:
 
 **It is purely cosmetic.** Physics reads :class:`~zimablue.robot.Chassis`, and
 only ``Chassis``. Collision uses the hull rectangle, cleaning uses the swath
