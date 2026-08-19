@@ -443,3 +443,51 @@ def test_an_explicit_seed_still_pins_the_episode(env):
     second = [env.reset(seed=3)[1]["seed"]] + [env.reset()[1]["seed"] for _ in range(2)]
     assert first[0] == 3
     assert first == second
+
+
+# ----------------------------------------------------------------------
+def test_the_module_prefixed_id_needs_no_import():
+    """gym.make("zimablue.rl:ZimaBlue-v0") is the documented one-liner."""
+    made = gym.make("zimablue.rl:ZimaBlue-v0", pool="rectangular", minutes=0.5)
+    made.reset(seed=1)
+    made.close()
+
+
+def test_a_callable_reward_sees_the_info_before_and_after():
+    """A custom reward reconstructing "dirt" pays exactly what "dirt" pays."""
+    plain = PoolCleaningEnv(pool="rectangular", dirt="light_sediment", minutes=1.0)
+    custom = PoolCleaningEnv(
+        pool="rectangular",
+        dirt="light_sediment",
+        minutes=1.0,
+        reward=lambda prev, now: now["dirt_collected"] - prev["dirt_collected"],
+    )
+    _, expected, _ = rollout(plain, seed=3)
+    _, rewards, _ = rollout(custom, seed=3)
+    plain.close()
+    custom.close()
+    assert np.allclose(rewards, expected)
+
+
+def test_render_returns_frames_a_video_wrapper_can_eat():
+    made = PoolCleaningEnv(pool="rectangular", dirt="autumn", minutes=0.5, render_mode="rgb_array")
+    made.reset(seed=0)
+    first = made.render()
+    assert first.dtype == np.uint8
+    assert first.ndim == 3 and first.shape[2] == 3
+    assert max(first.shape[:2]) >= 360
+
+    for _ in range(10):
+        made.step(np.ones(2, dtype=np.float32))
+    later = made.render()
+    assert later.shape == first.shape
+    assert not np.array_equal(first, later), "the robot moved; the frame should have"
+    made.close()
+
+
+def test_render_without_a_mode_says_what_to_do():
+    made = PoolCleaningEnv(pool="rectangular", minutes=0.5)
+    made.reset(seed=0)
+    with pytest.raises(ValueError, match="rgb_array"):
+        made.render()
+    made.close()

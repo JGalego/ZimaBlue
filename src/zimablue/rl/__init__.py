@@ -5,9 +5,12 @@
     pip install "zimablue[rl]"
 
     import gymnasium as gym
-    import zimablue.rl  # registers the ids
 
-    env = gym.make("ZimaBlue-v0", dirt="autumn", minutes=10)
+    env = gym.make("zimablue.rl:ZimaBlue-v0", dirt="autumn", minutes=10)
+
+The module prefix makes Gymnasium import this package first, so nothing else
+has to; a plain ``import zimablue.rl`` followed by ``gym.make("ZimaBlue-v0")``
+is the same thing spelt in two lines.
 
 The environment is in :mod:`zimablue.rl.env`. Gymnasium is an optional
 dependency, so importing this package without it fails with an instruction

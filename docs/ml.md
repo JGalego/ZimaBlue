@@ -133,10 +133,12 @@ need a dataset that does not currently exist.
 
 ```python
 import gymnasium as gym
-import zimablue.rl  # registers the id
 
-env = gym.make("ZimaBlue-v0", pool="kidney", dirt="autumn", minutes=10)
+env = gym.make("zimablue.rl:ZimaBlue-v0", pool="kidney", dirt="autumn", minutes=10)
 ```
+
+The module prefix makes Gymnasium import `zimablue.rl` on the way, which is
+where the id gets registered -- no import line of your own needed.
 
 or directly:
 
@@ -219,6 +221,36 @@ Both are paid per decision on what changed during it, so the episode return is
 exactly the final number: summed dirt reward equals grams collected to the last
 significant figure, and summed coverage reward equals the floor reached minus
 the swath the robot was dropped onto.
+
+## Rewards beyond the two built-ins
+
+`reward="dirt"` and `reward="coverage"` are the two ends of the project's
+argument. Anything in between is a callable taking the `info` dict from before
+and after the decision:
+
+```python
+env = PoolCleaningEnv(
+    reward=lambda prev, now: (now["dirt_collected"] - prev["dirt_collected"])
+    - 40.0 * (prev["battery"] - now["battery"])  # grams, net of the energy bill
+)
+```
+
+`info` carries `coverage`, `dirt_removed`, `dirt_collected`, `distance`,
+`battery` and `time`, so shaping terms stay one lambda rather than a subclass.
+
+## Watching it train
+
+`render_mode="rgb_array"` draws the pool from the simulation grids with numpy
+alone -- dirt darkening the water, visited floor lifted a shade, the robot on
+top -- which is what `RecordVideo` needs:
+
+```python
+env = gym.make("zimablue.rl:ZimaBlue-v0", render_mode="rgb_array")
+env = gym.wrappers.RecordVideo(env, "videos", episode_trigger=lambda e: e % 50 == 0)
+```
+
+For anything closer to the real thing, construct with `record=True` and call
+`env.save("episode.zbr")` -- the replay cameras beat a training video.
 
 ## Throughput
 

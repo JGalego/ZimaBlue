@@ -30,10 +30,20 @@ visited floor. They do not agree -- the whole project exists because they do
 not agree -- and a policy trained on coverage will learn the oracle's failure
 mode of driving beautifully over dirt it never picks up. Dirt is the default
 because it is the one that means anything.
+
+Anything else is a callable. It receives the ``info`` dict from before and
+after the decision and returns the payment, so "grams, minus what the battery
+paid for them" is one line::
+
+    env = PoolCleaningEnv(
+        reward=lambda prev, now: (now["dirt_collected"] - prev["dirt_collected"])
+        - 40.0 * (prev["battery"] - now["battery"])
+    )
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import gymnasium as gym
@@ -50,6 +60,17 @@ __all__ = ["REWARDS", "PoolCleaningEnv", "channel_names", "observe"]
 REWARDS = ("dirt", "coverage")
 
 FloatArray = NDArray[np.float32]
+
+RewardFn = Callable[[dict[str, Any], dict[str, Any]], float]
+
+# The replay palette's colours, repeated here as plain RGB rather than
+# imported: rendering a training video must not pull in matplotlib.
+_OUTSIDE = (8, 17, 27)  # panel
+_WATER = (14, 108, 178)  # mid
+_VISITED = (56, 140, 198)  # mid, lifted -- the floor the robot has passed over
+_SILT = (51, 39, 15)  # silt
+_HULL = (219, 231, 240)  # ink
+_NOSE = (61, 220, 255)  # accent
 
 
 def channel_names(robot: Cleaner) -> list[str]:
@@ -149,7 +170,7 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
     learn the planner alone. See :mod:`zimablue.rl.observations`.
     """
 
-    metadata = {"render_modes": []}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 5}
 
     def __init__(
         self,
@@ -159,15 +180,21 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         dirt: Any = "light_sediment",
         minutes: float = 10.0,
         control_hz: float = 5.0,
-        reward: str = "dirt",
+        reward: str | RewardFn = "dirt",
         seed: int = 0,
         timestep: float = 0.02,
         record: bool = False,
+        render_mode: str | None = None,
         extra_observations: Any = None,
         **simulation_kwargs: Any,
     ) -> None:
-        if reward not in REWARDS:
-            raise ValueError(f"reward must be one of {REWARDS}, got {reward!r}")
+        if not callable(reward) and reward not in REWARDS:
+            raise ValueError(f"reward must be one of {REWARDS} or a callable, got {reward!r}")
+        if render_mode is not None and render_mode not in self.metadata["render_modes"]:
+            raise ValueError(
+                f"render_mode must be one of {self.metadata['render_modes']} or None, "
+                f"got {render_mode!r}"
+            )
         if control_hz <= 0 or control_hz > 1.0 / timestep:
             raise ValueError(
                 f"control_hz must be positive and no faster than the {1 / timestep:g} Hz "
@@ -178,7 +205,9 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         self.robot = robot
         self.dirt = dirt
         self.minutes = float(minutes)
-        self.reward_kind = reward
+        self.reward_fn: RewardFn | None = reward if callable(reward) else None
+        self.reward_kind = "custom" if callable(reward) else reward
+        self.render_mode = render_mode
         self.timestep = float(timestep)
         self.record = record
         self.simulation_kwargs = simulation_kwargs
@@ -189,6 +218,10 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
 
         self.control_hz = 1.0 / (self.repeat * timestep)
         """What the decimation actually came out at, after rounding."""
+
+        # Per instance, so RecordVideo plays a video back at the rate the
+        # decisions were made rather than at whatever the class default says.
+        self.metadata = {**type(self).metadata, "render_fps": max(round(self.control_hz), 1)}
 
         self.max_steps = max(round(self.minutes * 60.0 / (self.repeat * timestep)), 1)
 
@@ -204,6 +237,8 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         self._collected = 0.0
         self._visited = 0
         self._saved = False
+        self._prev_info: dict[str, Any] = {}
+        self._render_vmax = 1.0
 
         # Build one throwaway simulation to learn the observation's shape. The
         # sensor suite is fixed by the robot, so this is a one-off cost and it
@@ -299,10 +334,17 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         self._collected = 0.0
         self._saved = False
         self._visited = self._visited_cells()
+        # The shade at which a cell renders fully silted, fixed at reset so a
+        # video does not rescale itself as the pool gets cleaner.
+        initial = self.sim.world.dirt.field.total_grid()
+        dirty = initial[initial > 0]
+        self._render_vmax = float(np.percentile(dirty, 95.0)) if dirty.size else 1.0
         # One tick so the sensors have produced something to look at. The
         # command is a stop, so nothing has happened yet.
         self.sim.step()
-        return self._observe(), self._info()
+        info = self._info()
+        self._prev_info = info
+        return self._observe(), info
 
     def step(self, action: FloatArray) -> tuple[FloatArray, float, bool, bool, dict[str, Any]]:
         if self.sim is None:
@@ -320,10 +362,11 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
             self.sim.step()
         self.elapsed += 1
 
-        reward = self._reward()
+        info = self._info()
+        reward = self._reward(info)
         terminated = self.sim.termination_reason() is not None
         truncated = self.elapsed >= self.max_steps
-        return self._observe(), reward, terminated, truncated, self._info()
+        return self._observe(), reward, terminated, truncated, info
 
     # ------------------------------------------------------------------
     def _visited_cells(self) -> int:
@@ -331,9 +374,12 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
         navigable = self.sim.pool.navigable_mask(self.sim.world.cell)
         return int((navigable & (self.sim.backend.visit_grid > 0)).sum())
 
-    def _reward(self) -> float:
+    def _reward(self, info: dict[str, Any]) -> float:
         """Paid per decision, on what changed during it."""
         assert self.sim is not None
+        if self.reward_fn is not None:
+            previous, self._prev_info = self._prev_info, info
+            return float(self.reward_fn(previous, info))
         if self.reward_kind == "dirt":
             collected = float(self.sim.state.dirt_collected)
             gained = collected - self._collected
@@ -361,6 +407,67 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
             "distance": self.sim.state.distance,
             "battery": self.sim.state.battery_fraction,
         }
+
+    def render(self) -> NDArray[np.uint8]:
+        """The pool as an RGB frame: dirt darkening the water, the robot on top.
+
+        Drawn straight from the simulation grids with numpy, so recording a
+        training video costs no plotting stack. ``render_mode="rgb_array"``
+        makes ``gymnasium.wrappers.RecordVideo`` and ``HumanRendering`` work
+        as they do on any other env; for anything closer to the real replay,
+        ``record=True`` plus :meth:`save` is the better camera.
+        """
+        if self.render_mode != "rgb_array":
+            raise ValueError(
+                'render() needs render_mode="rgb_array"; construct the env with it '
+                "(or through gym.make, which passes it along)"
+            )
+        if self.sim is None:
+            raise RuntimeError("call reset() before render()")
+
+        cell = self.sim.world.cell
+        navigable = self.sim.pool.navigable_mask(cell)
+        visited = navigable & (self.sim.backend.visit_grid > 0)
+        dirt = self.sim.world.dirt.field.total_grid() / max(self._render_vmax, 1e-9)
+        dirt = np.clip(dirt, 0.0, 1.0)[..., None]
+
+        frame = np.empty((*navigable.shape, 3), dtype=np.float32)
+        frame[:] = _OUTSIDE
+        frame[navigable] = _WATER
+        frame[visited] = _VISITED
+        silt = np.array(_SILT, dtype=np.float32)
+        frame[navigable] = frame[navigable] * (1.0 - dirt[navigable]) + silt * dirt[navigable]
+
+        grid = self.sim.pool.grid(cell)
+        state = self.sim.state
+        rows, cols = navigable.shape
+
+        def stamp(x: float, y: float, radius_m: float, colour: tuple[int, int, int]) -> None:
+            row = (y - grid.miny) / cell
+            col = (x - grid.minx) / cell
+            reach = max(radius_m / cell, 1.0)
+            r0, r1 = int(max(row - reach, 0)), int(min(row + reach + 1, rows))
+            c0, c1 = int(max(col - reach, 0)), int(min(col + reach + 1, cols))
+            if r0 >= r1 or c0 >= c1:
+                return
+            rr, cc = np.ogrid[r0:r1, c0:c1]
+            disc = (rr - row) ** 2 + (cc - col) ** 2 <= reach**2
+            frame[r0:r1, c0:c1][disc] = colour
+
+        radius = self.sim.robot.radius
+        stamp(state.x, state.y, radius, _HULL)
+        stamp(
+            state.x + 0.7 * radius * np.cos(state.heading),
+            state.y + 0.7 * radius * np.sin(state.heading),
+            0.4 * radius,
+            _NOSE,
+        )
+
+        # Row 0 of the grid is the pool's south edge; row 0 of an image is the
+        # top. Flip, then upscale to a size a video codec will not smear.
+        image = frame[::-1].astype(np.uint8)
+        scale = max(int(np.ceil(360 / max(rows, cols))), 1)
+        return np.kron(image, np.ones((scale, scale, 1), dtype=np.uint8))
 
     def save(self, path: str) -> Any:
         """Write the episode to a ``.zbr``, to watch it in the replay viewer.
