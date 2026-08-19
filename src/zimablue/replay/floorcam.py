@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 
-from zimablue.replay.renderer import PALETTE, Scene, load_scene
+from zimablue.replay.renderer import PALETTE, Scene, load_scene, pile_range
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from zimablue.recording import Recording
@@ -99,6 +99,7 @@ class FloorCamera:
         dirt0 = recording.dirt_at(0.0)
         positive = dirt0[dirt0 > 0] if dirt0.size else np.zeros(0)
         self._dirt_max = float(np.percentile(positive, 92)) if positive.size else 1.0
+        self._pile_range = pile_range(recording, self._dirt_max)
 
     # ------------------------------------------------------------------
     def _build_rays(self) -> None:
@@ -208,10 +209,18 @@ class FloorCamera:
         cfg = self.config
         floor = np.array(rgb(PALETTE["shallow"]))
         filth = np.array(rgb(PALETTE["dirt"]))
+        silt = np.array(rgb(PALETTE["silt"]))
         water = np.array(rgb(PALETTE["deep"]))
 
-        intensity = np.clip(dirt / max(self._dirt_max, 1e-9), 0.0, 1.0)[..., None]
-        image = floor * (1.0 - intensity) + filth * intensity
+        # Two regimes, for the same reason the top-down view has two: dirt
+        # blends in up to `_dirt_max`, and beyond it -- where the returns have
+        # swept the floor into a heap -- the colour keeps darkening. With one
+        # regime a heap is a flat brown patch whose edge is all that moves.
+        ratio = dirt / max(self._dirt_max, 1e-9)
+        intensity = np.clip(ratio, 0.0, 1.0)[..., None]
+        heaped = np.clip((ratio - 1.0) / max(self._pile_range - 1.0, 1e-9), 0.0, 1.0)[..., None]
+        muck = filth * (1.0 - heaped) + silt * heaped
+        image = floor * (1.0 - intensity) + muck * intensity
 
         # Walls are tiled in the same material as the floor, just turned
         # vertical and in their own shadow. Shading rather than replacing keeps

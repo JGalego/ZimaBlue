@@ -26,7 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
-__all__ = ["PALETTE", "ReplayRenderer", "load_scene"]
+__all__ = ["PALETTE", "ReplayRenderer", "load_scene", "pile_range"]
 
 PALETTE = {
     "deep": "#053a68",
@@ -38,6 +38,7 @@ PALETTE = {
     "accent": "#3ddcff",
     "trail": "#7fe9ff",
     "dirt": "#6b5735",
+    "silt": "#33270f",
     "warn": "#ffb648",
     "bad": "#ff6b6b",
     "good": "#7ee787",
@@ -291,8 +292,9 @@ class ReplayRenderer:
         # --- dirt ----------------------------------------------------------
         dirt0 = rec.dirt_at(0.0)
         self._dirt_max = float(np.percentile(dirt0[dirt0 > 0], 92)) if np.any(dirt0 > 0) else 1.0
+        self._dirt_pile = pile_range(rec, self._dirt_max)
         self._dirt_image = ax.imshow(
-            _dirt_alpha(dirt0, scene.navigable, self._dirt_max),
+            _dirt_alpha(dirt0, scene.navigable, self._dirt_max, pile=self._dirt_pile),
             extent=scene.grid.extent,
             origin="lower",
             zorder=3,
@@ -611,7 +613,12 @@ class ReplayRenderer:
         # between, so the field creeps rather than stepping and a shoved leaf
         # slides rather than teleporting.
         self._dirt_image.set_data(
-            _dirt_alpha(rec.dirt_at(t, interpolate=True), scene.navigable, self._dirt_max)
+            _dirt_alpha(
+                rec.dirt_at(t, interpolate=True),
+                scene.navigable,
+                self._dirt_max,
+                pile=self._dirt_pile,
+            )
         )
         self._covered_image.set_data(_covered_alpha(self._first_visit <= index, scene.navigable))
         debris = rec.debris_at(t, interpolate=True)
@@ -923,20 +930,53 @@ def _hex_rgb(value: str) -> tuple[float, float, float]:
     return tuple(int(value[i : i + 2], 16) / 255.0 for i in (0, 2, 4))  # type: ignore[return-value]
 
 
+def pile_range(recording: Recording, vmax: float) -> float:
+    """How many times ``vmax`` the heaviest cell of a run reaches.
+
+    Calibrating the overlay on the first frame alone was fine when dirt only
+    ever went away. It accumulates now -- the returns sweep it into a heap at
+    the drain -- so the scale has to be told how far the run actually goes, or
+    the heap is one flat saturated blob whose edge is the only part that moves.
+    """
+    if recording.dirt_keyframes.size == 0:
+        return 8.0
+    heaviest = float(recording.dirt_keyframes.sum(axis=1, dtype=np.float32).max())
+    return float(np.clip(heaviest / max(vmax, 1e-9), 2.0, 64.0))
+
+
 def _dirt_alpha(
-    dirt: np.ndarray, navigable: np.ndarray, vmax: float, *, strength: float = 0.85
+    dirt: np.ndarray,
+    navigable: np.ndarray,
+    vmax: float,
+    *,
+    pile: float = 8.0,
+    strength: float = 0.85,
 ) -> np.ndarray:
     """Dirt as a semi-transparent brown overlay on the water.
 
     An alpha layer rather than a colormap so the depth shading stays visible
     underneath: the viewer should be able to see both how deep and how dirty a
     patch is at once.
+
+    Alpha alone runs out. ``vmax`` is a percentile of the dirt a run *starts*
+    with, and the returns sweep the floor into heaps an order of magnitude
+    above that -- more than twenty times, in a kidney -- so a pile pins the
+    alpha at maximum across its whole width and only its edge appears to move.
+    Past ``vmax`` the colour darkens towards silt instead, which keeps the
+    heap's growth visible without touching how anything below ``vmax`` looks.
+    ``pile`` is how many times ``vmax`` reaches the darkest silt, and callers
+    take it from the heaviest cell the run ever holds so the whole range is
+    used rather than guessed at.
     """
     if dirt.size == 0 or dirt.shape != navigable.shape:
         return np.zeros((*navigable.shape, 4), dtype=float)
-    intensity = np.clip(dirt / max(vmax, 1e-9), 0.0, 1.0)
+    ratio = dirt / max(vmax, 1e-9)
+    intensity = np.clip(ratio, 0.0, 1.0)
+    heaped = np.clip((ratio - 1.0) / max(pile - 1.0, 1e-9), 0.0, 1.0)[..., None]
     rgba = np.zeros((*dirt.shape, 4), dtype=float)
-    rgba[..., :3] = _hex_rgb(PALETTE["dirt"])
+    light = np.array(_hex_rgb(PALETTE["dirt"]))
+    dark = np.array(_hex_rgb(PALETTE["silt"]))
+    rgba[..., :3] = light * (1.0 - heaped) + dark * heaped
     rgba[..., 3] = np.where(navigable, intensity * strength, 0.0)
     return rgba
 

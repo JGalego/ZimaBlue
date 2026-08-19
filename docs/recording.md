@@ -125,8 +125,13 @@ the eye and to within a gram, at 0.1% of the size.
 
 Keyframes are `float16`. They are a visualisation and analysis artefact; the
 metrics that matter are computed from the live field and stored separately in
-`metrics.json`. At typical per-cell masses (~0.2 g), `float16` still resolves
-well under a milligram.
+`metrics.json`. Across the range a cell actually covers — a fifth of a gram of
+ordinary sediment up to the eight or so grams a heap at the drain reaches —
+`float16` resolves to a few milligrams at worst.
+
+It is a *storage* format and nothing more: reading it back widens to `float32`
+first, because summing the layers or weighting two keyframes at this precision
+loses far more than the quantisation does.
 
 Lookup takes the nearest keyframe at or *before* the requested time. That is
 the exact field the simulator held at a moment it really recorded, which is
@@ -167,6 +172,10 @@ zb.Simulation(..., dirt_keyframe_interval=30.0)  # fewer dirt snapshots
 zb.Simulation(..., timestep=0.05)  # 20 Hz instead of 50
 zb.Simulation(..., record=False)  # metrics only
 ```
+
+Widening the keyframe interval costs replay smoothness, not correctness: the
+views blend between keyframes, and the further apart they are the more of the
+timing that blend is guessing at.
 
 `record=False` is the right default for batch sweeps, and `run_batch` uses it
 unless you pass `--record-dir`.

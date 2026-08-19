@@ -263,6 +263,39 @@ understand.
   4320 degrees.
 
 ### Fixed
+- Dirt appeared in the replay rather than accumulating. It is keyframed every
+  ten simulated seconds and every view read the nearest keyframe at or before
+  the frame's time, so a cell held still for five hundred rendered frames and
+  then stepped: the heap the returns build at the deep end changed on 19 of
+  10 000 frames. `dirt_at` and `debris_at` take `interpolate=True`, which the
+  views use and measurements do not -- the exact keyframe is still the default,
+  because it is the field the simulator really held. The largest single-frame
+  change in that heap goes from 0.025 g to 0.00005 g.
+
+  The blend has to be computed in `float32`. Keyframes are stored as `float16`
+  to keep the file small, and weighting two of them at that precision loses
+  more than the step being smoothed -- enough to land the result below both of
+  the values it sits between.
+
+- Debris was drawn where it started, for the whole run. Every view built the
+  outlines once from the first frame on a stated assumption that debris settles
+  and is only ever removed; `DebrisSet.nudge` moves it, because the robot
+  shoves anything too big for the intake out of the way. Of the 20 items left
+  in a 25-minute kidney run, the median had moved 1.26 m and 16 had moved
+  further than their own length -- all painted at their `t=0` positions.
+  `debris_polygons` now splits into `debris_offsets` (an outline about its own
+  centre) plus a live centre, and items fade over the interval in which they
+  were collected instead of winking out between frames.
+
+- The dirt overlay saturated. Its scale is a percentile of the dirt a run
+  *starts* with, and the corrected physics sweeps the floor into heaps more
+  than twenty times that, so a heap was one flat patch whose edge was the only
+  part that moved. Past the scale the colour now darkens towards silt, over a
+  range taken from the heaviest cell the run actually holds.
+
+- `tools/make_assets.py` builds `chase.gif`, which the README has shown since
+  the chase cam landed with nothing in the repository that could regenerate it.
+
 - `OccupancyMap` could only ever gain walls. `mark_free` refused to overwrite
   one, and walls are stamped from the *estimated* pose, so a drifting estimate
   painted a few spurious ones in open water every minute; over twenty-five

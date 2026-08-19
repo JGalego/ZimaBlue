@@ -294,8 +294,15 @@ class DirtField:
         float16 because keyframes are a visualisation and analysis artefact,
         not the source of truth: the metrics that matter are computed from the
         live field and stored separately. Halving the width halves the biggest
-        contributor to a recording's size, and at typical per-cell masses
-        (~0.2 g) float16 still resolves to well under a milligram.
+        contributor to a recording's size, and across the range a cell actually
+        covers -- from a fifth of a gram of ordinary sediment to the eight or
+        so grams a heap at the drain reaches -- float16 resolves to a few
+        milligrams at worst.
+
+        It is a *storage* format and nothing more. Reading it back through
+        :meth:`~zimablue.recording.Recording.dirt_at` widens to float32 first,
+        because summing the layers or weighting two keyframes at this precision
+        loses far more than the quantisation does.
         """
         if not self.layers:
             return np.zeros((0, *self.grid.shape), dtype=np.float16)

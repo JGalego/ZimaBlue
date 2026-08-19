@@ -9,6 +9,8 @@ import pytest
 
 matplotlib.use("Agg", force=True)
 
+import numpy as np
+
 from zimablue.replay import (
     SPEEDS,
     ReplayRenderer,
@@ -16,6 +18,16 @@ from zimablue.replay import (
     export_summary,
     load_scene,
 )
+from zimablue.replay.renderer import PALETTE, _hex_rgb
+
+
+@pytest.fixture(scope="module")
+def autumn_recording(tmp_path_factory):
+    """A run with dirt that piles up, which light sediment does not do."""
+    import zimablue as zb
+
+    result = zb.Simulation(pool="kidney", dirt="autumn", seed=11).run(seconds=180)
+    return zb.Recording.load(result.save(tmp_path_factory.mktemp("zbr") / "autumn.zbr"))
 
 
 def test_scene_is_rebuilt_from_the_recording(short_run):
@@ -126,3 +138,47 @@ def test_the_hud_reports_debris_the_intake_cannot_take(tmp_path):
     assert total == result.metrics.debris_collected + result.metrics.debris_remaining
     assert oversize == result.metrics.debris_oversize
     assert ceiling == pytest.approx(result.metrics.dirt_ceiling, abs=0.01)
+
+
+def test_a_heap_of_dirt_is_drawn_as_more_than_a_flat_patch():
+    """The overlay is calibrated on the dirt a run *starts* with.
+
+    Dirt accumulates now -- the returns sweep the floor into a heap at the
+    drain, more than twenty times the initial 92nd percentile in a kidney -- so
+    alpha alone pins at maximum across the whole heap and only its edge appears
+    to move. Past the scale the colour darkens instead.
+    """
+    from zimablue.replay.renderer import _dirt_alpha
+
+    navigable = np.ones((2, 2), dtype=bool)
+    vmax = 0.2
+    shades = [
+        _dirt_alpha(np.full((2, 2), grams), navigable, vmax, pile=10.0)[0, 0]
+        for grams in (0.2, 0.6, 1.2, 2.0)
+    ]
+    alphas = [float(shade[3]) for shade in shades]
+    brightness = [float(shade[:3].sum()) for shade in shades]
+
+    assert alphas == pytest.approx([alphas[0]] * 4), "alpha saturates, as it must"
+    assert brightness == sorted(brightness, reverse=True), "but the colour keeps going"
+    assert brightness[0] > brightness[-1] * 1.5
+
+
+def test_below_the_scale_nothing_about_the_shading_changed():
+    """The darkening must not touch ordinary dirt, only heaps."""
+    from zimablue.replay.renderer import _dirt_alpha
+
+    navigable = np.ones((2, 2), dtype=bool)
+    plain = _dirt_alpha(np.full((2, 2), 0.1), navigable, 0.2, pile=10.0)
+    assert plain[0, 0, :3] == pytest.approx(_hex_rgb(PALETTE["dirt"]))
+    assert float(plain[0, 0, 3]) == pytest.approx(0.5 * 0.85)
+
+
+def test_the_scale_is_told_how_far_the_run_goes(autumn_recording):
+    """Calibrating on frame zero alone is what left the heap flat."""
+    from zimablue.replay.renderer import pile_range
+
+    field = autumn_recording.dirt_at(0.0)
+    vmax = float(np.percentile(field[field > 0], 92))
+    heaviest = float(autumn_recording.dirt_keyframes.sum(axis=1, dtype=np.float32).max())
+    assert pile_range(autumn_recording, vmax) == pytest.approx(min(max(heaviest / vmax, 2.0), 64.0))

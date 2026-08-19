@@ -44,6 +44,11 @@ Layer order is deliberate: the cleaned wash is drawn *under* the dirt, so a
 patch the robot has driven over but failed to clean still shows as dirty. If
 coverage were painted on top it would hide exactly the failure worth seeing.
 
+Dirt darkens towards near-black silt past the top of the scale. The scale is
+a percentile of what the pool *started* with, and the returns sweep the floor
+into heaps twenty times that, so without a second regime a heap is one flat
+brown patch whose edge is the only part that appears to grow.
+
 The dirt itself is keyframed every ten simulated seconds and blended between
 keyframes for drawing. Without the blend a cell holds still for five hundred
 rendered frames and then jumps, which reads as dirt appearing out of nowhere

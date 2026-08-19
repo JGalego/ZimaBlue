@@ -68,6 +68,14 @@ def make_dirtcam() -> None:
     export_dirtcam(rec, ASSETS / "dirtcam.gif", speed=440.0, fps=11, dpi=58)
 
 
+def make_chase() -> None:
+    """The chase cam, from a metre behind the robot."""
+    from zimablue.replay import export_chasecam
+
+    rec = recording_for("kidney", **KIDNEY)
+    export_chasecam(rec, ASSETS / "chase.gif", speed=320.0, fps=11, dpi=54)
+
+
 def make_3d() -> None:
     """The basin renders: an orbit of the sloped pool, and a kidney sheet."""
     from zimablue.replay import export_3d_frames, export_3d_movie
@@ -79,7 +87,12 @@ def make_3d() -> None:
     export_3d_frames(recording_for("kidney", **KIDNEY), ASSETS / "3d-kidney.png", count=4)
 
 
-TARGETS = {"replay": make_replay, "dirtcam": make_dirtcam, "3d": make_3d}
+TARGETS = {
+    "replay": make_replay,
+    "dirtcam": make_dirtcam,
+    "chase": make_chase,
+    "3d": make_3d,
+}
 
 
 def main() -> None:
