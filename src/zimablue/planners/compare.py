@@ -113,7 +113,7 @@ class Dimension:
 DIMENSIONS: tuple[Dimension, ...] = (
     Dimension("coverage", "coverage", +1, "%", 100.0, 1),
     Dimension("dirt", "dirt", +1, "%", 100.0, 1),
-    Dimension("possible", "of possible", +1, "%", 100.0, 0),
+    Dimension("possible", "possible", +1, "%", 100.0, 0),
     Dimension("evenness", "evenness", +1, "", 1.0, 2),
     Dimension("gap", "worst gap", -1, "m2", 1.0, 1),
     Dimension("edges", "edges", +1, "%", 100.0, 0),
@@ -551,8 +551,8 @@ def compare(
 FLEET_DIMENSIONS: tuple[Dimension, ...] = (
     Dimension("coverage", "coverage", +1, "%", 100.0, 1),
     Dimension("dirt", "dirt", +1, "%", 100.0, 1),
-    Dimension("possible", "of possible", +1, "%", 100.0, 0),
-    Dimension("possible", "of possible", +1, "%", 100.0, 0),
+    Dimension("possible", "possible", +1, "%", 100.0, 0),
+    Dimension("possible", "possible", +1, "%", 100.0, 0),
     Dimension("speedup", "speedup", +1, "x", 1.0, 2),
     Dimension("overlap", "overlap", -1, "%", 100.0, 0),
     Dimension("balance", "balance", +1, "", 1.0, 2),
