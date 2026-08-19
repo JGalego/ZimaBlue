@@ -248,6 +248,10 @@ def replay(
     gif: Annotated[Path | None, typer.Option(help="Render to GIF/MP4 instead of watching.")] = None,
     summary: Annotated[Path | None, typer.Option(help="Write a summary PNG instead.")] = None,
     frames: Annotated[Path | None, typer.Option(help="Write still frames to a directory.")] = None,
+    html: Annotated[
+        Path | None,
+        typer.Option(help="Write a self-contained HTML player instead. Needs no matplotlib."),
+    ] = None,
     sensors: Annotated[bool, typer.Option(help="Draw sonar rays.")] = True,
     three_d: Annotated[
         bool,
@@ -275,6 +279,14 @@ def replay(
         _fail(
             str(exc), "make one with: zimablue demo  or  zimablue run <scenario> --record out.zbr"
         )
+
+    if html is not None:
+        from zimablue.replay import export_web_player
+
+        export_web_player(rec, html)
+        console.print(f"[green]wrote[/green] {html}")
+        console.print("[dim]open it in any browser; it works from disk, offline[/dim]")
+        return
 
     # Four cameras and counting, so check them as a set rather than pairwise:
     # the ad-hoc "if a and b" grew a hole the moment a third one arrived.

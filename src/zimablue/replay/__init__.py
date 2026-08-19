@@ -36,6 +36,7 @@ from zimablue.replay.scene3d import (
     export_3d_movie,
     render_3d,
 )
+from zimablue.replay.webplayer import export_web_player
 
 __all__ = [
     "PALETTE",
@@ -59,6 +60,7 @@ __all__ = [
     "export_frames",
     "export_movie",
     "export_summary",
+    "export_web_player",
     "load_scene",
     "render_3d",
     "render_chasecam",

@@ -263,6 +263,30 @@ rather than failing with a traceback.
 dirt at the start, dirt at the end. The bottom two share a colour scale, so
 "before and after" is a fair comparison rather than a rescaled one.
 
+## In a browser
+
+```bash
+zimablue replay runs/kidney.zbr --html runs/kidney.html
+```
+
+writes one self-contained HTML file: scrubber, playback speed, layer toggles
+for dirt, trail and debris, and a live coverage readout. It needs no
+matplotlib, no server and no network — the file opens from disk, which makes
+it the replay you attach to an issue or mail to someone whose machine has
+nothing installed.
+
+Several runs go side by side on a shared clock from Python:
+
+```python
+from zimablue.replay import export_web_player
+
+export_web_player({"bsa": one_recording, "binn": another}, "duel.html")
+```
+
+The dirt layer blends between keyframes exactly as the GIF cameras do, and it
+is quantised onto a coarser grid to keep the file small — measure on the
+recording, not on the page.
+
 ## From Python
 
 ```python
