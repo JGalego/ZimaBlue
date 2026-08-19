@@ -608,6 +608,7 @@ determinism and preferring a small real model to a large fake one.
 | [On a robot](docs/hardware.md) | Running a controller on real hardware, and testing it against real logs |
 | [Coverage path planning](docs/planners.md) | The planners, the map they needed, and how to compare them |
 | [Benchmark](docs/bench.md) | The frozen suite: one command, the same numbers |
+| [The writeup](docs/paper.md) | Coverage is not cleanliness, measured — with the bound that turns scores into regrets |
 | [Fleets](docs/multi-robot.md) | Several robots in one pool: partitioning, cooperation, and what a second robot is worth |
 | [Behaviour](docs/dynamics.md) | Periodic orbits, mixing rates, the ergodic metric, and pools chosen for their dynamics |
 | [Architecture](docs/architecture.md) | Layering, backends, determinism contract |
