@@ -49,10 +49,31 @@ from zimablue.recording import Recorder, Recording, build_frame
 from zimablue.robot import Cleaner, DriveCommand
 from zimablue.sensors import Reading
 
-__all__ = ["HardwareRun", "HardwareRuntime", "Tick"]
+__all__ = ["HardwareRun", "HardwareRuntime", "Survey", "Tick"]
 
 Actuator = Callable[[Any], None]
 Platform = Callable[[], Mapping[str, float]]
+
+
+@dataclass(frozen=True)
+class Survey:
+    """What was measured before the run: the pool's shape, and the start pose.
+
+    This is the deployable half of what a simulation reveals through
+    ``truth``. Surveying a pool once and loading the result is how an offline
+    plan gets onto a real machine, and it is a different thing from reading
+    the dirt field -- a survey holds nothing a tape measure and a photograph
+    cannot produce. Passing one to :class:`HardwareRuntime` lets
+    :class:`~zimablue.planners.base.PathFollower` (on ``odometry``) run on
+    hardware; the true pose stays as unavailable as it really is.
+    """
+
+    pool: Any
+    """A :class:`~zimablue.pool.Pool` -- traced from a photo, sketched, or
+    measured by hand."""
+
+    start: tuple[float, float, float]
+    """Where the robot was placed in the survey's frame: x, y, heading."""
 
 
 @dataclass(frozen=True)
@@ -143,6 +164,7 @@ class HardwareRuntime:
         actuate: Actuator,
         *,
         pool: Any = None,
+        survey: Survey | None = None,
         platform: Platform | None = None,
         speed_loop: WheelSpeedLoop | None = None,
         watchdog: Watchdog | None = None,
@@ -158,7 +180,10 @@ class HardwareRuntime:
         self.robot = robot
         self.source = source
         self.actuate = actuate
-        self.pool = pool
+        self.survey = survey
+        # A survey *is* a believed pool, so it doubles as the replay geometry
+        # unless a different one is given explicitly.
+        self.pool = pool if pool is not None else (survey.pool if survey else None)
         self.platform = platform
         self.speed_loop = speed_loop
         self.watchdog = watchdog if watchdog is not None else Watchdog()
@@ -284,8 +309,11 @@ class HardwareRuntime:
             robot=self.robot,
             # `truth` stays None, always, and there is no option to change it.
             # An oracle cannot run on a robot, and offering the argument would
-            # invite somebody to wire the pose estimate into it.
+            # invite somebody to wire the pose estimate into it. A survey is
+            # different: it holds what was measured, not what only a simulator
+            # could reveal.
             truth=None,
+            survey=self.survey,
             extras={
                 "stuck": 0.0,
                 "collided": 1.0 if any(contacts) else 0.0,

@@ -52,6 +52,17 @@ class ControlInput:
     or debugging a planner; a controller that needs it is not deployable.
     """
 
+    survey: Any = None
+    """A :class:`~zimablue.hardware.runtime.Survey`, or ``None``.
+
+    Knowledge you measured before the run -- the pool's shape and where the
+    robot was placed -- as opposed to knowledge only a simulator can reveal.
+    A controller that reads it *is* deployable: surveying a pool once is how
+    an offline plan gets onto a real machine. Populated by
+    ``HardwareRuntime(survey=...)``; simulations leave it ``None`` because
+    there ``truth.pool`` already plays this role.
+    """
+
     extras: dict[str, float] = field(default_factory=dict)
 
     def reading(self, name: str) -> Reading | None:

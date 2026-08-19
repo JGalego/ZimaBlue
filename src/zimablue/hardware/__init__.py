@@ -39,7 +39,8 @@ from __future__ import annotations
 
 from zimablue.hardware.logs import Trajectory, read_tum_trajectory
 from zimablue.hardware.motors import MotorEffort, WheelSpeedLoop
-from zimablue.hardware.runtime import HardwareRun, HardwareRuntime, Tick
+from zimablue.hardware.plant import SimulatedPlant
+from zimablue.hardware.runtime import HardwareRun, HardwareRuntime, Survey, Tick
 from zimablue.hardware.safety import SafetyLimits, Watchdog
 from zimablue.hardware.sources import (
     DeviceSource,
@@ -56,6 +57,8 @@ __all__ = [
     "ReadingSource",
     "RecordedSource",
     "SafetyLimits",
+    "SimulatedPlant",
+    "Survey",
     "Tick",
     "Trajectory",
     "TrajectorySource",

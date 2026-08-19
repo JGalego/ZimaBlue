@@ -264,22 +264,16 @@ class PathFollower:
 
     # ------------------------------------------------------------------
     def step(self, control_input: Any) -> Any:
-        truth = control_input.truth
-        if truth is None or getattr(truth, "pool", None) is None:
-            raise RuntimeError(
-                f"{self.name} plans against the pool's geometry, so it needs "
-                "Simulation(expose_truth=True). Running it from a scenario or the CLI "
-                "sets that automatically."
-            )
+        pool, origin = self._geometry(control_input)
 
-        if self.path is None or self._planned_for is not truth.pool:
-            self.path = self.planner.plan(truth.pool, control_input.robot)
-            self._planned_for = truth.pool
+        if self.path is None or self._planned_for is not pool:
+            self.path = self.planner.plan(pool, control_input.robot)
+            self._planned_for = pool
             self.target = 0
             if len(self.path) == 0:
                 raise RuntimeError(f"{self.planner.name} planned an empty path for this pool")
 
-        self._pose = self._locate(control_input, truth)
+        self._pose = self._locate(control_input, origin)
         if self.blackboard is not None:
             x, y, heading = self._pose
             self.blackboard.publish(
@@ -318,16 +312,46 @@ class PathFollower:
                 return True
         return False
 
-    def _locate(self, control_input: Any, truth: Any) -> tuple[float, float, float]:
+    def _geometry(self, control_input: Any) -> tuple[Any, tuple[float, float, float]]:
+        """The pool to plan against, and the pose the estimator starts from.
+
+        Two legitimate sources. A simulation reveals both through ``truth``.
+        On hardware there is no truth to reveal, but there is a *survey* --
+        the pool's shape measured once and the pose the robot was placed at --
+        and following a plan from a survey is deployment, not cheating.
+        """
+        truth = control_input.truth
+        if truth is not None and getattr(truth, "pool", None) is not None:
+            return truth.pool, (float(truth.x), float(truth.y), float(truth.heading))
+        if self.localisation == "truth":
+            raise RuntimeError(
+                f"{self.name} follows on the true pose, which only a simulator has. "
+                "Pass Simulation(expose_truth=True) -- scenarios and the CLI do it "
+                "for you -- or follow on localisation='odometry' to run from a survey."
+            )
+        survey = getattr(control_input, "survey", None)
+        if survey is not None and getattr(survey, "pool", None) is not None:
+            x, y, heading = survey.start
+            return survey.pool, (float(x), float(y), float(heading))
+        raise RuntimeError(
+            f"{self.name} plans against the pool's geometry. In a simulation that is "
+            "Simulation(expose_truth=True), which scenarios and the CLI set for you; "
+            "on hardware pass HardwareRuntime(survey=Survey(pool, start))."
+        )
+
+    def _locate(
+        self, control_input: Any, origin: tuple[float, float, float]
+    ) -> tuple[float, float, float]:
         """Where the follower believes the robot is."""
         if self.localisation == "truth":
+            truth = control_input.truth
             return (float(truth.x), float(truth.y), float(truth.heading))
 
         from zimablue.estimation import EstimatorConfig, PoseEstimator
 
         if self._estimator is None:
             config = self._estimator_config or EstimatorConfig()
-            self._estimator = PoseEstimator(config, origin=(truth.x, truth.y, truth.heading))
+            self._estimator = PoseEstimator(config, origin=origin)
             self._last_time = control_input.time
 
         dt = max(control_input.time - self._last_time, 0.0)

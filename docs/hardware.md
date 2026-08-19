@@ -87,6 +87,73 @@ Every recording written by the runtime carries `pose_source: "estimate"` and
 `ground_truth: false` in its manifest. Check it before comparing a real run
 against a simulated one.
 
+## A planner on the robot
+
+Reactive controllers were always deployable. Offline planners were not,
+because `PathFollower` planned against `truth.pool` — and a robot has no
+truth. It has something better-grounded: a survey.
+
+```python
+from zimablue.hardware import HardwareRuntime, Survey
+from zimablue.planners import PathFollower
+
+runtime = HardwareRuntime(
+    controller=PathFollower("sweep_optimal"),   # localisation="odometry"
+    robot=robot,
+    source=my_source,
+    actuate=my_driver,
+    survey=Survey(pool=my_pool, start=(0.6, 0.6, 0.0)),
+)
+```
+
+A `Survey` is the pool's shape and the pose the robot was placed at — nothing
+a tape measure and a photograph cannot produce, which is what separates it
+from `truth`. The follower plans against `survey.pool`, seeds its EKF at
+`survey.start`, and dead-reckons from there exactly as it does in the
+odometry half of the comparison tables. Those tables are now a forecast for
+this mode: the `@odometry` column is what a survey-driven follower should do.
+
+The surveyed pool also lands in the recording's manifest, so a hardware run
+made this way replays against the geometry you believed rather than against
+nothing. `PathFollower(localisation="truth")` still refuses to run on
+hardware; the true pose is exactly as unavailable as it really is.
+
+Get the survey frame right: `start` is where the robot begins **in the
+survey's coordinates**, and every waypoint error you introduce here is driven,
+not filtered out. Measure it, mark it on the deck, and use the same corner of
+the pool as your origin every time.
+
+## Rehearse before you drive
+
+The day the machine is in the water is the wrong day to discover the loop
+rate or the watchdog thresholds were wrong. `SimulatedPlant` puts the
+simulator behind the same two interfaces your driver will fill, so the entire
+stack — runtime, speed loop, watchdog, recording, controller — runs exactly
+as it will on the robot:
+
+```python
+from zimablue.hardware import HardwareRuntime, SimulatedPlant
+from zimablue.planners import PathFollower
+
+plant = SimulatedPlant(pool="kidney", dirt="autumn", seed=3)
+runtime = HardwareRuntime(
+    controller=PathFollower("sweep_optimal"),
+    robot=plant.robot,
+    source=plant,
+    actuate=plant.actuate,
+    platform=plant.platform,
+    survey=plant.survey(),
+)
+run = runtime.run(minutes=10)
+```
+
+The runtime cannot tell it is being fooled — readings arrive noisy and
+delayed through the ordinary sensor models, and the recording says
+`ground_truth: False` like any other hardware run. The one honest extra is
+`plant.truth_pose()`, so the rehearsal can measure how far the estimate
+drifted, which is the number the rehearsal exists to produce. When the real
+driver is ready, `plant` and its two callables are the only things you swap.
+
 ## Testing it, without a robot
 
 Three tiers, in increasing cost and increasing truth.
