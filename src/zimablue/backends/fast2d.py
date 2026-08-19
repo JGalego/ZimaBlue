@@ -18,7 +18,7 @@ Known approximations, stated rather than hidden:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -53,6 +53,17 @@ STUCK_DURATION = 1.5
 """How long it must be commanded to move without moving, s."""
 
 DRIFT_INTERVAL = 1.0
+
+# The wall, for robots that can hold onto it. Pressing the wall for this long
+# starts a climb; the excursion is kinematic -- up, a hold at the waterline,
+# back down -- because modelling adhesion hydrodynamics would be a backend of
+# its own. Bands split the wall strip by height: the cove a floor robot
+# brushes anyway, the mid wall, and the waterline where the scum lives.
+CLIMB_GRAB_TIME = 1.0
+CLIMB_HOLD = 2.5
+CLIMB_SPEED_FACTOR = 0.4
+COVE_BAND = 0.30
+WATERLINE_BAND = 0.15
 """Simulated seconds between dirt advection updates. The flow field is slow and
 smooth; recomputing it every 20 ms would cost time and change nothing."""
 
@@ -90,6 +101,9 @@ class Fast2DBackend:
         self._visits: np.ndarray | None = None
         self._last_visit_step: np.ndarray | None = None
         self._wall_visits: np.ndarray | None = None
+        self._wall_bands: np.ndarray | None = None
+        self._climb: dict[str, Any] | None = None
+        self._pressing_since: float | None = None
         self._prev_v = 0.0
         self._prev_omega = 0.0
         self._warned_filter = False
@@ -118,6 +132,10 @@ class Fast2DBackend:
         self._wall_visits = np.zeros(
             max(8, int(np.ceil(world.pool.perimeter_length / 0.1))), dtype=np.int32
         )
+        # The same bins, split by height: cove, mid wall, waterline.
+        self._wall_bands = np.zeros((len(self._wall_visits), 3), dtype=np.int32)
+        self._climb = None
+        self._pressing_since = None
 
         robot.sensors.attach(rng)
 
@@ -139,6 +157,8 @@ class Fast2DBackend:
     def step(self, state: SimState, command: DriveCommand, dt: float) -> StepResult:
         if self.world is None or self.robot is None or self._slip_rng is None:
             raise RuntimeError("Fast2DBackend.step() called before reset()")
+        if self._climb is not None:
+            return self._climb_step(state, command, dt)
         world, robot = self.world, self.robot
         pool = world.pool
         events: list[Event] = []
@@ -224,6 +244,37 @@ class Fast2DBackend:
                 events.append(Event(new.time, "unstuck", {"x": nx, "y": ny}))
             new.stuck = False
             new.stuck_time = 0.0
+
+        # 5b. The wall. A grip-capable robot pressing forward against it for
+        # long enough grabs on and climbs; everything else just bumps.
+        if robot.locomotion.wall_grip:
+            pressing = (
+                contact.touching
+                and bool(contact.flags[0])
+                and not contact.is_obstacle
+                and not contact.is_robot
+                and v_cmd > 0.05
+            )
+            if not pressing:
+                self._pressing_since = None
+            elif self._pressing_since is None:
+                self._pressing_since = state.time
+            elif state.time - self._pressing_since >= CLIMB_GRAB_TIME:
+                assert self._wall_visits is not None
+                arc = pool.project_to_perimeter(nx, ny)
+                self._climb = {
+                    "phase": "up",
+                    "height": 0.0,
+                    "x": nx,
+                    "y": ny,
+                    "floor_depth": float(pool.depth_at(nx, ny)),
+                    "bin": int(arc / 0.1) % len(self._wall_visits),
+                    "hold_left": CLIMB_HOLD,
+                }
+                self._pressing_since = None
+                events.append(
+                    Event(new.time, "climb_started", {"x": nx, "y": ny, "arc": float(arc)})
+                )
 
         # 6. Cleaning.
         outcome = apply_cleaning(
@@ -419,11 +470,15 @@ class Fast2DBackend:
             seen[window.mask] = state.step
 
         # Near the wall, also credit the corresponding unrolled perimeter bin.
+        # A floor robot's brush reaches the cove -- the bottom band of the
+        # wall strip -- and nothing above it.
         distance, _, _, is_obstacle = self.world.pool.nearest_wall(state.x, state.y)
         if not is_obstacle and distance <= self.robot.radius + 0.15:
             arc = self.world.pool.project_to_perimeter(state.x, state.y)
             index = int(arc / 0.1) % len(self._wall_visits)
             self._wall_visits[index] += 1
+            assert self._wall_bands is not None
+            self._wall_bands[index, 0] += 1
 
     @property
     def visit_grid(self) -> np.ndarray:
@@ -438,6 +493,102 @@ class Fast2DBackend:
         if self._wall_visits is None:
             raise RuntimeError("no wall visits before reset()")
         return self._wall_visits
+
+    @property
+    def wall_band_visits(self) -> np.ndarray:
+        """The wall strip: perimeter bins by height band (cove, mid, waterline)."""
+        if self._wall_bands is None:
+            raise RuntimeError("no wall strip before reset()")
+        return self._wall_bands
+
+    def _climb_step(self, state: SimState, command: DriveCommand, dt: float) -> StepResult:
+        """One tick of the wall excursion: up, hold at the waterline, down.
+
+        Kinematic on purpose. The dynamics of staying stuck to a wall are a
+        hydro problem this backend does not claim; what it does claim is the
+        time, the energy, and the wall area credited -- the quantities the
+        metrics read. The robot is committed: drive commands are ignored
+        until it is back on the floor, the way the real machines transition.
+        The encoders keep reading track motion during the climb, so dead
+        reckoning pays for the trip -- a wall is exactly where odometry goes
+        to get worse, and hiding that would flatter every wall-cleaning run.
+        """
+        assert self.world is not None and self.robot is not None
+        assert self._climb is not None and self._wall_bands is not None
+        assert self._wall_visits is not None
+        robot = self.robot
+        climb = self._climb
+        events: list[Event] = []
+
+        v_climb = CLIMB_SPEED_FACTOR * robot.locomotion.max_speed
+        moved = v_climb * dt
+        depth = climb["floor_depth"]
+
+        if climb["phase"] == "up":
+            climb["height"] = min(climb["height"] + moved, depth)
+            if climb["height"] >= depth - 1e-9:
+                climb["phase"] = "hold"
+                events.append(
+                    Event(state.time + dt, "climb_topped", {"x": climb["x"], "y": climb["y"]})
+                )
+        elif climb["phase"] == "hold":
+            moved = 0.0
+            climb["hold_left"] -= dt
+            if climb["hold_left"] <= 0.0:
+                climb["phase"] = "down"
+        else:
+            climb["height"] = max(climb["height"] - moved, 0.0)
+
+        new = state.copy()
+        new.time = state.time + dt
+        new.step = state.step + 1
+        new.x, new.y = climb["x"], climb["y"]
+        new.v = v_climb if climb["phase"] != "hold" else 0.0
+        new.omega = 0.0
+        new.accel_forward = 0.0
+        new.accel_lateral = 0.0
+        wheel = v_climb if climb["phase"] != "hold" else 0.0
+        new.wheel_left = new.wheel_right = wheel
+        new.slip_left = new.slip_right = 0.0
+        new.depth = max(depth - climb["height"], 0.0)
+        new.contacts = (True, False, False, False)
+        new.collided = True
+        new.distance = state.distance + moved
+        new.stuck = False
+        new.stuck_time = 0.0
+        self._prev_v, self._prev_omega = new.v, 0.0
+
+        # Credit the band the hull is passing over. Tick-counted: coverage
+        # reads it as visited-or-not, and a slow pass *is* more cleaning.
+        height = climb["height"]
+        if height >= depth - WATERLINE_BAND:
+            band = 2
+        elif height <= COVE_BAND:
+            band = 0
+        else:
+            band = 1
+        self._wall_bands[climb["bin"], band] += 1
+        self._wall_visits[climb["bin"]] += 1
+
+        # Power: same draw model, with the climb's own load -- the full
+        # submerged weight hangs on the tracks, not half of it.
+        load = robot.chassis.submerged_weight * 0.8
+        power = robot.power_draw(
+            wheel, wheel, load, load, brush_on=command.brush, pump_duty=command.pump
+        )
+        used = power * dt / 3600.0
+        new.power_w = power
+        new.battery_wh = max(0.0, state.battery_wh - used)
+        new.energy_used_wh = state.energy_used_wh + used
+        new._battery_fraction = new.battery_wh / max(new._battery_capacity, 1e-9)
+        if new._battery_fraction <= robot.power.battery.cutoff and not self._warned_battery:
+            self._warned_battery = True
+            events.append(Event(new.time, "battery_empty", {"fraction": new._battery_fraction}))
+
+        if climb["phase"] == "down" and climb["height"] <= 0.0:
+            self._climb = None
+            events.append(Event(new.time, "climb_ended", {"x": new.x, "y": new.y}))
+        return StepResult(state=new, events=events)
 
 
 @BACKENDS.register("fast2d")

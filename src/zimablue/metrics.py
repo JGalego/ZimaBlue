@@ -47,6 +47,10 @@ class SpatialMetrics:
 
     navigable: NDArray[np.bool_]
 
+    wall_bands: NDArray[np.int32] | None = None
+    """The wall strip: perimeter bins by height band (cove, mid, waterline),
+    when the backend modelled one."""
+
     @property
     def missed(self) -> NDArray[np.bool_]:
         """Navigable cells the robot never reached."""
@@ -69,6 +73,14 @@ class Metrics:
     """Alias of ``coverage``, named to contrast with ``wall_coverage``."""
 
     wall_coverage: float = 0.0
+    """Fraction of the wall *area* the robot's brushes reached, when the run
+    recorded the wall strip; the older perimeter-proximity fraction otherwise.
+    A floor robot reaches only the cove -- the bottom band -- so its number is
+    honest rather than flattering."""
+
+    waterline_coverage: float = 0.0
+    """Fraction of the waterline band reached. Zero for anything that cannot
+    climb, which is most of them; the scum does not care."""
     """Fraction of the pool perimeter the robot ran alongside, 0-1."""
 
     revisits: float = 0.0
@@ -158,6 +170,7 @@ class Metrics:
             "coverage": self.coverage,
             "floor_coverage": self.floor_coverage,
             "wall_coverage": self.wall_coverage,
+            "waterline_coverage": self.waterline_coverage,
             "revisits": self.revisits,
             "distance_traveled": self.distance_traveled,
             "runtime": self.runtime,
@@ -238,6 +251,38 @@ class Metrics:
         return lines
 
 
+def _wall_strip_coverage(pool: Any, wall_bands: NDArray[np.int32]) -> tuple[float, float]:
+    """Area-true wall coverage, and the waterline's share of it.
+
+    Each perimeter bin's wall is a strip of local depth, split into the cove
+    a floor robot brushes anyway (bottom 0.30 m), the waterline band where
+    the scum lives (top 0.15 m), and the mid wall between them. Weighting by
+    area is what stops a shallow-end scrape and a deep-end scrape from
+    counting the same.
+    """
+    bins = len(wall_bands)
+    ring = pool.boundary.exterior
+    bin_length = ring.length / bins
+    stations = [ring.interpolate((i + 0.5) * bin_length) for i in range(bins)]
+    depths = pool.depth_at(np.array([p.x for p in stations]), np.array([p.y for p in stations]))
+    depths = np.maximum(np.asarray(depths, dtype=float), 0.0)
+
+    cove = np.minimum(depths, 0.30)
+    waterline = np.minimum(0.15, np.maximum(depths - 0.30, 0.0))
+    mid = np.maximum(depths - cove - waterline, 0.0)
+    areas = np.stack([cove, mid, waterline], axis=1) * bin_length
+
+    total = float(areas.sum())
+    if total <= 0:
+        return (0.0, 0.0)
+    covered = float(areas[wall_bands > 0].sum())
+
+    has_waterline = waterline > 1e-9
+    reached = (wall_bands[:, 2] > 0) & has_waterline
+    waterline_coverage = float(reached.sum() / has_waterline.sum()) if has_waterline.any() else 0.0
+    return (covered / total, waterline_coverage)
+
+
 def compute_metrics(
     world: World,
     state: SimState,
@@ -248,6 +293,7 @@ def compute_metrics(
     *,
     termination: str = "unknown",
     robot: Any = None,
+    wall_bands: NDArray[np.int32] | None = None,
 ) -> tuple[Metrics, SpatialMetrics]:
     """Score a finished run.
 
@@ -273,6 +319,9 @@ def compute_metrics(
         revisits = 0.0
 
     wall_coverage = float((wall_visits > 0).sum() / len(wall_visits)) if len(wall_visits) else 0.0
+    waterline_coverage = 0.0
+    if wall_bands is not None and len(wall_bands):
+        wall_coverage, waterline_coverage = _wall_strip_coverage(pool, np.asarray(wall_bands))
 
     remaining_grid = world.dirt.field.total_grid()
     remaining_total = world.dirt.total_mass
@@ -330,6 +379,7 @@ def compute_metrics(
         coverage=coverage,
         floor_coverage=coverage,
         wall_coverage=wall_coverage,
+        waterline_coverage=waterline_coverage,
         revisits=revisits,
         distance_traveled=state.distance,
         runtime=state.time,
@@ -371,5 +421,6 @@ def compute_metrics(
         initial_dirt=initial_dirt,
         wall_visits=wall_visits.copy(),
         navigable=navigable,
+        wall_bands=wall_bands.copy() if wall_bands is not None else None,
     )
     return metrics, spatial

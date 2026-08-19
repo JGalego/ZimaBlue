@@ -167,9 +167,12 @@ the backend returns, so any backend gets them for free.
 The v0.1 reference implementation. Planar rigid body, differential-drive
 kinematics with longitudinal slip and lateral traction limits, penetration-based
 wall and obstacle resolution against Shapely geometry, and analytical sensor
-models. Pure NumPy float64 on the CPU. Wall climbing is modelled as an
-unrolled-perimeter 1D excursion rather than true 3D motion — an explicit,
-documented approximation.
+models. Pure NumPy float64 on the CPU. Wall climbing is a modelled
+excursion on the unrolled perimeter rather than true 3D motion — an explicit,
+documented approximation. A grip-capable robot pressing the wall grabs on and
+climbs: up, a hold at the waterline, back down, with the time and energy paid
+and the wall strip (cove, mid, waterline bands) credited. The dynamics of
+adhesion are not claimed; the measured quantities are.
 
 ### 3D backend: intended design
 

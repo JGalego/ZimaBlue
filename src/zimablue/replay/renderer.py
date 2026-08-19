@@ -845,7 +845,9 @@ class ReplayRenderer:
             .get("max_debris_size", 0.09)
         )
         collected = int((items[:, 4] > 0.5).sum())
-        oversize_mask = items[:, 3] > limit
+        # Oversize *and still in the water*: an oversize floater the skimmer
+        # took stops being anyone's ceiling, matching the metric.
+        oversize_mask = (items[:, 3] > limit) & (items[:, 4] < 0.5)
         stuck_mass = float(items[oversize_mask, 2].sum())
         total_dirt = (
             float(self.recording.dirt_keyframes[0].sum())

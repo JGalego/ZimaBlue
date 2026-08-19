@@ -135,7 +135,11 @@ def test_the_hud_reports_debris_the_intake_cannot_take(tmp_path):
     tally = renderer._debris_tally(float(recording.frames["time"][-1]))
     assert tally is not None
     _, total, oversize, ceiling = tally
-    assert total == result.metrics.debris_collected + result.metrics.debris_remaining
+    assert total == (
+        result.metrics.debris_collected
+        + result.metrics.debris_skimmed
+        + result.metrics.debris_remaining
+    )
     assert oversize == result.metrics.debris_oversize
     assert ceiling == pytest.approx(result.metrics.dirt_ceiling, abs=0.01)
 

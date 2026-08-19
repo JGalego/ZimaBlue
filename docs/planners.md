@@ -351,7 +351,7 @@ What gets measured, with no attempt to collapse it into one number:
 | `possible` | dirt removed over what was physically reachable in the time |
 | `evenness` | how uniformly it cleaned, rather than how much |
 | `gap` | area of the largest patch it never went near, m² |
-| `edges` | fraction of the wall the robot ran alongside |
+| `edges` | share of the wall area the brushes reached — a floor robot gets the cove and nothing above it |
 | `efficiency` | covered area over swept area — 1.0 is a path with no overlap |
 | `turning` | degrees of heading change per metre travelled |
 | `half` | seconds to cover half the pool — the anytime question |

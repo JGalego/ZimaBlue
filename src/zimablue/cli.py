@@ -98,10 +98,15 @@ def _metrics_table(metrics: Any, title: str = "results") -> Table:
     row("battery left", f"{metrics.battery_remaining * 100:.0f} %", "yellow")
     row("collisions", str(metrics.collisions))
     row("stuck events", str(metrics.stuck_events))
-    debris_total = getattr(metrics, "debris_collected", 0) + getattr(metrics, "debris_remaining", 0)
+    skimmed = getattr(metrics, "debris_skimmed", 0)
+    debris_total = (
+        getattr(metrics, "debris_collected", 0) + skimmed + getattr(metrics, "debris_remaining", 0)
+    )
     if debris_total:
         oversize = getattr(metrics, "debris_oversize", 0)
         row("debris", f"{metrics.debris_collected} of {debris_total} collected")
+        if skimmed:
+            row("", f"{skimmed} taken by the skimmer, not the robot")
         if oversize:
             # The number that reframes the dirt figure above it: these items
             # were never collectable by this robot, whatever it did.

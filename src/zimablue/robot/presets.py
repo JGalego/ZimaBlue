@@ -133,6 +133,9 @@ def heavy_duty() -> Cleaner:
             track_width=0.42,
             traction=1.0,
             turn_resistance=0.5,
+            # The commercial units climb; that is where their waterline
+            # numbers come from.
+            wall_grip=True,
         ),
         cleaning=CleaningSystem(
             brush=Brush(width=0.46, rpm=110.0, aggressiveness=1.3, power=18.0),

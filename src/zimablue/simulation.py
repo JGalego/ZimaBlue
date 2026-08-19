@@ -322,6 +322,7 @@ class Simulation:
             self._initial_dirt,
             termination=self._termination,
             robot=self.robot,
+            wall_bands=getattr(self.backend, "wall_band_visits", None),
         )
         recording = None
         if self.recorder.enabled:
@@ -332,6 +333,9 @@ class Simulation:
                     "remaining_dirt": spatial.remaining_dirt.astype(np.float32),
                     "initial_dirt": spatial.initial_dirt.astype(np.float32),
                     "wall_visits": spatial.wall_visits,
+                    **(
+                        {"wall_bands": spatial.wall_bands} if spatial.wall_bands is not None else {}
+                    ),
                     "navigable": spatial.navigable,
                 },
             )

@@ -28,7 +28,7 @@ dirt           fraction of the dirt mass removed
 possible       dirt removed over what was reachable in the time -- see below
 evenness       how uniformly it cleaned, rather than how much
 gap            area of the largest patch it never went near, m2
-edges          fraction of the wall the robot ran alongside
+edges          share of the wall area the robot's brushes reached
 efficiency     covered area over swept area -- 1.0 is a path with no overlap
 turning        degrees of heading change per metre travelled
 half           seconds to cover half the pool -- the anytime question

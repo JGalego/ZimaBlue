@@ -173,6 +173,13 @@ class Locomotion:
     turn_resistance: float = 0.35
     """0-1. How much a long contact patch resists yaw, causing turn slip."""
 
+    wall_grip: bool = False
+    """Whether the drive can hold the robot against a vertical wall.
+
+    On the real machines this is suction or hydrodynamic downforce; here it
+    is the gate on the wall-climb excursion. A floor-only unit pressing the
+    wall just bumps."""
+
     def __post_init__(self) -> None:
         if self.track_width <= 0:
             raise ValueError("Locomotion.track_width must be positive")
@@ -201,6 +208,7 @@ class Locomotion:
             "track_width": self.track_width,
             "traction": self.traction,
             "turn_resistance": self.turn_resistance,
+            "wall_grip": self.wall_grip,
         }
 
     @classmethod
@@ -209,6 +217,7 @@ class Locomotion:
             left=DriveUnit.from_dict(data["left"]),
             right=DriveUnit.from_dict(data["right"]),
             track_width=float(data["track_width"]),
+            wall_grip=bool(data.get("wall_grip", False)),
             traction=float(data["traction"]),
             turn_resistance=float(data["turn_resistance"]),
         )
