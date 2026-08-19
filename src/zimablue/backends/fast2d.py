@@ -83,6 +83,7 @@ class Fast2DBackend:
         existence. Feeding it through the backend rather than the world is
         deliberate: it changes every tick, and the world does not."""
         self.robot: Cleaner | None = None
+        self._stir_cells: np.ndarray | None = None
         self._rng: RngTree | None = None
         self._slip_rng: np.random.Generator | None = None
         self._last_drift = 0.0
@@ -101,6 +102,7 @@ class Fast2DBackend:
         self.robot = robot
         self._rng = rng
         self._slip_rng = rng.stream("slip")
+        self._stir_cells = None
         self._last_drift = 0.0
         self._prev_v = 0.0
         self._prev_omega = 0.0
@@ -274,9 +276,11 @@ class Fast2DBackend:
         elif new._battery_fraction <= cutoff + 0.10 and state._battery_fraction > cutoff + 0.10:
             events.append(Event(new.time, "battery_low", {"fraction": new._battery_fraction}))
 
-        # 8. Environment: let the water move fine dirt around, occasionally.
+        # 8. Environment: everything the pool does to itself, on one cadence.
         if self.enable_dirt_drift and new.time - self._last_drift >= DRIFT_INTERVAL:
             elapsed = new.time - self._last_drift
+            world.dirt.field.deposit(elapsed)
+            self._stir(new.time, elapsed)
             vx, vy = pool.flow_grid(world.cell)
             world.dirt.field.drift(vx, vy, elapsed, spread=self.drift_spread)
             # The robot's own wake stirs whatever it is currently sitting on.
@@ -293,6 +297,35 @@ class Fast2DBackend:
         return StepResult(state=new, events=events)
 
     # ------------------------------------------------------------------
+    def _stir(self, now: float, elapsed: float) -> None:
+        """A swimmer pushes off somewhere, and the loose dirt there lifts.
+
+        Timed on the dirt spec's interval, placed by a seeded stream, so a
+        pool party is as reproducible as everything else.
+        """
+        assert self.world is not None and self._rng is not None
+        interval = self.world.dirt.stir_interval
+        if interval <= 0:
+            return
+        due = int(now / interval) - int((now - elapsed) / interval)
+        if due <= 0:
+            return
+        pool = self.world.pool
+        grid = pool.grid(self.world.cell)
+        if self._stir_cells is None:
+            navigable = pool.navigable_mask(self.world.cell)
+            self._stir_cells = np.argwhere(navigable)
+        if not len(self._stir_cells):
+            return
+        stream = self._rng.stream("environment:stir")
+        for _ in range(due):
+            row, col = self._stir_cells[int(stream.integers(len(self._stir_cells)))]
+            x = grid.minx + (col + 0.5) * grid.cell
+            y = grid.miny + (row + 0.5) * grid.cell
+            window = grid.window(float(x), float(y), 0.75)
+            if window is not None:
+                self.world.dirt.field.disturb_window(window, strength=self.world.dirt.stir_strength)
+
     def _surface(self, now: float, elapsed: float) -> list[Event]:
         """What happens on the water while the robot works the floor.
 

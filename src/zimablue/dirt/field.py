@@ -60,6 +60,9 @@ class DirtField:
         self.types: dict[str, DirtType] = dict(types or {})
         for name, values in (layers or {}).items():
             self.add_layer(name, values)
+        self.sources: dict[str, FloatArray] = {}
+        """Deposition per layer, grams per cell per second. See :meth:`deposit`."""
+        self._deposited = 0.0
         self._initial_total = self.total()
         self._initial_by_type = self.by_type()
 
@@ -81,6 +84,41 @@ class DirtField:
             self.layers[dt.name] = self.layers[dt.name] + values
         else:
             self.layers[dt.name] = values
+
+    def attach_source(self, dirt_type: str | DirtType, rate: FloatArray) -> None:
+        """Register ongoing deposition for one type, grams per cell per second."""
+        dt = get_dirt_type(dirt_type)
+        rate = np.where(self.mask, np.maximum(np.asarray(rate, dtype=float), 0.0), 0.0)
+        if dt.name in self.sources:
+            self.sources[dt.name] = self.sources[dt.name] + rate
+        else:
+            self.sources[dt.name] = rate
+        self.types.setdefault(dt.name, dt)
+        if dt.name not in self.layers:
+            self.layers[dt.name] = np.zeros(self.grid.shape, dtype=float)
+
+    def deposit(self, seconds: float) -> float:
+        """Let ``seconds`` of deposition fall; returns the grams added.
+
+        Added mass is tracked apart from the initial mass, so "fraction
+        removed" stays meaningful on a pool that keeps getting dirtier: the
+        denominator grows with the sky's contribution instead of the metric
+        quietly exceeding one.
+        """
+        if not self.sources or seconds <= 0:
+            return 0.0
+        added = 0.0
+        for name, rate in self.sources.items():
+            fall = rate * seconds
+            self.layers[name] = self.layers[name] + fall
+            added += float(fall.sum())
+        self._deposited += added
+        return added
+
+    @property
+    def deposited_total(self) -> float:
+        """Grams that fell in after the run started."""
+        return self._deposited
 
     def freeze_initial(self) -> None:
         """Record the current state as the baseline for removal metrics."""
@@ -483,9 +521,19 @@ class DebrisSet:
 class DirtState:
     """Everything dirty in the pool: the field plus the debris."""
 
-    def __init__(self, field: DirtField, debris: DebrisSet | None = None) -> None:
+    def __init__(
+        self,
+        field: DirtField,
+        debris: DebrisSet | None = None,
+        *,
+        stir_interval: float = 0.0,
+        stir_strength: float = 0.6,
+    ) -> None:
         self.field = field
         self.debris = debris if debris is not None else DebrisSet()
+        self.stir_interval = stir_interval
+        """Seconds between swimmers stirring the water; zero means never."""
+        self.stir_strength = stir_strength
 
     @property
     def total_mass(self) -> float:
@@ -496,14 +544,19 @@ class DirtState:
         return self.field.initial_total + self.debris.initial_mass
 
     @property
+    def budget_mass(self) -> float:
+        """Everything that has ever been in the pool: initial plus deposited."""
+        return self.initial_mass + self.field.deposited_total
+
+    @property
     def removed_mass(self) -> float:
-        return max(0.0, self.initial_mass - self.total_mass)
+        return max(0.0, self.budget_mass - self.total_mass)
 
     @property
     def removed_fraction(self) -> float:
-        if self.initial_mass <= 0:
+        if self.budget_mass <= 0:
             return 1.0
-        return self.removed_mass / self.initial_mass
+        return self.removed_mass / self.budget_mass
 
     def summary(self) -> dict[str, float]:
         out = {"total_g": self.total_mass, "initial_g": self.initial_mass}

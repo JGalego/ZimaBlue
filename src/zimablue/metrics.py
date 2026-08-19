@@ -83,7 +83,14 @@ class Metrics:
     """Grams permanently removed from the pool."""
 
     dirt_removed_fraction: float = 0.0
+    """Removed over everything ever in the pool -- including what fell in
+    during the run, so a live pool cannot score above one by accident."""
+
     remaining_dirt: float = 0.0
+
+    dirt_deposited: float = 0.0
+    """Grams that fell in after the start. A run on a live pool should be
+    read against this: staying level with the sky is already work."""
     dirt_collected: float = 0.0
     """Grams in the filter. Below ``dirt_removed`` only if debris was double
     counted; equal in the normal case."""
@@ -158,6 +165,7 @@ class Metrics:
             "dirt_removed_fraction": self.dirt_removed_fraction,
             "remaining_dirt": self.remaining_dirt,
             "dirt_collected": self.dirt_collected,
+            "dirt_deposited": self.dirt_deposited,
             "debris_skimmed": self.debris_skimmed,
             "dirt_skimmed": self.dirt_skimmed,
             "dirt_by_type": self.dirt_by_type,
@@ -268,7 +276,9 @@ def compute_metrics(
 
     remaining_grid = world.dirt.field.total_grid()
     remaining_total = world.dirt.total_mass
-    initial_total = world.dirt.initial_mass
+    # Everything that was ever in the pool: what it started with, plus what
+    # fell in while the robot worked. On a frozen pool the second term is 0.
+    initial_total = world.dirt.budget_mass
 
     removed = max(0.0, initial_total - remaining_total)
     removed_fraction = removed / initial_total if initial_total > 0 else 1.0
@@ -327,6 +337,7 @@ def compute_metrics(
         dirt_removed_fraction=removed_fraction,
         remaining_dirt=remaining_total,
         dirt_collected=state.dirt_collected,
+        dirt_deposited=world.dirt.field.deposited_total,
         dirt_by_type=remaining_by_type,
         removed_by_type=removed_by_type,
         cleaning_uniformity=uniformity,

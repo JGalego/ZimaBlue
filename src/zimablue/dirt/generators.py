@@ -147,14 +147,22 @@ class LayerSpec:
     patch_scale: float = 1.6
     contrast: float = 1.2
 
+    grams_per_m2_per_hour: float = 0.0
+    """Deposition while the run is going: leaves keep falling, pollen keeps
+    landing. Spread with the same patterns as the initial mass, so a corner
+    that starts dirty also *gets* dirty. Zero means the classic frozen pool."""
+
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "dirt": self.dirt,
             "grams_per_m2": self.grams_per_m2,
             "patterns": list(self.patterns),
             "patch_scale": self.patch_scale,
             "contrast": self.contrast,
         }
+        if self.grams_per_m2_per_hour:
+            out["grams_per_m2_per_hour"] = self.grams_per_m2_per_hour
+        return out
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LayerSpec:
@@ -164,6 +172,7 @@ class LayerSpec:
             patterns=tuple(data.get("patterns", ("uniform",))),
             patch_scale=float(data.get("patch_scale", 1.6)),
             contrast=float(data.get("contrast", 1.2)),
+            grams_per_m2_per_hour=float(data.get("grams_per_m2_per_hour", 0.0)),
         )
 
 
@@ -213,6 +222,13 @@ class DirtSpec:
     layers: tuple[LayerSpec, ...] = ()
     debris: tuple[DebrisSpec, ...] = ()
     description: str = ""
+
+    stir_interval: float = 0.0
+    """Seconds between somebody stirring the water -- a swimmer pushing off,
+    a cannonball. Each stir resuspends loose dirt in one random patch. Zero
+    means nobody is in the pool."""
+
+    stir_strength: float = 0.6
     _types: dict[str, DirtType] = field(default_factory=dict, repr=False)
     """Custom dirt types referenced by name in ``layers``/``debris``."""
 
@@ -251,10 +267,18 @@ class DirtSpec:
                 continue
             target = layer.grams_per_m2 * pool.floor_area
             dirt_field.add_layer(dirt_type, weights * (target / total))
+            if layer.grams_per_m2_per_hour > 0:
+                rate = layer.grams_per_m2_per_hour * pool.floor_area / 3600.0
+                dirt_field.attach_source(dirt_type, weights * (rate / total))
 
         debris = self._build_debris(pool, grid, mask, rng)
         dirt_field.freeze_initial()
-        return DirtState(dirt_field, debris)
+        return DirtState(
+            dirt_field,
+            debris,
+            stir_interval=self.stir_interval,
+            stir_strength=self.stir_strength,
+        )
 
     def _build_debris(
         self, pool: Pool, grid: Grid, mask: BoolArray, rng: np.random.Generator
@@ -302,12 +326,16 @@ class DirtSpec:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "name": self.name,
             "description": self.description,
             "layers": [layer.to_dict() for layer in self.layers],
             "debris": [d.to_dict() for d in self.debris],
         }
+        if self.stir_interval:
+            out["stir_interval"] = self.stir_interval
+            out["stir_strength"] = self.stir_strength
+        return out
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DirtSpec:
@@ -316,6 +344,8 @@ class DirtSpec:
             description=data.get("description", ""),
             layers=tuple(LayerSpec.from_dict(d) for d in data.get("layers", [])),
             debris=tuple(DebrisSpec.from_dict(d) for d in data.get("debris", [])),
+            stir_interval=float(data.get("stir_interval", 0.0)),
+            stir_strength=float(data.get("stir_strength", 0.6)),
         )
 
 
@@ -460,6 +490,35 @@ def corner_heavy() -> DirtSpec:
                 patterns=("corners",),
             ),
         ),
+    )
+
+
+@DIRT_PRESETS.register("pool_party")
+def pool_party() -> DirtSpec:
+    """A pool in use. Dirt keeps arriving and the water keeps getting stirred,
+    so 'done' is a rate you hold, not a state you reach."""
+    return DirtSpec(
+        name="pool_party",
+        description="Sediment falling all afternoon, stirred by whoever is in the water.",
+        layers=(
+            LayerSpec(
+                "sediment",
+                grams_per_m2=6.0,
+                patterns=("patchy",),
+                grams_per_m2_per_hour=14.0,
+            ),
+            LayerSpec("sand", grams_per_m2=4.0, patterns=("edges",)),
+        ),
+        debris=(
+            DebrisSpec(
+                "floating",
+                per_100m2=12.0,
+                mass_range=(0.5, 1.5),
+                size_range=(0.01, 0.03),
+            ),
+        ),
+        stir_interval=45.0,
+        stir_strength=0.5,
     )
 
 
