@@ -267,6 +267,25 @@ class PoseEstimator:
         h[1, Y] = 1.0
         self._update(np.array([x, y]), h, np.diag([noise, noise]))
 
+    def wall_update(
+        self, point: tuple[float, float], normal: tuple[float, float], sigma: float = 0.1
+    ) -> None:
+        """Fold in a wall touch: the robot's centre lies on a known line.
+
+        Touching a wall pins exactly one dimension -- how far from the wall
+        the robot is -- and says nothing about where *along* it the robot
+        sits. So this is a 1D update along the wall's ``normal``, through
+        ``point`` (the wall's surface pushed in by the hull radius), rather
+        than a 2D position fix that would also drag the estimate sideways to
+        wherever the touch was guessed to be.
+        """
+        nx, ny = normal
+        h = np.zeros((1, N_STATES))
+        h[0, X] = nx
+        h[0, Y] = ny
+        z = np.array([nx * point[0] + ny * point[1]])
+        self._update(z, h, np.array([[sigma**2]]))
+
     def heading_update(self, heading: float, sigma: float = 0.05) -> None:
         """Fold in an absolute heading observation."""
         h = np.zeros((1, N_STATES))

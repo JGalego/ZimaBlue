@@ -164,6 +164,7 @@ class PathFollower:
         stall: float = 12.0,
         estimator: Any = None,
         loop: bool = False,
+        relocalise: bool = True,
     ) -> None:
         if localisation not in ("truth", "odometry"):
             raise ValueError(f"localisation must be 'truth' or 'odometry', got {localisation!r}")
@@ -175,6 +176,15 @@ class PathFollower:
         self.turn_gain = float(turn_gain)
         self.stall = float(stall)
         self.loop = loop
+        self.relocalise = relocalise
+        """Correct the estimate against the map on wall contact.
+
+        A bump is a measurement: the hull is touching *a* wall, and the plan
+        already carries a map of where the walls are. Folding that in pins
+        the one dimension a touch actually observes -- distance from the wall
+        -- and costs nothing a real machine does not have. Off, the follower
+        dead-reckons blind, which is what the odometry tables measured before
+        this existed."""
         self._estimator_config = estimator
 
         self.name = f"{getattr(self.planner, 'name', 'planned')}"
@@ -211,6 +221,8 @@ class PathFollower:
         self._closest = np.inf
         self._skipped = 0
         self._waited = 0.0
+        self._touching = False
+        self._fixes = 0
 
     # ------------------------------------------------------------------
     def attach_fleet(
@@ -246,6 +258,8 @@ class PathFollower:
         self._closest = np.inf
         self._skipped = 0
         self._waited = 0.0
+        self._touching = False
+        self._fixes = 0
 
     def telemetry(self) -> dict[str, float]:
         x, y, heading = self._pose
@@ -260,6 +274,12 @@ class PathFollower:
             else 0.0,
             "skipped": float(self._skipped),
             "waited": float(self._waited),
+            "fixes": float(self._fixes),
+            "est_sigma": (
+                float(self._estimator.estimate.position_sigma)
+                if self._estimator is not None
+                else 0.0
+            ),
         }
 
     # ------------------------------------------------------------------
@@ -363,8 +383,67 @@ class PathFollower:
         if dt > 0:
             self._estimator.predict(float(speed), float(gyro), dt)
             self._estimator.zero_velocity_update(float(gyro), dt, moving=abs(speed) > 0.02)
+        if self.relocalise:
+            self._wall_fix(control_input)
         pose = self._estimator.estimate
         return (pose.x, pose.y, pose.heading)
+
+    def _wall_fix(self, control_input: Any) -> None:
+        """Use a bump as the measurement it is.
+
+        Edge-triggered -- one fix per touch, not one per tick spent scraping
+        along the wall -- and gated on the innovation, because correcting
+        against the *wrong* wall is how a bad estimate becomes a confident
+        bad estimate.
+        """
+        contact = control_input.reading("contact")
+        # Any bumper will do: a side scrape pins the same dimension a head-on
+        # touch does -- the hull is at wall distance along the wall's normal.
+        touching = bool(
+            contact is not None and contact.valid and bool(np.any(contact.values > 0.5))
+        )
+        was_touching, self._touching = self._touching, touching
+        if not touching or was_touching or self._planned_for is None:
+            return
+        estimate = self._estimator.estimate
+        radius = control_input.robot.radius
+        distance, wx, wy, is_obstacle = self._planned_for.nearest_wall(estimate.x, estimate.y)
+        if is_obstacle:
+            # The map knows obstacles too, but a bump on one is as likely a
+            # glancing blow on its corner; the geometry is too ambiguous to
+            # treat as a measurement.
+            return
+        gap = float(np.hypot(estimate.x - wx, estimate.y - wy))
+        if gap < 1e-6 or abs(distance - radius) > 0.5:
+            # Either we are (believed) inside the wall or the believed
+            # nearest wall is nowhere near the hull: too lost to fix safely.
+            return
+        # Data association: the believed wall must lie on the side the bumper
+        # says was hit. In an inside corner the nearest mapped wall is often
+        # not the touched one, and correcting against the wrong wall turns a
+        # good estimate into a confident bad one -- measured, on the L-shaped
+        # pool, before this check existed.
+        bumper_angles = (0.0, 0.5 * np.pi, -0.5 * np.pi, np.pi)
+        fired = [i for i in range(min(4, len(contact.values))) if contact.values[i] > 0.5]
+        towards_wall = np.arctan2(wy - estimate.y, wx - estimate.x)
+        agreed = any(
+            abs(
+                float(
+                    np.arctan2(
+                        np.sin(estimate.heading + bumper_angles[i] - towards_wall),
+                        np.cos(estimate.heading + bumper_angles[i] - towards_wall),
+                    )
+                )
+            )
+            < np.pi / 3
+            for i in fired
+        )
+        if not agreed:
+            return
+        normal = ((estimate.x - wx) / gap, (estimate.y - wy) / gap)
+        point = (wx + radius * normal[0], wy + radius * normal[1])
+        self._estimator.wall_update(point, normal, sigma=0.12)
+        self._fixes += 1
 
     def _pursue(self, control_input: Any) -> Any:
         """Steer towards the first waypoint more than ``lookahead`` metres away.

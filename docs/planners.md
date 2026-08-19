@@ -180,6 +180,25 @@ aiming at the far end of the lane instead, reverses out, finds itself more than
 a lookahead from the corner again, and turns back. It paced a 15 cm stretch of
 tile for the entire run at 4% coverage. There is a test named after it.
 
+### A bump is a measurement
+
+The follower on odometry no longer dead-reckons blind. A wall touch pins one
+dimension — how far from the wall the hull is — and the plan already carries a
+map of where the walls are, so each first contact folds a one-dimensional fix
+into the EKF, gated on the innovation and on whether the bumper that fired
+agrees with where the believed wall lies. In an inside corner the nearest
+mapped wall is often not the touched one, and correcting against the wrong
+wall turns a good estimate into a confident bad one — measured, on the
+L-shaped pool, before the gate existed.
+
+What it buys, on twelve autumn minutes of `boustrophedon@odometry`, seed 5:
+mean estimate error falls from 6.1 m to 3.8 m on the kidney, 79.9 m to 3.4 m
+on the rectangle, 39.7 m to 1.9 m on the oval. The L-shape pays for its
+corners — 1.1 m to 1.9 m — and short-horizon coverage can *drop* with better
+localisation, because a lost robot scribbles over floor its plan never meant
+to visit. `PathFollower(relocalise=False)` restores the blind follower, which
+is what the earlier odometry tables measured.
+
 ## What the planners actually do
 
 Fifteen minutes each, three pools (rectangular, kidney, L-shaped), one seed,
