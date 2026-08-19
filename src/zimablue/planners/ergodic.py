@@ -134,14 +134,25 @@ class SpectralCoverage(OnlineCoverage):
         raise NotImplementedError("smc steers continuously; it has no cell to choose")
 
     # -- the spectrum --------------------------------------------------------
+    def _box(self) -> tuple[float, float, float, float]:
+        """The observed bounding box the Fourier basis is defined over.
+
+        Every caller runs after the ``_domain is None`` guard in :meth:`step`,
+        which is where "nothing observed yet" is handled; reaching here without
+        one is a bug rather than a state to cope with.
+        """
+        if self._domain is None:  # pragma: no cover - callers guard on it
+            raise RuntimeError("the ergodic domain is not known yet")
+        return self._domain
+
     def _basis(self, x: float, y: float) -> np.ndarray:
-        x0, y0, lx, ly = self._domain
+        x0, y0, lx, ly = self._box()
         u = np.clip((x - x0) / lx, 0.0, 1.0)
         v = np.clip((y - y0) / ly, 0.0, 1.0)
         return self._norm * np.cos(self._k1 * np.pi * u) * np.cos(self._k2 * np.pi * v)
 
     def _gradient(self, x: float, y: float) -> tuple[np.ndarray, np.ndarray]:
-        x0, y0, lx, ly = self._domain
+        x0, y0, lx, ly = self._box()
         u = np.clip((x - x0) / lx, 0.0, 1.0)
         v = np.clip((y - y0) / ly, 0.0, 1.0)
         cu, cv = np.cos(self._k1 * np.pi * u), np.cos(self._k2 * np.pi * v)
@@ -230,7 +241,7 @@ class SpectralCoverage(OnlineCoverage):
             if keep.any():
                 xs, ys = xs[keep], ys[keep]
 
-        x0, y0, lx, ly = self._domain
+        x0, y0, lx, ly = self._box()
         u = np.clip((xs - x0) / lx, 0.0, 1.0)
         v = np.clip((ys - y0) / ly, 0.0, 1.0)
         # (modes, modes, points) would be the obvious loop; one matrix product

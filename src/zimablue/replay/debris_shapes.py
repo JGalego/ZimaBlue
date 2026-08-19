@@ -22,7 +22,13 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ["DEBRIS_PALETTE", "debris_colour", "debris_outline", "debris_polygons"]
+__all__ = [
+    "DEBRIS_PALETTE",
+    "debris_colour",
+    "debris_offsets",
+    "debris_outline",
+    "debris_polygons",
+]
 
 FloatArray = NDArray[np.float64]
 
@@ -147,6 +153,40 @@ def _hash(index: int, salt: int) -> int:
     return (int(index) * 2654435761 + salt) & 0x7FFFFFFF
 
 
+def debris_offsets(
+    size: FloatArray,
+    kinds: list[str],
+    indices: NDArray[np.int_],
+) -> list[FloatArray]:
+    """Outlines about their own centre, scaled and rotated but not placed.
+
+    ``size`` is the item's long dimension in metres, so the result is at true
+    scale -- a 9 cm leaf comes out 9 cm across.
+
+    Separate from :func:`debris_polygons` because debris *moves*: the robot
+    shoves anything too big for the intake out of the way, and over a run the
+    typical survivor travels more than its own length. Shape, rotation and
+    scale are fixed per item and worth computing once; the centre is not, and
+    a view that bakes it in draws every leaf where it spent the first frame.
+    """
+    offsets = []
+    start = int(indices[0]) if len(indices) else 0
+    for i, (length, kind) in enumerate(zip(size, kinds, strict=True), start=start):
+        unit = debris_outline(kind, i)
+        angle = _hash(i, 104729) / 0x7FFFFFFF * 2.0 * np.pi
+        cos_a, sin_a = np.cos(angle), np.sin(angle)
+        scaled = unit * float(length)
+        offsets.append(
+            np.column_stack(
+                [
+                    scaled[:, 0] * cos_a - scaled[:, 1] * sin_a,
+                    scaled[:, 0] * sin_a + scaled[:, 1] * cos_a,
+                ]
+            )
+        )
+    return offsets
+
+
 def debris_polygons(
     x: FloatArray,
     y: FloatArray,
@@ -154,25 +194,9 @@ def debris_polygons(
     kinds: list[str],
     indices: NDArray[np.int_],
 ) -> list[FloatArray]:
-    """World-space outlines for a set of debris items.
-
-    ``size`` is the item's long dimension in metres, so the result is at true
-    scale -- a 9 cm leaf comes out 9 cm across.
-    """
-    polygons = []
-    for i, (px, py, length, kind) in enumerate(
-        zip(x, y, size, kinds, strict=True), start=int(indices[0]) if len(indices) else 0
-    ):
-        unit = debris_outline(kind, i)
-        angle = _hash(i, 104729) / 0x7FFFFFFF * 2.0 * np.pi
-        cos_a, sin_a = np.cos(angle), np.sin(angle)
-        scaled = unit * float(length)
-        polygons.append(
-            np.column_stack(
-                [
-                    px + scaled[:, 0] * cos_a - scaled[:, 1] * sin_a,
-                    py + scaled[:, 0] * sin_a + scaled[:, 1] * cos_a,
-                ]
-            )
-        )
-    return polygons
+    """World-space outlines for a set of debris items, placed at ``x, y``."""
+    offsets = debris_offsets(size, kinds, indices)
+    return [
+        offset + np.array([float(px), float(py)])
+        for offset, px, py in zip(offsets, x, y, strict=True)
+    ]

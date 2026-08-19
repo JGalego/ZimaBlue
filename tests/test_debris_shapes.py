@@ -9,6 +9,7 @@ from zimablue.recording import Recording
 from zimablue.replay.debris_shapes import (
     DEBRIS_PALETTE,
     debris_colour,
+    debris_offsets,
     debris_outline,
     debris_polygons,
 )
@@ -123,3 +124,54 @@ def test_a_recording_without_the_type_column_still_opens():
     debris = recording.debris_at(0.0)
     assert debris.shape == (3, 6)
     assert recording.debris_type_names() == ["leaves"]
+
+
+def test_an_offset_is_an_outline_about_its_own_centre():
+    size = np.array([0.09, 0.05])
+    indices = np.arange(2)
+    offsets = debris_offsets(size, ["leaves", "twigs"], indices)
+    placed = debris_polygons(
+        np.array([1.0, 5.0]), np.array([2.0, 3.0]), size, ["leaves", "twigs"], indices
+    )
+    for offset, polygon, centre in zip(offsets, placed, [(1.0, 2.0), (5.0, 3.0)], strict=True):
+        assert offset + np.asarray(centre) == pytest.approx(polygon)
+        # Centred, so it can be moved by adding wherever the item is now.
+        assert abs(offset[:, 0].mean()) < float(size.max())
+        assert abs(offset[:, 1].mean()) < float(size.max())
+
+
+def test_debris_is_drawn_where_it_is_now_not_where_it_started(tmp_path):
+    """Oversized debris gets shoved around, and every view used to ignore that.
+
+    The outlines were built once from the first frame and never moved, on a
+    stated assumption that debris settles and only ever disappears. The robot
+    pushes anything too big for the intake out of the way, so the items that
+    survive a run are exactly the ones that travel -- and they were drawn where
+    they had been at t=0 for the whole replay.
+    """
+    from zimablue.replay.renderer import ReplayRenderer
+
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+
+    result = Simulation(pool="kidney", robot="tracked", dirt="autumn", seed=4).run(seconds=240)
+    recording = Recording.load(result.save(tmp_path / "shoved.zbr"))
+
+    start = recording.debris_at(0.0)
+    end = recording.debris_at(recording.duration)
+    still_here = end[:, 4] < 0.5
+    moved = np.hypot(end[:, 0] - start[:, 0], end[:, 1] - start[:, 1])
+    item = int(np.argmax(np.where(still_here, moved, -1.0)))
+    assert moved[item] > end[item, 3], "no item moved further than its own size to test with"
+
+    renderer = ReplayRenderer(recording)
+    renderer.draw(recording.n_frames - 1)
+    centres = np.array([path.vertices.mean(axis=0) for path in renderer._debris.get_paths()])
+    assert centres.size, "nothing was drawn to check"
+
+    now, was = end[item, 0:2], start[item, 0:2]
+    # The outline nearest where the item is now is that item's, and it is a
+    # whole displacement away from where the frozen version would have put it.
+    drawn_at = centres[np.argmin(np.hypot(*(centres - now).T))]
+    assert np.hypot(*(drawn_at - now)) < end[item, 3]
+    assert np.hypot(*(drawn_at - was)) == pytest.approx(moved[item], rel=0.05)

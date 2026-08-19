@@ -99,3 +99,102 @@ def test_recording_can_be_disabled():
 def test_unknown_channel_error_lists_channels(short_run):
     with pytest.raises(KeyError, match="available"):
         short_run.recording.column("nope")
+
+
+# ----------------------------------------------------------------------
+# Reading dirt back between keyframes
+# ----------------------------------------------------------------------
+def test_the_exact_reading_is_the_keyframe_and_says_so(short_run):
+    """Default is the keyframe at or before t, unchanged and un-blended."""
+    rec = short_run.recording
+    assert len(rec.dirt_times) >= 2
+    for i, t in enumerate(rec.dirt_times):
+        exact = rec.dirt_at(float(t))
+        assert exact == pytest.approx(rec.dirt_keyframes[i].sum(axis=0, dtype=np.float32))
+        # On a keyframe there is nothing to blend, so both agree.
+        assert rec.dirt_at(float(t), interpolate=True) == pytest.approx(exact)
+
+
+def test_the_dirt_field_creeps_between_keyframes_instead_of_stepping(short_run):
+    """The replay bug: dirt appeared in one frame rather than gradually.
+
+    Keyframes are ten simulated seconds apart, so the nearest-keyframe reading
+    holds a cell still for five hundred rendered frames and then jumps it. On
+    the cell that gains the most dirt over a run that is the pile at the deep
+    end appearing out of nowhere, over and over.
+    """
+    rec = short_run.recording
+    first, last = rec.dirt_at(0.0), rec.dirt_at(rec.duration)
+    row, col = np.unravel_index(np.argmax(last - first), first.shape)
+
+    times = np.arange(0.0, rec.duration, 0.02)
+    stepped = np.array([rec.dirt_at(t)[row, col] for t in times])
+    blended = np.array([rec.dirt_at(t, interpolate=True)[row, col] for t in times])
+
+    assert np.abs(np.diff(blended)).max() < 0.1 * np.abs(np.diff(stepped)).max()
+    # And it moves every frame rather than a handful of times.
+    assert (np.abs(np.diff(blended)) > 0).mean() > 0.9
+    assert (np.abs(np.diff(stepped)) > 0).mean() < 0.1
+
+
+def test_a_blend_never_leaves_the_pair_it_blends(short_run):
+    """Interpolating must not invent dirt -- every value lies between two the
+    cell genuinely held. It did not when the blend was computed in the float16
+    the keyframes are stored in, which could land the result below both."""
+    rec = short_run.recording
+    before, after = (
+        rec.dirt_keyframes[0].sum(axis=0, dtype=np.float32),
+        rec.dirt_keyframes[1].sum(axis=0, dtype=np.float32),
+    )
+    low, high = np.minimum(before, after), np.maximum(before, after)
+    for t in np.linspace(float(rec.dirt_times[0]), float(rec.dirt_times[1]), 12):
+        blended = rec.dirt_at(float(t), interpolate=True)
+        assert (blended >= low - 1e-6).all()
+        assert (blended <= high + 1e-6).all()
+
+
+def test_dirt_is_read_back_wider_than_it_is_stored(short_run):
+    """float16 keeps the file small and is far too coarse to compute in."""
+    assert short_run.recording.dirt_keyframes.dtype == np.float16
+    assert short_run.recording.dirt_at(0.0).dtype == np.float32
+
+
+@pytest.fixture(scope="module")
+def autumn_run():
+    """A run with discrete debris in it, which light sediment has none of."""
+    return Simulation(pool="kidney", dirt="autumn", seed=4).run(seconds=120)
+
+
+def test_debris_glides_between_keyframes_rather_than_teleporting(autumn_run):
+    """The robot shoves oversized debris around, so positions really do move.
+
+    Between two keyframes an item can travel metres, and the nearest-keyframe
+    reading delivers all of it in one rendered frame.
+    """
+    rec = autumn_run.recording
+    assert rec.debris_keyframes.size
+    times = np.arange(0.0, rec.duration, 0.02)
+    stepped = np.array([rec.debris_at(t)[:, 0:2] for t in times])
+    blended = np.array([rec.debris_at(t, interpolate=True)[:, 0:2] for t in times])
+    assert np.abs(np.diff(blended, axis=0)).max() < 0.1 * np.abs(np.diff(stepped, axis=0)).max()
+
+
+def test_only_the_interpolated_reading_makes_collected_a_fraction(autumn_run):
+    """Counting has to stay on the exact reading, which stays 0 or 1."""
+    rec = autumn_run.recording
+    assert rec.debris_keyframes.size
+    for t in np.linspace(0.0, rec.duration, 25):
+        exact = rec.debris_at(float(t))[:, 4]
+        assert np.isin(exact, (0.0, 1.0)).all()
+        fraction = rec.debris_at(float(t), interpolate=True)[:, 4]
+        assert ((fraction >= 0.0) & (fraction <= 1.0)).all()
+
+
+def test_a_keyframe_span_past_the_end_does_not_blend_off_the_array(short_run):
+    rec = short_run.recording
+    before, after, blend = rec.keyframe_span(rec.duration + 500.0)
+    assert before == after == len(rec.dirt_times) - 1
+    assert blend == 0.0
+    assert rec.dirt_at(rec.duration + 500.0, interpolate=True) == pytest.approx(
+        rec.dirt_at(rec.duration + 500.0)
+    )

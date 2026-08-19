@@ -31,7 +31,7 @@ different machine.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -190,27 +190,34 @@ def _arc(waypoints: Any, begin: int, end: int) -> Any:
     return waypoints[index]
 
 
-def mstc(
-    *,
-    backtracking: bool = True,
-    planner: Any = "spanning_tree",
-    localisation: str = "odometry",
-    **follower: Any,
-):
-    """Fleet factory: one spanning-tree circuit, cut into arcs.
+@dataclass
+class MSTCFleet:
+    """What :func:`mstc` returns: one circuit, cut into an arc per robot.
 
-        Fleet(pool="kidney", robots=3, controllers=mstc())
-
-    The circuit comes from the single-robot ``spanning_tree`` planner, so the
-    cells, the tree and the perimeter walk are the same code -- what MSTC adds
-    is where to cut it.
+    A class rather than a closure with a ``name`` stapled on -- the name is
+    read by :class:`~zimablue.fleet.Fleet` when it writes the manifest, so it
+    is part of the contract.
     """
 
-    def build(pool: Any, robots: list[Any], poses: list[tuple[float, float, float]]):
-        circuit = make_planner(planner).plan(pool, robots[0])
+    backtracking: bool = True
+    planner: Any = "spanning_tree"
+    localisation: str = "odometry"
+    follower: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def name(self) -> str:
+        return "mstc_backtracking" if self.backtracking else "mstc"
+
+    def __call__(
+        self,
+        pool: Any,
+        robots: list[Any],
+        poses: list[tuple[float, float, float]],
+    ) -> list[Any]:
+        circuit = make_planner(self.planner).plan(pool, robots[0])
         if len(circuit) < len(poses) * 2:
             raise ValueError(
-                f"{planner} produced {len(circuit)} waypoints on {pool.name}, "
+                f"{self.planner} produced {len(circuit)} waypoints on {pool.name}, "
                 f"which is too few to cut into {len(poses)} arcs"
             )
         way = circuit.waypoints
@@ -227,14 +234,34 @@ def mstc(
                 circuit,
                 start,
                 finish,
-                backtracking=backtracking,
-                localisation=localisation,
-                **follower,
+                backtracking=self.backtracking,
+                localisation=self.localisation,
+                **self.follower,
             )
         return followers
 
-    build.name = "mstc_backtracking" if backtracking else "mstc"
-    return build
+
+def mstc(
+    *,
+    backtracking: bool = True,
+    planner: Any = "spanning_tree",
+    localisation: str = "odometry",
+    **follower: Any,
+) -> MSTCFleet:
+    """Fleet factory: one spanning-tree circuit, cut into arcs.
+
+        Fleet(pool="kidney", robots=3, controllers=mstc())
+
+    The circuit comes from the single-robot ``spanning_tree`` planner, so the
+    cells, the tree and the perimeter walk are the same code -- what MSTC adds
+    is where to cut it.
+    """
+    return MSTCFleet(
+        backtracking=backtracking,
+        planner=planner,
+        localisation=localisation,
+        follower=follower,
+    )
 
 
 # ======================================================================

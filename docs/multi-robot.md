@@ -94,8 +94,7 @@ inside one unchanged:
 ```python
 from zimablue.planners import partitioned
 
-zb.Fleet(pool="kidney", robots=3,
-         controllers=partitioned("darp", "sweep_optimal")).run(minutes=20)
+zb.Fleet(pool="kidney", robots=3, controllers=partitioned("darp", "sweep_optimal")).run(minutes=20)
 ```
 
 ### A partition is only as good as the localisation that drives it
@@ -240,6 +239,7 @@ your cleaner, and eleven columns rather than one is how you find it.
 
 ```python
 from zimablue.fleetplots import plot_fleet
+
 plot_fleet(result).savefig("fleet.png")
 ```
 

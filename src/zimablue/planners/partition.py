@@ -130,7 +130,10 @@ class Partition:
     def fairness(self) -> float:
         """Smallest share over largest. 1.0 is a perfectly even cut."""
         sizes = [t.cells for t in self.territories]
-        return min(sizes) / max(sizes) if sizes and max(sizes) else 0.0
+        if not sizes:
+            return 0.0
+        largest = max(sizes)
+        return min(sizes) / largest if largest else 0.0
 
     @property
     def connected(self) -> bool:
@@ -417,7 +420,8 @@ def _match_strips(strip_labels, grid, cell, poses) -> NDArray[np.int16]:
     )
     assignment = np.full(count, -1, dtype=np.int16)
     for _ in range(count):
-        band, robot = np.unravel_index(int(np.argmin(cost)), cost.shape)
+        flat = np.unravel_index(int(np.argmin(cost)), cost.shape)
+        band, robot = int(flat[0]), int(flat[1])
         assignment[band] = robot
         cost[band, :] = np.inf
         cost[:, robot] = np.inf
@@ -609,10 +613,10 @@ def _cut_tree(parents: dict[Cell, Cell | None], count: int) -> list[list[Cell]]:
         pieces.append(cut)
         detached |= set(cut)
         # The cut subtree no longer counts towards its ancestors' weights.
-        node: Cell | None = parents[best]
-        while node is not None:
-            weight[node] -= len(cut)
-            node = parents[node]
+        ancestor: Cell | None = parents[best]
+        while ancestor is not None:
+            weight[ancestor] -= len(cut)
+            ancestor = parents[ancestor]
         remaining -= len(cut)
     pieces.append([node for node in parents if node not in detached])
     return [p for p in pieces if p]
@@ -678,6 +682,55 @@ class InTerritory:
         return plan
 
 
+@dataclass
+class PartitionedFleet:
+    """What :func:`partitioned` returns: a cut, and a planner for each share.
+
+    A class rather than a closure with attributes stapled on. ``name`` is read
+    by :class:`~zimablue.fleet.Fleet` when it writes the manifest and by the
+    comparison harness when it labels a row, so it is part of the contract and
+    belongs in the signature rather than in an assignment after the ``def``.
+    """
+
+    partition: Partitioner | str = "darp"
+    planner: Any = "sweep_optimal"
+    localisation: str = "odometry"
+    cell: float = 0.5
+    follower: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def name(self) -> str:
+        cut = self.partition if isinstance(self.partition, str) else self.partition.name
+        return f"{cut}+{self.planner}"
+
+    def __call__(
+        self,
+        pool: Pool,
+        robots: list[Cleaner],
+        poses: list[tuple[float, float, float]],
+    ) -> list[PathFollower]:
+        cut = (
+            make_partition(self.partition, cell=self.cell)
+            if isinstance(self.partition, str)
+            else self.partition
+        )
+        division = cut.divide(pool, robots, poses, cell=self.cell)
+        followers = []
+        for index, territory in enumerate(division.territories):
+            inner = make_planner(self.planner) if isinstance(self.planner, str) else self.planner
+            wrapped = InTerritory(
+                planner=inner,
+                territory=territory,
+                parent=pool,
+                name=f"{getattr(inner, 'name', 'planned')}@{division.method}{index}",
+            )
+            follow = PathFollower(wrapped, localisation=self.localisation, **self.follower)
+            follow.name = wrapped.name
+            follow.partition = division
+            followers.append(follow)
+        return followers
+
+
 def partitioned(
     partition: Partitioner | str = "darp",
     planner: Any = "sweep_optimal",
@@ -685,39 +738,26 @@ def partitioned(
     localisation: str = "odometry",
     cell: float = 0.5,
     **follower: Any,
-):
+) -> PartitionedFleet:
     """A fleet controller factory: cut the pool, then sweep each share.
 
     Returns something :class:`~zimablue.fleet.Fleet` calls once it knows where
     the robots are, because every partitioner here takes the start positions
     as input -- that is what "by robot positions" means.
 
-        Fleet(pool="kidney", robots=3,
-              controllers=partitioned("darp", "boustrophedon_cells"))
+        Fleet(
+            pool="kidney",
+            robots=3,
+            controllers=partitioned("darp", "boustrophedon_cells"),
+        )
     """
-
-    def build(pool: Pool, robots: list[Cleaner], poses: list[tuple[float, float, float]]):
-        cut = make_partition(partition, cell=cell) if isinstance(partition, str) else partition
-        division = cut.divide(pool, robots, poses, cell=cell)
-        followers = []
-        for index, territory in enumerate(division.territories):
-            inner = make_planner(planner) if isinstance(planner, str) else planner
-            wrapped = InTerritory(
-                planner=inner,
-                territory=territory,
-                parent=pool,
-                name=f"{getattr(inner, 'name', 'planned')}@{division.method}{index}",
-            )
-            follow = PathFollower(wrapped, localisation=localisation, **follower)
-            follow.name = wrapped.name
-            follow.partition = division
-            followers.append(follow)
-        return followers
-
-    build.partition = partition
-    build.planner = planner
-    build.name = f"{partition if isinstance(partition, str) else partition.name}+{planner}"
-    return build
+    return PartitionedFleet(
+        partition=partition,
+        planner=planner,
+        localisation=localisation,
+        cell=cell,
+        follower=follower,
+    )
 
 
 def _planner_names() -> list[str]:

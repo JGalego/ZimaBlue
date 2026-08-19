@@ -60,7 +60,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import pairwise
-from typing import Any
+from typing import Any, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
@@ -237,7 +237,8 @@ class Comparison:
             for j, dim in enumerate(self.dimensions):
                 value = raw[planner][j]
                 text = dim.format(value)
-                if winners[j] is not None and np.isclose(value, winners[j]):
+                best = winners[j]
+                if best is not None and np.isclose(value, best):
                     text = "*" + text
                 row += f"{text:>11}"
             lines.append(row)
@@ -380,7 +381,7 @@ def evaluate(
         expose_truth=needs_truth,
     )
     result = simulation.run(minutes=minutes)
-    metrics, recording = result.metrics, result.recording
+    metrics, recording = result.metrics, result.require_recording()
     geometry = simulation.world.pool
     swath = simulation.robot.swath_width
 
@@ -554,6 +555,23 @@ finished.
 """
 
 
+class FleetTrialKwargs(TypedDict):
+    """The per-trial arguments :func:`evaluate_fleet` is called with.
+
+    A plain dict literal mixing ints, strs, floats and bools infers as
+    ``dict[str, object]``, and unpacking that into a typed signature is an
+    error at every argument. Naming the shape once keeps the fan-out readable
+    and the call checked.
+    """
+
+    robots: int
+    pool: str
+    seed: int
+    minutes: float
+    dirt: str
+    share: bool
+
+
 def evaluate_fleet(
     entry: str,
     *,
@@ -590,7 +608,7 @@ def evaluate_fleet(
         pool=pool, robots=robots, dirt=dirt, controllers=controllers, seed=seed, share=share
     )
     result = fleet.run(minutes=minutes)
-    metrics, recording = result.metrics, result.recording
+    metrics, recording = result.metrics, result.require_recording()
     geometry = fleet.pool
     swath = fleet.robots[0].swath_width
 
@@ -689,17 +707,17 @@ def compare_fleets(
     on_result=None,
 ) -> Comparison:
     """The same harness, scoring teams instead of individuals."""
-    work = [
+    work: list[tuple[str, FleetTrialKwargs]] = [
         (
             entry,
-            {
-                "robots": robots,
-                "pool": p,
-                "seed": s,
-                "minutes": minutes,
-                "dirt": dirt,
-                "share": share,
-            },
+            FleetTrialKwargs(
+                robots=robots,
+                pool=p,
+                seed=s,
+                minutes=minutes,
+                dirt=dirt,
+                share=share,
+            ),
         )
         for entry in entries
         for p in pools

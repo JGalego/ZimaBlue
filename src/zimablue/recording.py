@@ -55,6 +55,14 @@ anything newer rather than silently misinterpreting columns."""
 FloatArray = NDArray[np.float64]
 
 
+def _padded_debris(snapshot: NDArray) -> NDArray:
+    """A debris snapshot widened to six columns, for files written before six."""
+    if snapshot.shape[-1] >= 6:
+        return snapshot
+    pad = np.zeros((snapshot.shape[0], 6 - snapshot.shape[-1]), dtype=snapshot.dtype)
+    return np.concatenate([snapshot, pad], axis=1)
+
+
 @dataclass
 class Recording:
     """A complete, replayable record of one run."""
@@ -113,41 +121,84 @@ class Recording:
         times = self.frames["time"]
         return int(np.clip(np.searchsorted(times, t, side="right") - 1, 0, times.size - 1))
 
-    def dirt_at(self, t: float) -> NDArray:
+    def keyframe_span(self, t: float) -> tuple[int, int, float]:
+        """The keyframes bracketing ``t``, and how far between them it falls.
+
+        Returns ``(before, after, blend)`` with ``blend`` in ``[0, 1]``.  Past
+        the last keyframe both indices are the last one and ``blend`` is 0.
+        """
+        times = self.dirt_times
+        last = len(times) - 1
+        if last < 0:
+            return (0, 0, 0.0)
+        before = int(np.clip(np.searchsorted(times, t, side="right") - 1, 0, last))
+        after = min(before + 1, last)
+        span = float(times[after] - times[before])
+        if after == before or span <= 0.0:
+            return (before, after, 0.0)
+        return (before, after, float(np.clip((t - times[before]) / span, 0.0, 1.0)))
+
+    def dirt_at(self, t: float, *, interpolate: bool = False) -> NDArray:
         """The dirt raster (summed over layers) at time ``t``.
 
-        Nearest keyframe at or before ``t`` -- no interpolation, because
-        interpolating between mass fields would invent dirt that never existed.
+        By default this is the nearest keyframe at or before ``t``: the exact
+        field the simulator held at a moment it actually recorded, which is
+        what a measurement wants.
+
+        ``interpolate=True`` blends linearly towards the next keyframe instead.
+        Keyframes are ten simulated seconds apart, so the exact answer holds
+        still and then steps -- one cell can move by half the whole field's
+        peak in a single rendered frame, which reads as dirt appearing out of
+        nowhere. The blend is an estimate and says so by being opt-in: a cell
+        cleaned early in an interval fades over the whole of it rather than
+        dropping when it was really cleaned. Every value it returns lies
+        between two the cell genuinely held, so it smooths the timing without
+        inventing dirt.
         """
         if self.dirt_keyframes.size == 0:
             return np.zeros((0, 0), dtype=np.float32)
-        idx = int(
-            np.clip(
-                np.searchsorted(self.dirt_times, t, side="right") - 1, 0, len(self.dirt_times) - 1
-            )
-        )
-        return self.dirt_keyframes[idx].sum(axis=0)
+        before, after, blend = self.keyframe_span(t)
+        # Keyframes are stored as float16 to keep the file small, and float16
+        # is far too coarse to compute in: summing the layers or weighting two
+        # of them in that precision loses more than the step being smoothed,
+        # and can land the blend below both of the values it sits between.
+        field = self.dirt_keyframes[before].sum(axis=0, dtype=np.float32)
+        if not interpolate or blend <= 0.0:
+            return field
+        ahead = self.dirt_keyframes[after].sum(axis=0, dtype=np.float32)
+        return (1.0 - blend) * field + blend * ahead
 
-    def debris_at(self, t: float) -> NDArray:
+    def debris_at(self, t: float, *, interpolate: bool = False) -> NDArray:
         """Debris snapshot ``(n, 6)`` -- ``x, y, mass, size, collected, type``.
 
         ``type`` indexes :meth:`debris_type_names`. Recordings written before
         the column existed are padded with zeros rather than rejected, which
         makes every item read as the first type -- wrong in the drawing, but
         the alternative is refusing to open the file at all.
+
+        ``interpolate=True`` glides each item between its bracketing keyframes
+        rather than teleporting it, and turns ``collected`` into the *fraction*
+        of the way through the interval in which it was collected, so a caller
+        can fade an item out over that interval instead of winking it away.
+        Anything counting items must therefore stay on the exact reading, and
+        the row order is the item's identity in both.
         """
         if self.debris_keyframes.size == 0:
             return np.zeros((0, 6), dtype=np.float32)
-        idx = int(
-            np.clip(
-                np.searchsorted(self.dirt_times, t, side="right") - 1, 0, len(self.dirt_times) - 1
-            )
-        )
-        snapshot = self.debris_keyframes[idx]
-        if snapshot.shape[-1] >= 6:
+        before, after, blend = self.keyframe_span(t)
+        snapshot = _padded_debris(self.debris_keyframes[before])
+        if not interpolate or blend <= 0.0:
             return snapshot
-        pad = np.zeros((snapshot.shape[0], 6 - snapshot.shape[-1]), dtype=snapshot.dtype)
-        return np.concatenate([snapshot, pad], axis=1)
+        ahead = _padded_debris(self.debris_keyframes[after])
+        if ahead.shape != snapshot.shape:  # pragma: no cover - defensive
+            return snapshot
+        blended = snapshot.astype(np.float32, copy=True)
+        # Position and the collected flag move; mass, size and type do not.
+        for column in (0, 1, 4):
+            blended[:, column] = (1.0 - blend) * snapshot[:, column].astype(np.float32) + (
+                blend * ahead[:, column].astype(np.float32)
+            )
+        return blended
 
     def debris_type_names(self) -> list[str]:
         """Names for the ``type`` column, in index order."""

@@ -191,25 +191,30 @@ class ReplayRenderer:
         self._build()
 
     # ------------------------------------------------------------------
-    def _build_debris(self) -> tuple[list[np.ndarray], list[str]]:
+    def _build_debris(self) -> tuple[list[np.ndarray], np.ndarray]:
         """Outlines and colours for every debris item, computed once.
 
-        Debris does not move once it has settled -- items are only removed as
-        they are collected -- so the geometry is built here and a frame does
-        nothing but choose which of them to show.
+        The outline is built about the item's own centre, not at a position.
+        Shape, rotation, scale and colour are fixed per item; where it *is* is
+        not -- the robot shoves anything too big for the intake out of the way,
+        and over a run the typical survivor travels further than its own
+        length. Baking the first frame's centre in here drew every leaf where
+        it started for the whole run.
         """
-        from zimablue.replay.debris_shapes import debris_colour, debris_polygons
+        import matplotlib.colors as mcolors
+
+        from zimablue.replay.debris_shapes import debris_colour, debris_offsets
 
         first = self.recording.debris_at(0.0)
         if not first.size:
-            return [], []
+            return [], np.zeros((0, 4))
 
         names = self.recording.debris_type_names()
         types = np.clip(first[:, 5].astype(int), 0, max(len(names) - 1, 0))
         kinds = [names[k] for k in types]
-        indices = np.arange(len(first))
-        polygons = debris_polygons(first[:, 0], first[:, 1], first[:, 3], kinds, indices)
-        return polygons, [debris_colour(kind, i) for i, kind in enumerate(kinds)]
+        offsets = debris_offsets(first[:, 3], kinds, np.arange(len(first)))
+        colours = mcolors.to_rgba_array([debris_colour(k, i) for i, k in enumerate(kinds)])
+        return offsets, colours
 
     # ------------------------------------------------------------------
     def _build(self) -> None:
@@ -327,7 +332,7 @@ class ReplayRenderer:
         # in points, so it stays the same size on screen while the pool is
         # zoomed -- and a 9 cm leaf drawn the same size as a 25 cm frond tells
         # you nothing about why one jams the intake and the other does not.
-        self._debris_polygons, self._debris_colours = self._build_debris()
+        self._debris_offsets, self._debris_colours = self._build_debris()
         self._debris = PolyCollection(
             [], facecolors=[], edgecolors="#3d2412", linewidths=0.35, zorder=5
         )
@@ -423,6 +428,8 @@ class ReplayRenderer:
             )
             self._crew.append({"parts": parts, "ring": ring, "trail": trail, "label": label})
 
+        self._lead_ring: Any = None
+        self._lead_label: Any = None
         if self.fleet_size > 1:
             self._lead_ring = mpatches.Circle(
                 (0.0, 0.0),
@@ -445,9 +452,6 @@ class ReplayRenderer:
                 va="center",
                 zorder=12,
             )
-        else:
-            self._lead_ring = None
-            self._lead_label = None
 
         self._nose = ax.plot([], [], color=PALETTE["accent"], linewidth=2.4, zorder=10)[0]
         self._brush = ax.plot([], [], marker="o", markersize=6, color=PALETTE["accent"], zorder=10)[
@@ -603,16 +607,28 @@ class ReplayRenderer:
         t = float(f["time"][index])
         x, y, heading = float(f["x"][index]), float(f["y"][index]), float(f["heading"][index])
 
-        # Dirt and debris come from the nearest keyframe at or before t.
-        self._dirt_image.set_data(_dirt_alpha(rec.dirt_at(t), scene.navigable, self._dirt_max))
+        # Dirt and debris are keyframed every ten simulated seconds and blended
+        # between, so the field creeps rather than stepping and a shoved leaf
+        # slides rather than teleporting.
+        self._dirt_image.set_data(
+            _dirt_alpha(rec.dirt_at(t, interpolate=True), scene.navigable, self._dirt_max)
+        )
         self._covered_image.set_data(_covered_alpha(self._first_visit <= index, scene.navigable))
-        debris = rec.debris_at(t)
-        if debris.size and self._debris_polygons:
-            # The outlines never move, so a frame only decides which are still
-            # in the pool.
-            active = np.nonzero(debris[:, 4] < 0.5)[0]
-            self._debris.set_verts([self._debris_polygons[i] for i in active])
-            self._debris.set_facecolor([self._debris_colours[i] for i in active])
+        debris = rec.debris_at(t, interpolate=True)
+        if debris.size and self._debris_offsets:
+            # `collected` is fractional here: it is how far through the
+            # interval in which the item was picked up, which fades it out
+            # over that interval rather than winking it away between frames.
+            active = np.nonzero(debris[:, 4] < 1.0)[0]
+            centres = debris[active, 0:2]
+            placed = zip(active, centres, strict=True)
+            self._debris.set_verts([self._debris_offsets[i] + centre for i, centre in placed])
+            # Alpha goes into the colours rather than through set_alpha, which
+            # keeps the previous frame's array and re-applies it to a different
+            # number of items on the next one.
+            faces = self._debris_colours[active].copy()
+            faces[:, 3] = np.clip(1.0 - debris[active, 4], 0.0, 1.0)
+            self._debris.set_facecolor([tuple(face) for face in faces])
 
         # Trail: a fading window rather than the whole path, so the recent
         # behaviour stays legible on a long run.
@@ -729,7 +745,7 @@ class ReplayRenderer:
         # matplotlib's stubs are narrower than what LineCollection accepts;
         # arrays are the documented input for all three of these.
         artist.set_linewidth((0.7 + 3.2 * age).tolist())
-        artist.set_color(rgba)  # type: ignore[arg-type]
+        artist.set_color(rgba)
 
     def _update_text(self, index: int, t: float) -> None:
         f = self.recording.frames

@@ -48,14 +48,24 @@ class RunResult:
     state: SimState
     events: list[Event] = field(default_factory=list)
 
-    def save(self, path: str | Path) -> Path:
-        """Write the recording to a ``.zbr`` file."""
+    def require_recording(self) -> Recording:
+        """The recording, or a clear error saying how to get one.
+
+        ``recording`` is optional because a batch sweep turns it off, so every
+        caller that needs one has to deal with ``None``. Doing it here means
+        one error message rather than an assertion per call site, and it
+        narrows the type for the ones that carry on.
+        """
         if self.recording is None:
             raise RuntimeError(
                 "this run was not recorded; construct it with "
-                "Simulation(..., record=True) to be able to save it"
+                "Simulation(..., record=True) to be able to use it"
             )
-        return self.recording.save(path)
+        return self.recording
+
+    def save(self, path: str | Path) -> Path:
+        """Write the recording to a ``.zbr`` file."""
+        return self.require_recording().save(path)
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return (

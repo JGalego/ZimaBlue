@@ -142,12 +142,16 @@ class Blackboard:
     def peers(self, index: int) -> list[Peer]:
         """Everyone else this robot can hear, from where it thinks it is."""
         mine = self.posts.get(index)
+        # A robot that has not published yet has nowhere to measure range from,
+        # so it hears everyone; the alternative is going deaf on its first tick.
+        here = (mine.x, mine.y) if mine is not None and math.isfinite(self.comms_range) else None
         out = []
         for other, post in self.posts.items():
             if other == index:
                 continue
-            limited = math.isfinite(self.comms_range) and mine is not None
-            if limited and math.hypot(post.x - mine.x, post.y - mine.y) > self.comms_range:
+            if here is not None and math.hypot(post.x - here[0], post.y - here[1]) > (
+                self.comms_range
+            ):
                 self.dropped += 1
                 continue
             out.append(post)
@@ -240,12 +244,16 @@ class FleetResult:
     def summary(self) -> str:
         return self.metrics.summary()
 
-    def save(self, path: str | Path) -> Path:
+    def require_recording(self) -> Recording:
+        """The recording, or a clear error saying how to get one."""
         if self.recording is None:
             raise RuntimeError(
                 "this fleet run was not recorded; construct it with Fleet(..., record=True)"
             )
-        return self.recording.save(path)
+        return self.recording
+
+    def save(self, path: str | Path) -> Path:
+        return self.require_recording().save(path)
 
     @property
     def territory(self) -> np.ndarray:
@@ -262,7 +270,9 @@ class FleetResult:
     @property
     def times_covered(self) -> np.ndarray:
         """How many different robots went over each cell."""
-        return sum((visits > 0).astype(np.int16) for visits in self.visits_by_robot)
+        return np.stack([(visits > 0).astype(np.int32) for visits in self.visits_by_robot]).sum(
+            axis=0
+        )
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return (
@@ -615,8 +625,14 @@ class Fleet:
         self.recorder.maybe_keyframe(self.time, self.world.dirt, force=True)
 
         visits_by_robot = [np.asarray(engine.visit_grid).copy() for engine in self.backends]
-        union = sum(visits_by_robot)
-        wall_visits = sum(np.asarray(engine.wall_visits) for engine in self.backends)
+        # np.stack rather than sum(): a bare sum() starts at the integer 0, so
+        # the result is only an array by luck of there being something to add.
+        union = np.stack(visits_by_robot).sum(axis=0).astype(np.int32)
+        wall_visits = (
+            np.stack([np.asarray(engine.wall_visits) for engine in self.backends])
+            .sum(axis=0)
+            .astype(np.int32)
+        )
 
         # The team's state: robot 0's clock and consumables, with the odometers
         # summed. compute_metrics reads a single state for distance, energy and

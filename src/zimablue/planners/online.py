@@ -257,8 +257,8 @@ class OnlineCoverage:
         self.facing: Cell = EAST
         start = self.origin or (0.0, 0.0, 0.0)
         self.here: Cell = self.map.to_index(start[0], start[1])
-        self._peer_done: set[Cell] = set()
-        self._peer_cells: set[Cell] = set()
+        self._peer_done = set()
+        self._peer_cells = set()
         self._route: list[Cell] = []
         self._last_time = 0.0
         self._contact_since: float | None = None

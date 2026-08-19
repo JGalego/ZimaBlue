@@ -189,7 +189,7 @@ class FloorCamera:
         cols = np.clip(((world_x - grid.minx) / grid.cell).astype(int), 0, grid.ncols - 1)
 
         inside = self.scene.navigable[rows, cols] & ~self.sky
-        dirt = np.asarray(rec.dirt_at(t))[rows, cols]
+        dirt = np.asarray(rec.dirt_at(t, interpolate=True))[rows, cols]
 
         image = self._paint(dirt, inside, world_x, world_y)
         self._draw_debris(image, rec, t, cx, cy, yaw)
@@ -331,10 +331,13 @@ class FloorCamera:
         away and made a soaked oak leaf indistinguishable from a twig -- which
         matters, because one of those is about to jam the intake.
         """
-        debris = rec.debris_at(t)
+        debris = rec.debris_at(t, interpolate=True)
         if not debris.size:
             return
-        indices = np.nonzero(debris[:, 4] < 0.5)[0]
+        # `collected` is fractional on the interpolated reading: how far
+        # through the interval in which the item was picked up. Anything not
+        # fully collected is still drawn, fading as it goes.
+        indices = np.nonzero(debris[:, 4] < 1.0)[0]
         if not indices.size:
             return
 
@@ -349,22 +352,37 @@ class FloorCamera:
         order = np.argsort(-ahead[visible])
         selected = indices[visible][order]
 
-        outlines = self._outlines()
+        offsets = self._outlines()
         for item in selected:
-            polygon = outlines.get(int(item))
-            if polygon is None:
+            offset = offsets.get(int(item))
+            if offset is None:
                 continue
+            # Placed at where the item is now, not where it started: the robot
+            # shoves oversized debris around, and the survivors of a run have
+            # typically moved further than their own length.
+            polygon = offset + debris[item, 0:2]
             a, lat = self.to_camera(polygon[:, 0], polygon[:, 1], cx, cy, yaw)
             cols, rows = self.project(a, lat)
             distance = float(np.hypot(*(polygon.mean(axis=0) - (cx, cy))))
-            self.fill_polygon(image, cols, rows, self._debris_colours[int(item)], distance)
+            self.fill_polygon(
+                image,
+                cols,
+                rows,
+                self._debris_colours[int(item)],
+                distance,
+                alpha=float(np.clip(1.0 - debris[item, 4], 0.0, 1.0)),
+            )
 
     def _outlines(self) -> dict[int, FloatArray]:
-        """World-space outlines for every debris item, built once."""
+        """Outlines about each item's own centre, built once.
+
+        Shape, rotation, scale and colour are fixed per item and worth caching.
+        The centre is not -- see :meth:`_draw_debris`.
+        """
         if self._debris_outlines is not None:
             return self._debris_outlines
 
-        from zimablue.replay.debris_shapes import debris_colour, debris_polygons
+        from zimablue.replay.debris_shapes import debris_colour, debris_offsets
 
         first = self.recording.debris_at(0.0)
         self._debris_outlines = {}
@@ -373,10 +391,9 @@ class FloorCamera:
             names = self.recording.debris_type_names()
             types = np.clip(first[:, 5].astype(int), 0, max(len(names) - 1, 0))
             kinds = [names[k] for k in types]
-            indices = np.arange(len(first))
-            polygons = debris_polygons(first[:, 0], first[:, 1], first[:, 3], kinds, indices)
-            for i, (polygon, kind) in enumerate(zip(polygons, kinds, strict=True)):
-                self._debris_outlines[i] = polygon
+            offsets = debris_offsets(first[:, 3], kinds, np.arange(len(first)))
+            for i, (offset, kind) in enumerate(zip(offsets, kinds, strict=True)):
+                self._debris_outlines[i] = offset
                 self._debris_colours[i] = np.array(rgb(debris_colour(kind, i)))
         return self._debris_outlines
 

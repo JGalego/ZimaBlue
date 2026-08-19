@@ -258,8 +258,9 @@ are **online**, deciding the next move from what the sensors just said.
 from zimablue.planners import PathFollower
 
 zb.Simulation(pool="kidney", controller="bsa").run(minutes=20)
-zb.Simulation(pool="kidney", controller=PathFollower("morse"),
-              expose_truth=True).run(minutes=20)
+
+morse = PathFollower("morse")
+zb.Simulation(pool="kidney", controller=morse, expose_truth=True).run(minutes=20)
 ```
 
 The online ones share everything except the decision. One base class owns the
@@ -329,6 +330,7 @@ shared-map version of every online planner, which is the default).
 
 ```python
 from zimablue.planners import partitioned
+
 zb.Fleet(pool="kidney", robots=3, controllers=partitioned("darp", "sweep_optimal"))
 ```
 

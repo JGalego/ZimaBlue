@@ -195,6 +195,11 @@ class PathFollower:
         self.done = False
         """Whether the plan has been driven to its end."""
 
+        self.partition: Any = None
+        """The :class:`~zimablue.planners.partition.Partition` this follower's
+        share was cut from, when one was. ``partitioned`` sets it so a finished
+        fleet can be asked what the cut was, rather than only what happened."""
+
         self.path: CoveragePath | None = None
         self.target = 0
         self._pose = (0.0, 0.0, 0.0)

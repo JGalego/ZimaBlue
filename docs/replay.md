@@ -44,6 +44,14 @@ Layer order is deliberate: the cleaned wash is drawn *under* the dirt, so a
 patch the robot has driven over but failed to clean still shows as dirty. If
 coverage were painted on top it would hide exactly the failure worth seeing.
 
+The dirt itself is keyframed every ten simulated seconds and blended between
+keyframes for drawing. Without the blend a cell holds still for five hundred
+rendered frames and then jumps, which reads as dirt appearing out of nowhere
+rather than piling up -- most obvious where the returns sweep it into a heap at
+the deep end. `Recording.dirt_at` still hands you the exact keyframe by
+default; only the views ask for the blend, because it is an estimate of a
+moment that was never recorded.
+
 ### The dots
 
 Three unrelated things are drawn as dots, which is worth spelling out because
@@ -56,9 +64,12 @@ as one flat brown smear. At the whole-pool zoom a 9 cm leaf is a few pixels
 across, and that is the honest size of a 9 cm leaf in a 12 m pool; zoom in, or
 look at the dirt cam, and it is recognisably a leaf.
 
-They wink out as they are collected. The winking looks like flashing because
-debris is stored as keyframes every ten simulated seconds, not per frame: a
-leaf is there in one keyframe and gone in the next, with no fade between. A
+They fade out as they are collected, and they drift while they are down:
+the robot shoves anything too big for the intake out of the way, and over a
+long run the typical survivor travels further than its own length. Debris is
+keyframed every ten simulated seconds rather than per frame, so both the
+positions and the fade are blended between keyframes -- otherwise a leaf
+teleports a couple of metres and winks out between one frame and the next. A
 typical autumn kidney run starts with 59 and finishes with 20 still down --
 all twenty of them wider than the intake, which the HUD says in as many words.
 

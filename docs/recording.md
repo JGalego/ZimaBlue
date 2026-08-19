@@ -128,11 +128,28 @@ metrics that matter are computed from the live field and stored separately in
 `metrics.json`. At typical per-cell masses (~0.2 g), `float16` still resolves
 well under a milligram.
 
-Lookup takes the nearest keyframe at or *before* the requested time, with no
-interpolation — averaging two mass fields would invent dirt that never existed.
+Lookup takes the nearest keyframe at or *before* the requested time. That is
+the exact field the simulator held at a moment it really recorded, which is
+what a measurement wants, so it is the default — `ergodic_score` and
+`forecast_cleaning` both read it that way.
+
+`dirt_at(t, interpolate=True)` blends linearly towards the next keyframe
+instead, and the replay views use it. Ten seconds is five hundred rendered
+frames, so without the blend a cell holds still and then jumps, and dirt reads
+as appearing rather than accumulating. The blend is an estimate and is opt-in
+for that reason: a cell cleaned early in an interval fades across the whole of
+it rather than dropping when it was really cleaned. It cannot invent dirt —
+every value it returns lies between two the cell genuinely held — and it is
+computed in `float32`, because doing the weighting in the stored `float16`
+loses more than the step it is smoothing.
 
 Discrete debris is keyframed alongside the field, as an `(n, 6)` table of
-`x, y, mass, size, collected, type`. `type` indexes
+`x, y, mass, size, collected, type`. Debris *moves*: the robot shoves anything
+too big for the intake out of the way. `debris_at(t, interpolate=True)` glides
+each item between keyframes and turns `collected` into the fraction of the way
+through the interval in which it was picked up, so a view can fade it out;
+anything counting items stays on the exact reading, where the column is 0 or 1.
+Row order is the item's identity in both. `type` indexes
 `manifest["dirt_types"]["debris"]`, and it is there because a leaf and a twig
 are not the same object: without it a replay can only draw both as the same
 anonymous blob. Recordings written before the column existed are padded rather

@@ -15,9 +15,12 @@ those are in [fleets](multi-robot.md).
 import zimablue as zb
 from zimablue.planners import PathFollower
 
-zb.Simulation(pool="kidney", controller="bsa").run(minutes=20)                  # online
-zb.Simulation(pool="kidney", controller=PathFollower("morse"),                  # offline
-              expose_truth=True).run(minutes=20)
+# Online: decide the next move from what the sensors just said.
+zb.Simulation(pool="kidney", controller="bsa").run(minutes=20)
+
+# Offline: compute a whole route from the pool, then follow it.
+morse = PathFollower("morse")
+zb.Simulation(pool="kidney", controller=morse, expose_truth=True).run(minutes=20)
 ```
 
 What is deliberately absent, and why: 3D and visual/inspection coverage,

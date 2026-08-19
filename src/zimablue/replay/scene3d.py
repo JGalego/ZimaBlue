@@ -119,8 +119,12 @@ class Scene3D:
         )
 
     def dirt_on_floor(self, recording: Recording, t: float) -> FloatArray:
-        """Resample the dirt raster onto the coarser floor mesh."""
-        dirt = recording.dirt_at(t)
+        """Resample the dirt raster onto the coarser floor mesh.
+
+        Blended between keyframes, like the other views: an orbit is slow
+        enough that a field stepping every ten simulated seconds is obvious.
+        """
+        dirt = recording.dirt_at(t, interpolate=True)
         if dirt.size == 0:
             return np.zeros_like(self.floor_z)
         fine = self.scene.grid
