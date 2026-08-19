@@ -16,7 +16,7 @@ runner = CliRunner()
 def test_help_lists_every_command():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for command in ("demo", "run", "replay", "batch", "inspect", "list"):
+    for command in ("demo", "run", "replay", "batch", "compare", "inspect", "list"):
         assert command in result.stdout
 
 
@@ -29,8 +29,43 @@ def test_version():
 def test_list_shows_presets():
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
-    for name in ("kidney", "tracked", "autumn", "baseline_coverage", "fast2d"):
+    for name in ("kidney", "tracked", "autumn", "baseline_coverage", "fast2d", "sweep_optimal"):
         assert name in result.stdout
+
+
+def test_compare_ranks_planners(tmp_path):
+    csv = tmp_path / "trials.csv"
+    result = runner.invoke(
+        app,
+        [
+            "compare",
+            "random_bounce",
+            "systematic",
+            "--minutes",
+            "0.5",
+            "--csv",
+            str(csv),
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    lines = csv.read_text().splitlines()
+    assert lines[0].startswith("planner,pool,seed,coverage")
+    # The table itself may be cropped to the terminal width; the CSV is the
+    # full record, one row per trial.
+    assert {line.split(",")[0] for line in lines[1:]} == {"random_bounce", "systematic"}
+
+
+def test_compare_rejects_a_typo_before_running():
+    result = runner.invoke(app, ["compare", "boustrophedont@odometry"])
+    assert result.exit_code == 1
+    assert "unknown planner" in result.stdout
+    assert "boustrophedon" in result.stdout
+
+
+def test_compare_rejects_an_unknown_fleet_entry():
+    result = runner.invoke(app, ["compare", "darp+nope", "--fleet", "2"])
+    assert result.exit_code == 1
+    assert "unknown planner" in result.stdout
 
 
 def test_run_executes_a_scenario(tmp_path):

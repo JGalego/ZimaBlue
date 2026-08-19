@@ -272,8 +272,14 @@ plot_comparison(result).savefig("planners.png")
 or from the command line:
 
 ```bash
-python examples/compare_planners.py --minutes 20 --jobs 4 --plots out/
+zimablue compare --pool rectangular --pool kidney --minutes 20 --jobs 4
+zimablue compare bsa binn morse@odometry --pool kidney --csv trials.csv
 ```
+
+`zimablue compare` runs the same harness: every entry on every pool, the
+leaderboard in the terminal, per-trial rows in the CSV, and `--matrix out.png`
+for the matrix plot. `--fleet 3` scores teams instead of single cleaners.
+`examples/compare_planners.py` remains the scripted version of the same run.
 
 What gets measured, with no attempt to collapse it into one number:
 

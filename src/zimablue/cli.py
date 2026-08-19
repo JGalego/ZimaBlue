@@ -1,6 +1,7 @@
 """The ``zimablue`` command line.
 
-Verbs: ``demo``, ``run``, ``replay``, ``trace``, ``batch``, ``inspect``, ``list``.
+Verbs: ``demo``, ``run``, ``replay``, ``trace``, ``batch``, ``compare``,
+``inspect``, ``list``.
 
 Errors are meant to be actionable -- an unknown preset lists the valid ones, a
 missing recording says where to make one -- because the most common CLI failure
@@ -504,6 +505,194 @@ def batch(
 
 
 # ----------------------------------------------------------------------
+@app.command()
+def compare(
+    planners: Annotated[
+        list[str] | None,
+        typer.Argument(
+            help="Planner entries, like 'bsa' or 'morse@odometry'. Default: everything."
+        ),
+    ] = None,
+    pool: Annotated[
+        list[str] | None, typer.Option("--pool", help="Pool preset. Repeat for several.")
+    ] = None,
+    seeds: Annotated[int, typer.Option(help="Seeds per planner and pool, starting at 1.")] = 1,
+    minutes: Annotated[float, typer.Option(help="Simulated duration per run.")] = 20.0,
+    dirt: Annotated[str, typer.Option(help="Dirt preset.")] = "autumn",
+    robot: Annotated[str, typer.Option(help="Cleaner preset.")] = "tracked",
+    jobs: Annotated[int, typer.Option(help="Worker processes. Trials are independent.")] = 1,
+    localisation: Annotated[
+        str,
+        typer.Option(help="How offline planners are followed: odometry, truth, or both."),
+    ] = "odometry",
+    fleet: Annotated[
+        int, typer.Option(help="Compare teams of this many robots instead of single cleaners.")
+    ] = 0,
+    csv: Annotated[Path | None, typer.Option(help="Write per-trial CSV here.")] = None,
+    matrix: Annotated[Path | None, typer.Option(help="Write the matrix plot PNG here.")] = None,
+) -> None:
+    """Run the planner leaderboard: every entry on every pool, measured on every axis."""
+    from zimablue.planners import compare as harness
+
+    if localisation not in ("odometry", "truth", "both"):
+        _fail(
+            f"unknown localisation {localisation!r}",
+            "pick odometry, truth, or both",
+        )
+    entries = tuple(planners) if planners else None
+    if fleet > 0:
+        if entries is None:
+            entries = harness.FLEET_ENTRIES
+        _check_fleet_entries(entries)
+    else:
+        _check_entries(entries or harness.default_entries(localisation=localisation))
+    pools = tuple(pool) if pool else ("rectangular",)
+    seed_tuple = tuple(range(1, seeds + 1))
+
+    total = len(entries or harness.default_entries(localisation=localisation))
+    total *= len(pools) * len(seed_tuple)
+    console.print(Panel(BANNER, border_style="cyan"))
+    console.print(
+        f"[dim]pools[/dim] {', '.join(pools)}   [dim]dirt[/dim] {dirt}   "
+        f"[dim]duration[/dim] {minutes:g} min   [dim]runs[/dim] {total}\n"
+    )
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(complete_style="cyan"),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("comparing", total=total)
+
+        def tick(trial: Any) -> None:
+            progress.update(task, advance=1, description=f"{trial.planner} on {trial.pool}")
+
+        if fleet > 0:
+            result = harness.compare_fleets(
+                entries or harness.FLEET_ENTRIES,
+                robots=fleet,
+                pools=pools,
+                seeds=seed_tuple,
+                minutes=minutes,
+                dirt=dirt,
+                jobs=jobs,
+                on_result=tick,
+            )
+        else:
+            result = harness.compare(
+                entries,
+                pools=pools,
+                seeds=seed_tuple,
+                minutes=minutes,
+                dirt=dirt,
+                robot=robot,
+                jobs=jobs,
+                localisation=localisation,
+                on_result=tick,
+            )
+
+    console.print()
+    console.print(_comparison_table(result))
+    if len(pools) > 1 or seeds > 1:
+        console.print(f"[dim]median over {len(pools)} pool(s), {len(result.trials)} runs[/dim]")
+
+    if csv is not None:
+        csv.parent.mkdir(parents=True, exist_ok=True)
+        result.to_csv(csv)
+        console.print(f"\n[green]wrote[/green] {csv}")
+    if matrix is not None:
+        _guard_viz()
+        from zimablue.planners.plots import plot_comparison
+
+        figure = plot_comparison(result)
+        matrix.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(matrix, dpi=150, bbox_inches="tight")
+        console.print(f"[green]wrote[/green] {matrix}")
+
+
+def _check_entries(entries: tuple[str, ...]) -> None:
+    """Reject a typo before it costs twenty simulated minutes."""
+    from zimablue.controllers.base import CONTROLLERS
+    from zimablue.planners import PLANNERS
+
+    for entry in entries:
+        if "@" in entry:
+            name, mode = entry.split("@", 1)
+            if name not in PLANNERS:
+                _fail(
+                    f"unknown planner {name!r}",
+                    f"offline planners: {', '.join(PLANNERS.names())}",
+                )
+            if mode not in ("truth", "odometry"):
+                _fail(f"unknown localisation {mode!r} in {entry!r}", "use @truth or @odometry")
+        elif entry not in CONTROLLERS:
+            _fail(
+                f"unknown entry {entry!r}",
+                f"controllers: {', '.join(CONTROLLERS.names())}; "
+                f"offline planners take @truth or @odometry: {', '.join(PLANNERS.names())}",
+            )
+
+
+def _check_fleet_entries(entries: tuple[str, ...]) -> None:
+    from zimablue.controllers.base import CONTROLLERS
+    from zimablue.planners import PARTITIONS, PLANNERS
+
+    for entry in entries:
+        if entry in ("mstc", "mstc_nobt"):
+            continue
+        if "+" in entry:
+            method, planner = entry.split("+", 1)
+            if method not in PARTITIONS:
+                _fail(
+                    f"unknown partition {method!r} in {entry!r}",
+                    f"partitions: {', '.join(PARTITIONS.names())}",
+                )
+            if planner not in PLANNERS:
+                _fail(
+                    f"unknown planner {planner!r} in {entry!r}",
+                    f"offline planners: {', '.join(PLANNERS.names())}",
+                )
+        elif entry not in CONTROLLERS:
+            _fail(
+                f"unknown entry {entry!r}",
+                f"controllers: {', '.join(CONTROLLERS.names())}, mstc, mstc_nobt, "
+                "or partition+planner like darp+sweep_optimal",
+            )
+
+
+def _comparison_table(comparison: Any) -> Table:
+    """The measurements as a Rich table, best value in each column marked."""
+    import numpy as np
+
+    table = Table(title=comparison.label, title_style="bold cyan", box=None)
+    table.add_column("planner", style="bold")
+    for dim in comparison.dimensions:
+        table.add_column(dim.label, justify="right")
+    raw = {
+        planner: [comparison.score(planner, d.key) for d in comparison.dimensions]
+        for planner in comparison.planners
+    }
+    winners = []
+    for j, dim in enumerate(comparison.dimensions):
+        column = [v for p in comparison.planners if np.isfinite(v := raw[p][j])]
+        winners.append((max(column) if dim.better > 0 else min(column)) if column else None)
+    for planner in comparison.planners:
+        cells = [planner]
+        for j, dim in enumerate(comparison.dimensions):
+            value = raw[planner][j]
+            text = dim.format(value)
+            best = winners[j]
+            if best is not None and np.isfinite(value) and np.isclose(value, best):
+                text = f"[bold cyan]*{text}[/bold cyan]"
+            cells.append(text)
+        table.add_row(*cells)
+    return table
+
+
+# ----------------------------------------------------------------------
 @app.command(name="inspect")
 def inspect_recording(
     recording: Annotated[Path, typer.Argument(help="A .zbr recording.")],
@@ -558,6 +747,7 @@ def list_presets() -> None:
     from zimablue.backends.base import BACKENDS
     from zimablue.controllers.base import CONTROLLERS
     from zimablue.dirt import DIRT_PRESETS
+    from zimablue.planners import PARTITIONS, PLANNERS
     from zimablue.pool import POOL_PRESETS
     from zimablue.robot import DESIGNS, ROBOT_PRESETS
 
@@ -571,6 +761,8 @@ def list_presets() -> None:
         ("designs", DESIGNS),
         ("dirt", DIRT_PRESETS),
         ("controllers", CONTROLLERS),
+        ("planners", PLANNERS),
+        ("partitions", PARTITIONS),
         ("backends", BACKENDS),
     ):
         table.add_row(label, ", ".join(registry.names()) or "[dim](none)[/dim]")

@@ -544,9 +544,10 @@ Predictions this exercise proved wrong are written up in
 ## Scale it
 
 ```bash
-zimablue run   kidney --record runs/kidney.zbr        # a bundled scenario
-zimablue run   scenarios/autumn_kidney.yaml           # or your own file
-zimablue batch kidney --episodes 100 --out results.json
+zimablue run     kidney --record runs/kidney.zbr      # a bundled scenario
+zimablue run     scenarios/autumn_kidney.yaml         # or your own file
+zimablue batch   kidney --episodes 100 --out results.json
+zimablue compare --pool kidney --minutes 20 --jobs 4  # the planner leaderboard
 ```
 
 A scenario is YAML: pool, robot, dirt, controller, seed, duration, termination.
