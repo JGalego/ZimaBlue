@@ -230,8 +230,9 @@ and after the decision:
 
 ```python
 env = PoolCleaningEnv(
-    reward=lambda prev, now: (now["dirt_collected"] - prev["dirt_collected"])
-    - 40.0 * (prev["battery"] - now["battery"])  # grams, net of the energy bill
+    reward=lambda prev, now: (
+        (now["dirt_collected"] - prev["dirt_collected"]) - 40.0 * (prev["battery"] - now["battery"])
+    )  # grams, net of the energy bill
 )
 ```
 
