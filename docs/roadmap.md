@@ -65,10 +65,28 @@ rather than stubbed. **Shipped.**
 | ✅ | `dirt_ceiling` — the share of the dirt no intake can lift | done |
 | ✅ | Replay continuity: dirt blends between keyframes, debris moves | done |
 
+## v0.4 — the thesis with a motor attached
+
+**On main, awaiting release.** Same bar: implemented, tested, runnable.
+
+| | Component | State |
+|---|---|---|
+| ✅ | `zimablue compare` and `zimablue bench` — the leaderboard and the frozen suite as CLI verbs | done |
+| ✅ | Plugin discovery on every registry — planners as pip packages | done |
+| ✅ | Gym env: module-prefixed id, `rgb_array` rendering, callable rewards | done |
+| ✅ | `export_web_player` — the replay as one self-contained HTML page | done |
+| ✅ | `Survey` + `SimulatedPlant` — planners on hardware, rehearsed first | done |
+| ✅ | Turbidity probe — the intake's "dirt detect", on every cleaner | done |
+| ✅ | `dirt_seeker` — the deployable planner that chases grams | done |
+| ✅ | The collectable bound and the "of possible" (regret) column | done |
+| ✅ | `grams_per_wh`, the `thrift` column, `stop_on_full_filter` | done |
+| ✅ | Currents: buoyant debris rides the jets, the skimmer collects | done |
+| ✅ | Live dirt: deposition rates, stirred water, `pool_party` | done |
+| ✅ | Wall-touch relocalisation — the follower spends its bumps | done |
+| ✅ | Walls and the waterline: the climb, the strip, area-true coverage | done |
+
 ## Next — depth
 
-- **Wall and waterline cleaning** as a modelled behaviour rather than an
-  unrolled-perimeter approximation.
 - **A planner that can spend a good estimate.** The `systematic` controller
   sweeps lanes locally and falls back to nearest-frontier search; nothing in it
   plans over the map it went to the trouble of building. This used to be
@@ -101,10 +119,11 @@ rather than stubbed. **Shipped.**
   gyro to start with. Until then every noise-dependent result in this
   repository rests on numbers nobody measured -- which is now testable, because
   `zimablue.hardware` can be pointed at a real log.
-- **Dirt dynamics** — resuspension driven by the robot's own wake, plus
-  settling over long runs.
 - **Scenario sweeps** — parameter grids and randomised distributions, not just
   seed sweeps.
+- **Wall dirt.** The wall strip is covered but not dirtied: a scumline layer
+  the climb actually removes is the natural next step, and it needs a wall
+  raster in the recording schema.
 
 ## Later — the 3D backend
 

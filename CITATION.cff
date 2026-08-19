@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If ZimaBlue's measurements or its coverage-versus-cleanliness results are useful in your work, please cite it."
+title: "ZimaBlue: simulate, test, and replay robotic pool cleaners"
+type: software
+authors:
+  - family-names: Galego
+    given-names: João
+repository-code: "https://github.com/JGalego/ZimaBlue"
+license: MIT
+keywords:
+  - coverage path planning
+  - cleaning robotics
+  - simulation
+  - benchmark
+preferred-citation:
+  type: report
+  title: "Coverage is not cleanliness: measuring what pool-cleaning planners actually remove"
+  authors:
+    - family-names: Galego
+      given-names: João
+  year: 2026
+  url: "https://github.com/JGalego/ZimaBlue/blob/main/docs/paper.md"

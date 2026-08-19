@@ -18,11 +18,71 @@ understand.
   table says who won; this shows how. `tools/make_assets.py mosaic` builds
   `docs/assets/planners-mosaic.gif`, and [docs/planners.md](docs/planners.md)
   embeds it.
+- `zimablue compare`: the planner leaderboard as a CLI verb, with `--csv`,
+  `--matrix`, and `--fleet` for teams. `zimablue list` shows planners and
+  partitions alongside the other presets.
+- Plugin discovery on every registry: a planner, controller, pool, dirt
+  model, partition, or backend can ship as its own pip package under an entry
+  point group named after its registry, and its name resolves everywhere the
+  built-ins do. See "Ship a planner as a package" in
+  [docs/planners.md](docs/planners.md).
+- The gym env grew up: `gym.make("zimablue.rl:ZimaBlue-v0")` works from a
+  bare gymnasium import, `render_mode="rgb_array"` draws frames with numpy
+  alone so `RecordVideo` works, and `reward=` accepts a callable over the
+  before/after `info` dicts.
+- `zimablue bench` runs `zb-bench-v1`, a frozen suite whose entries are a
+  literal list rather than whatever the package ships, and writes JSON with a
+  reproducibility header, per-trial CSV, and a markdown leaderboard. See
+  [docs/bench.md](docs/bench.md).
+- `export_web_player` writes a recording -- or several, side by side on a
+  shared clock -- as one self-contained HTML page: scrubber, speed, layer
+  toggles, live coverage. `zimablue replay run.zbr --html out.html` needs no
+  matplotlib, no server, no network.
+- Sim-to-real for planners: a `Survey` (the pool's shape and the placed start
+  pose) lets `PathFollower` run on `HardwareRuntime`, and `SimulatedPlant`
+  puts the simulator behind the same source/actuate port a driver fills, so
+  the whole hardware stack rehearses against trusted physics.
+- A turbidity probe on every cleaner: the intake's "dirt detect", reading the
+  dirt density under the hull plus the water's haze, through the same
+  noise/latency/fault pipeline as every other sensor.
+- `dirt_seeker`: the planner that chases grams instead of area. It scrubs
+  readings that spike above the running ambient, remembers the finds in the
+  estimated frame, and wanders when the trail goes cold -- deployable, and it
+  ends a kidney autumn run with more of the dirt and less of the floor than
+  `random_bounce`.
+- An upper bound on the grams (`zimablue.planners.oracle`): the heaviest
+  cells that fit in a run's swept-area budget cap every policy, and
+  `compare()` grows an "of possible" column from it. The distance from 100%
+  is travel, revisits, and not knowing where the dirt is.
+- `Metrics.grams_per_wh` and a `thrift` column; `stop_on_full_filter` ends a
+  run when the bag is full (off by default, like the real machines).
+- Currents: buoyant debris rides the return-jet circulation and the skimmer
+  takes what drifts into reach, marked apart from the robot's catch. Wake
+  strength and drift diffusion become backend dials.
+- Live dirt: layers can deposit at a rate and a spec can name a stir
+  interval; `pool_party` is the preset where clean is a rate you hold, not a
+  state you reach. `Metrics.dirt_deposited` reports the sky's contribution.
+- Wall-touch relocalisation: the follower folds each first contact into its
+  EKF as a one-dimensional fix against the believed wall, gated on innovation
+  and bumper agreement. Mean estimate error on twelve odometry minutes drops
+  from 79.9 m to 3.4 m on the rectangle; `relocalise=False` restores the
+  blind follower.
+- Walls and the waterline: a grip-capable robot pressing the wall climbs it
+  as a modelled excursion, the wall becomes a strip of bins by height band,
+  `wall_coverage` is scored against the wall's real square metres, and
+  `waterline_coverage` joins the metrics. `heavy_duty` gets `wall_grip`.
 
 ### Changed
 - The prose lost its verbless fragments -- "the classical literature,
   implemented", "The waste, drawn.", "The trap, made of geometry." -- in
   favour of sentences.
+- `wall_coverage` means wall *area* reached, not perimeter run alongside; a
+  floor robot reaches only the cove band, so its number is honest rather
+  than flattering. The `edges` column reads accordingly.
+- `dirt_removed_fraction` divides by everything ever in the pool -- initial
+  plus deposited -- so a live pool cannot score above one.
+- An oversize item the skimmer removed stops counting against `dirt_ceiling`;
+  `debris_collected` counts only the robot's own catch.
 
 ## [0.3.0] — 2026-08-19
 
