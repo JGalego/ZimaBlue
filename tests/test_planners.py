@@ -499,3 +499,76 @@ def test_the_mosaic_is_a_gif_of_everyone_on_a_shared_clock(tmp_path):
     gif = Image.open(out)
     assert gif.n_frames == 6
     assert gif.size[0] > gif.size[1], "a pair of pool panels side by side lies wider than tall"
+
+
+def test_the_table_says_how_wide_a_median_it_is_reporting():
+    """One row per planner, but each cell is a median over pools and seeds.
+
+    Without the footer the table reads as a single run, which is how a
+    fourteen-column number gets quoted as if it were repeatable.
+    """
+    trials = [
+        Trial(name, pool, seed, {"coverage": 0.9}, np.zeros((2, 2)), (np.zeros(2),) * 2)
+        for name in ("a", "b")
+        for pool in ("rectangular", "kidney")
+        for seed in (1, 2)
+    ]
+    comparison = Comparison(trials)
+    assert "median over 2 pools, 8 runs" in comparison.table()
+    # Asked about one pool, it is no longer a median over pools.
+    assert "median over" not in comparison.table(pool="kidney")
+
+
+def test_selecting_narrows_by_planner_and_by_pool():
+    trials = [
+        Trial(name, pool, 1, {"coverage": 0.5}, np.zeros((2, 2)), (np.zeros(2),) * 2)
+        for name in ("a", "b")
+        for pool in ("rectangular", "kidney")
+    ]
+    comparison = Comparison(trials)
+    assert len(comparison.select()) == 4
+    assert len(comparison.select(planner="a")) == 2
+    assert len(comparison.select(pool="kidney")) == 2
+    assert len(comparison.select(planner="a", pool="kidney")) == 1
+    assert comparison.planners == ["a", "b"]
+    assert comparison.pools == ["rectangular", "kidney"]
+
+
+def test_a_score_nobody_recorded_is_nan_rather_than_zero():
+    """Zero is a measurement; a missing key is not, and averaging them lies."""
+    trials = [Trial("a", "p", 1, {}, np.zeros((2, 2)), (np.zeros(2),) * 2)]
+    assert np.isnan(Comparison(trials).score("a", "coverage"))
+
+
+def test_a_pool_left_spotless_has_no_largest_gap():
+    from zimablue.planners.compare import largest_gap
+
+    class Spatial:
+        missed = np.zeros((4, 4), dtype=bool)
+
+    assert largest_gap(Spatial(), cell=0.1) == 0.0
+
+
+def test_the_largest_gap_is_the_biggest_connected_patch_not_the_total():
+    """Two separate holes are two holes; a coverage percentage cannot say so."""
+    from zimablue.planners.compare import largest_gap
+
+    missed = np.zeros((6, 6), dtype=bool)
+    missed[0, 0] = True  # a one-cell nick
+    missed[3:6, 3:6] = True  # and a real hole, nine cells
+    assert largest_gap(type("S", (), {"missed": missed})(), cell=0.5) == pytest.approx(9 * 0.25)
+
+
+def test_an_entry_naming_a_planner_that_does_not_exist_says_so_with_the_list():
+    from zimablue.planners.compare import _controller
+
+    with pytest.raises(KeyError, match="unknown planner"):
+        _controller("boustrophedont@truth")
+
+
+def test_a_plain_entry_is_a_controller_name_and_is_passed_through():
+    from zimablue.planners.compare import _controller
+
+    assert _controller("bsa") == ("bsa", False)
+    follower, offline = _controller("boustrophedon@truth")
+    assert offline and follower is not None

@@ -340,6 +340,19 @@ understand.
   4320 degrees.
 
 ### Fixed
+- Collision resolution pushed a robot resting exactly on a surface *out* of
+  the pool -- the one thing `resolve` exists to prevent. The wall-to-robot
+  vector is zero there, so the normal fell back to the direction of the pool's
+  centroid, and then the "outside" branch flipped it: shapely's `contains` is
+  strict, so a point on the boundary is not inside and took that branch. The
+  normal now comes from the surfaces the point is touching, which is also
+  right where the centroid never was -- in the kidney's waist the straight
+  line to the middle leaves through the opposite wall -- and sums the
+  coincident edges at a vertex, where neither edge's normal alone points into
+  the corner. Reachable by hand-placing a start pose rather than by stepping,
+  so no recorded run changes: the eight seeded runs across four pools that
+  pinned this produce identical metrics.
+
 - `TransferOperator.eigen` was annotated as returning real arrays. A transfer
   matrix is not symmetric, so a controller that circulates around the pool puts
   a conjugate pair in the spectrum; the spectrum plot already drew the values

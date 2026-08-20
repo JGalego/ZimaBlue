@@ -8,6 +8,7 @@ from shapely.geometry import Point
 from shapely.geometry import box as shapely_box
 
 from zimablue.pool import (
+    DEFAULT_CELL,
     POOL_PRESETS,
     CompositeDepth,
     ConstantDepth,
@@ -205,3 +206,108 @@ def test_every_kidney_feature_lands_in_the_water(length):
     pool = make_pool("kidney", length=length)
     for feature in pool.features:
         assert pool.boundary.distance(Point(feature.position)) == 0.0, feature.name
+
+
+# ----------------------------------------------------------------------
+# What a pool refuses, and what it says when it does.
+#
+# Most of these are reached by loading a file somebody edited by hand, which
+# is exactly when a clear message is worth having.
+
+
+def test_a_boundary_that_is_not_a_polygon_is_refused_by_type():
+    with pytest.raises(TypeError, match="must be a shapely Polygon"):
+        Pool(name="wrong", boundary=[(0, 0), (1, 0), (1, 1)], depth=1.5)
+
+
+def test_an_empty_boundary_is_refused():
+    from shapely.geometry import Polygon
+
+    with pytest.raises(ValueError, match="empty or invalid boundary"):
+        Pool(name="empty", boundary=Polygon(), depth=1.5)
+
+
+def test_a_self_intersecting_boundary_is_refused():
+    """A bow tie has an area and no inside; every raster query would disagree."""
+    from shapely.geometry import Polygon
+
+    bowtie = Polygon([(0, 0), (2, 2), (2, 0), (0, 2)])
+    with pytest.raises(ValueError, match="empty or invalid boundary"):
+        Pool(name="bowtie", boundary=bowtie, depth=1.5)
+
+
+def test_the_wall_area_is_the_perimeter_times_the_depth():
+    pool = Pool(name="box", boundary=shapely_box(0, 0, 4, 3), depth=2.0)
+    assert pool.wall_area == pytest.approx(14.0 * 2.0, rel=0.01)
+
+
+def test_a_sloping_floor_has_less_wall_at_the_shallow_end():
+    """Wetted wall is the perimeter integrated over the local depth, so a
+    slope has to come out between the two extremes."""
+    sloped = Pool(
+        name="sloped",
+        boundary=shapely_box(0, 0, 4, 3),
+        depth=PlaneSlopeDepth(
+            shallow=1.0, deep=3.0, origin=(0.0, 0.0), direction=(1.0, 0.0), length=4.0
+        ),
+    )
+    flat_shallow = Pool(name="a", boundary=shapely_box(0, 0, 4, 3), depth=1.0)
+    flat_deep = Pool(name="b", boundary=shapely_box(0, 0, 4, 3), depth=3.0)
+    assert flat_shallow.wall_area < sloped.wall_area < flat_deep.wall_area
+
+
+def test_an_unserialisable_depth_model_says_which_one_and_what_to_do():
+    """A pool built in Python can carry a depth model to_dict never met."""
+    from zimablue.pool.pool import _depth_to_dict
+
+    class Trench:
+        def __call__(self, x, y):
+            return np.full_like(np.asarray(x, dtype=float), 2.0)
+
+    with pytest.raises(TypeError, match="cannot serialise depth model Trench"):
+        _depth_to_dict(Trench())
+
+
+def test_a_depth_model_kind_nobody_recognises_is_refused_on_load():
+    from zimablue.pool.pool import _depth_from_dict
+
+    with pytest.raises(ValueError, match="unknown depth model type 'fractal'"):
+        _depth_from_dict({"type": "fractal"})
+
+
+def test_an_unserialisable_feature_says_which_one():
+    from zimablue.pool.pool import _feature_to_dict
+
+    class Waterfall:
+        name = "falls"
+
+    with pytest.raises(TypeError, match="cannot serialise pool feature Waterfall"):
+        _feature_to_dict(Waterfall())
+
+
+def test_a_feature_kind_nobody_recognises_is_refused_on_load():
+    from zimablue.pool.pool import _feature_from_dict
+
+    with pytest.raises(ValueError, match="unknown pool feature kind 'waterfall'"):
+        _feature_from_dict({"kind": "waterfall", "name": "falls"})
+
+
+def test_a_pool_too_small_to_raster_still_offers_a_start_pose():
+    """The drop point comes off a raster, and a pool can be thinner than a cell.
+
+    Falling back to a representative point keeps such a pool usable; returning
+    nothing would make every caller handle a None they cannot act on.
+    """
+    sliver = Pool(name="sliver", boundary=shapely_box(0, 0, 0.3, 0.05), depth=1.2)
+    assert sliver.navigable_mask(DEFAULT_CELL).sum() == 0, "no cell centre lands inside"
+
+    x, y, heading = sliver.start_pose()
+    assert sliver.navigable.buffer(1e-9).contains(Point(x, y))
+    assert heading == 0.0, "with nowhere to aim, the fallback does not invent a heading"
+
+
+def test_a_clearance_bigger_than_the_pool_is_ignored_rather_than_obeyed():
+    """Clearance is a preference. A pool narrower than it still has to start."""
+    corridor = Pool(name="corridor", boundary=shapely_box(0, 0, 6.0, 0.25), depth=1.2)
+    x, y, _ = corridor.start_pose(clearance=2.0)
+    assert corridor.navigable.buffer(1e-9).contains(Point(x, y))

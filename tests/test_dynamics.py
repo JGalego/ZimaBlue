@@ -574,3 +574,106 @@ def test_a_plot_survives_an_empty_section(tmp_path):
     figure = plot_return_map(empty)
     figure.savefig(tmp_path / "empty.png")
     plt.close(figure)
+
+
+# ----------------------------------------------------------------------
+# Reading a Divergence.
+#
+# Running real twins is expensive and already covered above. What is checked
+# here is the arithmetic on top of the separations -- the answers a reader
+# quotes -- against traces whose growth rate is known because it was written
+# down rather than simulated.
+
+
+def _divergence(separation, *, epsilon: float = 1e-3, pool_scale: float = 8.0, seconds=None):
+    from zimablue.dynamics.lyapunov import Divergence
+
+    separation = np.atleast_2d(np.asarray(separation, dtype=float))
+    time = np.arange(separation.shape[1], dtype=float) if seconds is None else np.asarray(seconds)
+    return Divergence(time=time, separation=separation, epsilon=epsilon, pool_scale=pool_scale)
+
+
+def test_a_known_growth_rate_is_recovered_from_the_traces():
+    """An exact exponential should fit to exactly its own exponent."""
+    from zimablue.dynamics.lyapunov import Divergence
+
+    time = np.linspace(0.0, 100.0, 200)
+    trace = 1e-3 * np.exp(0.05 * time)
+    divergence = Divergence(time=time, separation=trace[None, :], epsilon=1e-3, pool_scale=100.0)
+    assert divergence.exponent() == pytest.approx(0.05, rel=1e-6)
+
+
+def test_a_twin_that_never_moves_reports_no_growth_rather_than_a_fit():
+    """Fewer than five usable samples is not a slope; it is noise with a line
+    through it."""
+    assert _divergence(np.full(40, 1e-12)).exponents().tolist() == [0.0]
+
+
+def test_the_fit_stops_before_the_pool_saturates_the_curve():
+    """Separation cannot exceed the pool, so a flattened tail reads shallow.
+
+    The same trace fitted with the ceiling raised past saturation gives a
+    visibly smaller exponent -- which is the pool's diameter being measured,
+    not the dynamics.
+    """
+    time = np.linspace(0.0, 200.0, 400)
+    trace = np.minimum(1e-3 * np.exp(0.06 * time), 8.0)  # saturates at the pool
+    divergence = _divergence(trace, seconds=time, pool_scale=8.0)
+
+    honest = divergence.exponent(ceiling=0.25)
+    greedy = divergence.exponent(ceiling=1.0)
+    assert honest == pytest.approx(0.06, rel=0.05)
+    assert greedy < honest
+
+
+def test_the_typical_separation_is_the_median_not_the_mean():
+    """The twins come out bimodal; a mean lands where no twin ever was."""
+    glued = np.full(20, 1e-5)
+    lost = np.full(20, 4.0)
+    typical = _divergence([glued, glued, lost]).typical
+    assert typical == pytest.approx(np.full(20, 1e-5))
+
+
+def test_diverged_counts_the_twins_that_ended_a_quarter_pool_apart():
+    near = np.linspace(1e-3, 0.5, 20)  # never reaches 2 m
+    far = np.linspace(1e-3, 5.0, 20)
+    assert _divergence([near, far, far]).diverged == pytest.approx(2 / 3)
+
+
+def test_diverged_is_zero_when_there_are_no_twins_at_all():
+    from zimablue.dynamics.lyapunov import Divergence
+
+    empty = Divergence(time=np.zeros(0), separation=np.zeros((0, 0)), epsilon=1e-3, pool_scale=8.0)
+    assert empty.diverged == 0.0
+
+
+def test_time_to_diverge_is_the_median_crossing():
+    time = np.arange(20.0)
+    early = np.where(time >= 5, 3.0, 1e-3)
+    late = np.where(time >= 15, 3.0, 1e-3)
+    never = np.full(20, 1e-3)
+    assert _divergence([early, late], seconds=time).time_to_diverge() == pytest.approx(10.0)
+    assert _divergence([early, never, never], seconds=time).time_to_diverge() == float("inf")
+
+
+def test_the_horizon_is_the_exponent_in_seconds_somebody_can_use():
+    time = np.linspace(0.0, 100.0, 200)
+    divergence = _divergence(1e-3 * np.exp(0.05 * time), seconds=time, pool_scale=100.0)
+    # A millimetre becomes a metre after ln(1/epsilon)/lambda seconds.
+    assert divergence.horizon() == pytest.approx(np.log(1000.0) / 0.05, rel=1e-3)
+
+
+def test_a_run_that_does_not_diverge_has_an_infinite_horizon():
+    assert _divergence(np.full(40, 1e-12)).horizon() == float("inf")
+
+
+def test_describe_says_whether_a_millimetre_mattered():
+    # Long enough that a millimetre grows past a quarter of the pool (2 m).
+    time = np.linspace(0.0, 200.0, 400)
+    chaotic = _divergence(1e-3 * np.exp(0.05 * time), seconds=time, pool_scale=8.0).describe()
+    assert "lambda" in chaotic and "horizon" in chaotic
+    assert "100% of twins" in chaotic
+    assert "median after" in chaotic
+
+    calm = _divergence(np.full(40, 1e-12)).describe()
+    assert "did not diverge" in calm

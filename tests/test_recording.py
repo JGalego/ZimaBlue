@@ -8,7 +8,7 @@ import zipfile
 import numpy as np
 import pytest
 
-from zimablue.recording import FORMAT, SCHEMA_VERSION, Recording
+from zimablue.recording import FORMAT, SCHEMA_VERSION, Recorder, Recording
 from zimablue.simulation import Simulation
 
 
@@ -198,3 +198,109 @@ def test_a_keyframe_span_past_the_end_does_not_blend_off_the_array(short_run):
     assert rec.dirt_at(rec.duration + 500.0, interpolate=True) == pytest.approx(
         rec.dirt_at(rec.duration + 500.0)
     )
+
+
+# ----------------------------------------------------------------------
+# The parts a full run never exercises, because a full run is never empty,
+# never disabled, and never has a channel that started late.
+
+
+def _recording(**kwargs) -> Recording:
+    manifest = {"format": "zbr", "version": 1, "seed": 7, "timestep": 0.05}
+    manifest.update(kwargs.pop("manifest", {}))
+    frames = kwargs.pop("frames", {"time": np.arange(0.0, 1.0, 0.05, dtype=np.float32)})
+    return Recording(manifest=manifest, frames=frames, **kwargs)
+
+
+def test_the_timestep_falls_back_to_the_manifest_when_there_is_nothing_to_measure():
+    """One frame gives no interval; the manifest recorded one anyway."""
+    single = _recording(frames={"time": np.zeros(1, dtype=np.float32)})
+    assert single.frame_dt == pytest.approx(0.05)
+    assert _recording().frame_dt == pytest.approx(0.05)
+
+
+def test_the_seed_comes_off_the_manifest():
+    assert _recording().seed == 7
+    assert Recording(manifest={}, frames={"time": np.zeros(2)}).seed == 0
+
+
+def test_a_time_between_frames_resolves_to_the_frame_before_it():
+    recording = _recording()
+    assert recording.frame_index_at(0.0) == 0
+    assert recording.frame_index_at(0.13) == 2
+    # Past either end it clamps rather than raising or wrapping.
+    assert recording.frame_index_at(-5.0) == 0
+    assert recording.frame_index_at(1e6) == recording.n_frames - 1
+
+
+def test_a_recording_with_no_keyframes_has_a_span_anyway():
+    """Dirt keyframes are optional; the player asks for a span regardless."""
+    assert _recording().keyframe_span(3.0) == (0, 0, 0.0)
+
+
+def test_a_keyframe_span_blends_between_the_two_it_falls_between():
+    recording = _recording(dirt_times=np.array([0.0, 10.0], dtype=np.float32))
+    assert recording.keyframe_span(0.0) == (0, 1, 0.0)
+    before, after, blend = recording.keyframe_span(2.5)
+    assert (before, after) == (0, 1)
+    assert blend == pytest.approx(0.25)
+    # Past the last keyframe both indices are the last one.
+    assert recording.keyframe_span(99.0) == (1, 1, 0.0)
+
+
+def test_events_are_selected_half_open_so_a_window_walk_sees_each_once():
+    recording = _recording(
+        events=[{"time": t, "kind": "bump"} for t in (0.0, 1.0, 2.0, 3.0)],
+    )
+    assert [e["time"] for e in recording.events_between(0.0, 2.0)] == [0.0, 1.0]
+    assert [e["time"] for e in recording.events_between(2.0, 4.0)] == [2.0, 3.0]
+    assert recording.events_between(9.0, 10.0) == []
+
+
+def test_a_fleet_recording_says_how_many_robots_and_what_drove_them():
+    recording = _recording(
+        manifest={"fleet": {"count": 3, "controllers": ["bsa", "bsa", "random_bounce"]}}
+    )
+    described = recording.describe()
+    assert "robots" in described
+    assert "3" in described
+    # Repeated controllers are named once, not three times.
+    assert described.count("bsa") == 1
+
+
+# ----------------------------------------------------------------------
+def test_a_disabled_recorder_records_nothing_and_still_finishes():
+    """Runs default to record=False; the recorder is built either way."""
+    recorder = Recorder({"seed": 1}, enabled=False)
+    recorder.add_frame({"time": 0.0, "x": 1.0})
+    recorder.add_event({"time": 0.0, "kind": "bump"})
+    finished = recorder.finish()
+    assert finished.n_frames == 0
+    assert finished.events == []
+
+
+def test_a_channel_that_started_late_is_padded_so_the_table_stays_rectangular():
+    """A sensor that comes online mid-run must not shorten every other column.
+
+    Floats are padded with NaN to mark "no data yet"; an integer channel
+    cannot hold NaN, so it pads with zero.
+    """
+    recorder = Recorder({"seed": 1})
+    recorder.add_frame({"time": 0.0, "x": 1.0})
+    recorder.add_frame({"time": 0.1, "x": 2.0, "contacts": 1, "sonar": 0.5})
+    finished = recorder.finish()
+
+    assert {len(c) for c in finished.frames.values()} == {2}
+    assert np.isnan(finished.column("sonar")[0]), "a late float channel reads as no data"
+    assert finished.column("contacts")[0] == 0, "an int channel cannot hold NaN"
+    assert finished.column("contacts").dtype == np.int32
+
+
+def test_finishing_merges_extra_manifest_keys_over_the_originals():
+    recorder = Recorder({"seed": 1, "scenario": "old"})
+    recorder.add_frame({"time": 0.0})
+    finished = recorder.finish(extra_manifest={"scenario": "new", "pool": "kidney"})
+    assert finished.manifest["scenario"] == "new"
+    assert finished.manifest["pool"] == "kidney"
+    assert finished.manifest["seed"] == 1
+    assert finished.manifest["format"] == "zbr"

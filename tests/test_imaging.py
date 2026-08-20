@@ -339,3 +339,163 @@ def test_the_overlay_draws_something():
     assert traced.overlay(ax=ax) is ax
     assert ax.images and ax.lines
     plt.close(figure)
+
+
+# ----------------------------------------------------------------------
+# The mask primitives underneath the trace.
+#
+# These run over a whole photograph in the tests above, which reaches their
+# common paths and none of their guards. A guard reached with a 5x5 array is
+# the same guard, and reading the failure takes a second rather than a
+# squint at an overlay.
+
+
+def test_labelling_an_empty_mask_finds_nothing():
+    from zimablue.imaging import _label, _regions
+
+    empty = np.zeros((5, 5), dtype=bool)
+    assert _label(empty).max() == 0
+    labels, regions = _regions(empty)
+    assert regions == []
+    assert labels.shape == empty.shape
+
+
+def test_labelling_separates_four_connected_blobs():
+    from zimablue.imaging import _regions
+
+    mask = np.zeros((6, 6), dtype=bool)
+    mask[0:2, 0:2] = True  # four pixels
+    mask[4:6, 4:6] = True  # four more, not touching
+    mask[3, 0] = True  # and a single
+    _, regions = _regions(mask)
+    assert sorted(r.pixels for r in regions) == [1, 4, 4]
+
+
+def test_a_diagonal_touch_is_not_a_connection():
+    """Four-connected, not eight: two blobs meeting at a corner stay two.
+
+    A photograph's water and a blue towel often touch at exactly one corner.
+    """
+    from zimablue.imaging import _regions
+
+    mask = np.zeros((4, 4), dtype=bool)
+    mask[0:2, 0:2] = True
+    mask[2:4, 2:4] = True
+    _, regions = _regions(mask)
+    assert len(regions) == 2
+
+
+def test_one_blob_needs_no_renumbering():
+    """The single-component early return, which skips flattening the union-find."""
+    from zimablue.imaging import _regions
+
+    mask = np.zeros((5, 5), dtype=bool)
+    mask[1:4, 1:4] = True
+    _, regions = _regions(mask)
+    assert len(regions) == 1
+    assert regions[0].pixels == 9
+
+
+def test_filling_holes_keeps_the_outside_outside():
+    from zimablue.imaging import _fill_holes
+
+    mask = np.zeros((7, 7), dtype=bool)
+    mask[1:6, 1:6] = True
+    mask[3, 3] = False  # a swimmer
+    filled = _fill_holes(mask)
+    assert filled[3, 3], "an enclosed hole is water"
+    assert not filled[0, 0], "the surround is not"
+
+
+def test_a_mask_with_no_background_is_returned_unchanged():
+    """Nothing to fill and nothing outside; the labeller finds no components."""
+    from zimablue.imaging import _fill_holes
+
+    solid = np.ones((4, 4), dtype=bool)
+    assert _fill_holes(solid).all()
+
+
+def test_closing_a_gap_does_not_move_the_outer_edge():
+    from zimablue.imaging import _close
+
+    mask = np.zeros((9, 9), dtype=bool)
+    mask[2:7, 2:7] = True
+    mask[4, 4] = False
+    closed = _close(mask, radius=1)
+    assert closed[4, 4], "the nick should be bridged"
+    assert not closed[0, 0] and not closed[8, 8], "the outside must not creep in"
+
+
+def test_a_zero_radius_close_is_a_no_op():
+    from zimablue.imaging import _close
+
+    mask = np.zeros((5, 5), dtype=bool)
+    mask[1:4, 1:4] = True
+    assert np.array_equal(_close(mask, radius=0), mask)
+
+
+def test_growing_with_no_passes_returns_the_mask_it_was_given():
+    from zimablue.imaging import _grow_to_edges
+
+    mask = np.zeros((5, 5), dtype=bool)
+    mask[2, 2] = True
+    rgb = np.zeros((5, 5, 3), dtype=np.uint8)
+    grown = _grow_to_edges(mask, rgb, passes=0, tolerance=10.0, floor=0.0)
+    assert np.array_equal(grown, mask)
+
+
+def test_growing_stops_when_there_is_nowhere_left_to_go():
+    """A mask already covering the frame has an empty frontier on pass one."""
+    from zimablue.imaging import _grow_to_edges
+
+    full = np.ones((5, 5), dtype=bool)
+    rgb = np.zeros((5, 5, 3), dtype=np.uint8)
+    grown = _grow_to_edges(full, rgb, passes=50, tolerance=10.0, floor=0.0)
+    assert grown.all()
+
+
+def test_a_photograph_with_no_water_in_it_says_what_to_try():
+    """A grey wall. The message has to name both ways out, because which one
+    applies depends on whether the pool is blue."""
+    from PIL import Image
+
+    grey = Image.new("RGB", (200, 150), (140, 140, 140))
+    with pytest.raises(ValueError, match="found no water"):
+        trace_pool(grey, width=8.0)
+
+
+def test_a_sample_the_segmenter_did_not_keep_says_it_matched_no_region():
+    """A segmenter decides the mask; the seed then only says which region.
+
+    Point at a pixel the segmenter dropped and there is no region to pick,
+    which is a different failure from "found no water" and needs to say so.
+    """
+    image, _ = _scene()
+
+    def elsewhere(rgb, seed):
+        mask = np.zeros(rgb.shape[:2], dtype=bool)
+        mask[10:40, 10:40] = True
+        return mask
+
+    with pytest.raises(ValueError, match="did not land on water"):
+        trace_pool(image, sample=(400, 470), width=10.0, segmenter=elsewhere)
+
+
+def test_a_segmenter_returning_the_wrong_shape_is_refused():
+    image, _ = _scene()
+
+    def ragged(rgb, seed):
+        return np.ones((7, 7), dtype=bool)
+
+    with pytest.raises(ValueError, match="returned a"):
+        trace_pool(image, sample=(400, 470), width=10.0, segmenter=ragged)
+
+
+def test_a_pool_that_is_barely_there_warns_before_it_is_used():
+    """A few pixels can be traced and should not be trusted."""
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGB", (400, 300), (196, 186, 168))
+    ImageDraw.Draw(image).rectangle([10, 10, 24, 24], fill=(38, 122, 176))
+    traced = trace_pool(image, sample=(17, 17), width=1.0)
+    assert any("check the overlay" in w for w in traced.warnings)
