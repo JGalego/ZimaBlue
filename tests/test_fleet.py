@@ -392,6 +392,55 @@ def test_the_fleet_plots_draw():
     assert len(figure.axes) >= 4
 
 
+@pytest.fixture(scope="module")
+def drawn_fleet():
+    pytest.importorskip("matplotlib")
+    import matplotlib
+
+    matplotlib.use("Agg")
+    return Fleet(pool=POOL, robots=3, controllers="bsa", seed=1, record=True).run(seconds=40)
+
+
+@pytest.mark.parametrize("name", ["plot_paths", "plot_territory", "plot_overlap", "plot_progress"])
+def test_each_fleet_plot_stands_on_its_own(drawn_fleet, name):
+    """plot_fleet passes an axes in; on its own each has to build a figure.
+
+    Two different code paths, and only the composed one was ever drawn.
+    """
+    import matplotlib.pyplot as plt
+
+    from zimablue import fleetplots
+
+    figure = getattr(fleetplots, name)(drawn_fleet)
+    assert figure.axes, f"{name} should have drawn something"
+    assert figure.axes[0].get_title(), f"{name} should title itself"
+    plt.close(figure)
+
+
+def test_a_fleet_plot_says_which_robot_is_which(drawn_fleet):
+    import matplotlib.pyplot as plt
+
+    from zimablue.fleetplots import plot_paths
+
+    figure = plot_paths(drawn_fleet)
+    labels = [t.get_text() for t in figure.axes[0].get_legend().get_texts()]
+    assert len(labels) == 3
+    # Each robot is named and carries the share of the floor it covered.
+    for index, label in enumerate(sorted(labels)):
+        assert label.startswith(f"r{index}")
+        assert label.endswith("%")
+    plt.close(figure)
+
+
+def test_the_plots_say_to_record_rather_than_failing_on_a_missing_key():
+    """The trajectories live in the recording, which is off by default."""
+    from zimablue.fleetplots import plot_paths
+
+    result = Fleet(pool=POOL, robots=2, controllers="bsa", seed=1, record=False).run(seconds=10)
+    with pytest.raises(ValueError, match="record=True"):
+        plot_paths(result)
+
+
 def test_the_territory_map_only_names_robots_that_were_there():
     result = Fleet(pool=POOL, robots=2, controllers="bsa", seed=1).run(seconds=30)
     territory = result.territory
