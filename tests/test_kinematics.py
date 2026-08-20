@@ -193,3 +193,23 @@ def test_every_preset_survives_a_robot_placed_on_its_wall():
                 pool.navigable.distance(Point(contact.x, contact.y))
                 <= pool.navigable.distance(point) + 1e-9
             ), name
+
+
+def test_a_contact_is_truthy_about_whether_it_touched_anything():
+    """`any` is what the stepping path reads to decide there was a collision."""
+    pool = Pool(shapely_box(0, 0, 10, 5), 1.5)
+    assert not resolve(pool, 5.0, 2.5, 0.0, radius=0.25).any
+    assert resolve(pool, 0.05, 2.5, 0.0, radius=0.25).any
+
+
+def test_a_shallower_team_mate_does_not_displace_a_deeper_one():
+    """Whichever overlaps most decides, whatever order they arrive in."""
+    pool = Pool(shapely_box(0, 0, 10, 5), 1.5)
+    deep_first = resolve(
+        pool, 5.0, 2.5, 0.0, radius=0.25, neighbours=[(5.1, 2.5, 0.25), (5.45, 2.5, 0.25)]
+    )
+    deep_last = resolve(
+        pool, 5.0, 2.5, 0.0, radius=0.25, neighbours=[(5.45, 2.5, 0.25), (5.1, 2.5, 0.25)]
+    )
+    assert deep_first.penetration == pytest.approx(deep_last.penetration)
+    assert (deep_first.x, deep_first.y) == pytest.approx((deep_last.x, deep_last.y))
