@@ -94,3 +94,42 @@ def test_bump_flags_point_at_the_wall():
     # Same wall, but facing -x: it is now behind us.
     rear = resolve(pool, 9.9, 2.5, np.pi, radius=0.25)
     assert rear.flags[3]
+
+
+def test_two_robots_dropped_on_the_same_spot_still_separate():
+    """Coincident discs have no line between them to push along.
+
+    Only reachable by placing two robots at one point, which a fleet
+    configuration can do -- and a zero-length normal would be a divide by
+    zero followed by a NaN pose that poisons the whole recording.
+    """
+    pool = Pool(shapely_box(0, 0, 10, 5), 1.5)
+    contact = resolve(pool, 5.0, 2.5, 0.0, radius=0.25, neighbours=[(5.0, 2.5, 0.25)])
+    assert contact.touching
+    assert np.isfinite([contact.x, contact.y]).all()
+    assert (contact.x, contact.y) != (5.0, 2.5), "they have to end up somewhere else"
+
+
+def test_a_team_mate_further_away_than_the_wall_does_not_win():
+    """A robot squeezed between a team-mate and the tiles ends up against the
+    wall, not inside it."""
+    pool = Pool(shapely_box(0, 0, 10, 5), 1.5)
+    contact = resolve(pool, 0.05, 2.5, 0.0, radius=0.25, neighbours=[(0.54, 2.5, 0.25)])
+    assert bool(pool.contains(contact.x, contact.y))
+
+
+def test_a_neighbour_out_of_reach_is_not_a_contact():
+    pool = Pool(shapely_box(0, 0, 10, 5), 1.5)
+    contact = resolve(pool, 5.0, 2.5, 0.0, radius=0.25, neighbours=[(9.0, 2.5, 0.25)])
+    assert not contact.touching
+    assert (contact.x, contact.y) == (5.0, 2.5)
+
+
+def test_the_deepest_overlap_is_the_one_resolved():
+    """With two team-mates touching, the one further in decides the push."""
+    pool = Pool(shapely_box(0, 0, 10, 5), 1.5)
+    shallow = resolve(pool, 5.0, 2.5, 0.0, radius=0.25, neighbours=[(5.45, 2.5, 0.25)])
+    both = resolve(
+        pool, 5.0, 2.5, 0.0, radius=0.25, neighbours=[(5.45, 2.5, 0.25), (5.1, 2.5, 0.25)]
+    )
+    assert both.penetration > shallow.penetration
