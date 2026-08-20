@@ -17,10 +17,18 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
+from shapely.geometry import Point
 
 from zimablue.pool import Pool
 
 __all__ = ["Contact", "resolve"]
+
+_ON_SURFACE = 1e-12
+"""Below this, the robot and the wall point it touches are the same point."""
+
+_PROBE = 1e-6
+"""How far off a wall to test for water: clear of the containment test's own
+tolerance, and short enough that a curved wall has not turned away yet."""
 
 
 @dataclass(frozen=True)
@@ -102,14 +110,18 @@ def resolve(
 
     dx, dy = x - wall_x, y - wall_y
     norm = float(np.hypot(dx, dy))
-    if norm < 1e-12:
-        # Exactly on the surface: fall back to the direction of the pool
-        # centroid so the push has a defined direction.
-        centre = pool.navigable.centroid
-        dx, dy = centre.x - x, centre.y - y
-        norm = max(float(np.hypot(dx, dy)), 1e-9)
 
-    if inside:
+    if norm < 1e-12:
+        # Exactly on the surface, so there is no wall-to-robot vector to take a
+        # normal from and it has to come from the surface itself. Note this
+        # branch resolves the direction outright: a point on the boundary is
+        # not "inside" -- shapely's contains() is strict -- so it would
+        # otherwise reach the outward flip below and be pushed out through the
+        # wall it was resting on, which is the one outcome this function exists
+        # to prevent.
+        nx, ny = _inward_normal(pool, x, y)
+        penetration = radius
+    elif inside:
         nx, ny = dx / norm, dy / norm
         penetration = radius - distance
     else:
@@ -174,3 +186,59 @@ def _nearest_robot(
             is_robot=True,
         )
     return worst
+
+
+def _inward_normal(pool: Pool, x: float, y: float) -> tuple[float, float]:
+    """Unit normal pointing into the water, for a point lying on a surface.
+
+    Taken from the surfaces the point is actually touching rather than from the
+    direction of the pool's centroid. The centroid is the obvious shortcut and
+    it is wrong wherever the pool is concave: in the kidney's waist the
+    straight line to the middle leaves through the opposite wall, so a robot
+    resting on the inside of that curve was pushed out of the pool by the very
+    step meant to rescue it.
+
+    Two details earn their keep:
+
+    **Each segment is oriented at its own midpoint.** A segment gives a normal
+    up to sign, and the inward one is whichever steps into navigable water --
+    but that test cannot be run at ``(x, y)`` itself, because on a vertex a
+    step perpendicular to one edge leaves through the other and *both* signs
+    read as outside.
+
+    **Coincident segments are summed.** On a vertex the point touches two
+    edges, and neither normal alone points into the corner; their sum is the
+    bisector, which does. On a plain edge there is one segment and the sum is
+    just its normal.
+
+    Obstacles come out right for free, since "into the water" is away from
+    them.
+    """
+    segments = pool.collision_segments
+    x0, y0, x1, y1 = (segments[:, i] for i in range(4))
+    edge_x, edge_y = x1 - x0, y1 - y0
+    length_sq = edge_x * edge_x + edge_y * edge_y
+    # length_sq is never 0: polygon_segments drops degenerate segments.
+    t = np.clip(((x - x0) * edge_x + (y - y0) * edge_y) / length_sq, 0.0, 1.0)
+    gap = np.hypot(x - (x0 + t * edge_x), y - (y0 + t * edge_y))
+
+    touching = np.flatnonzero(gap <= gap.min() + _ON_SURFACE)
+    total_x = total_y = 0.0
+    for index in touching:
+        length = float(np.sqrt(length_sq[index]))
+        nx, ny = float(-edge_y[index] / length), float(edge_x[index] / length)
+        # Orient at the midpoint, where the wall is a line rather than a corner.
+        mid_x = float(x0[index] + 0.5 * edge_x[index])
+        mid_y = float(y0[index] + 0.5 * edge_y[index])
+        if not pool.navigable.contains(Point(mid_x + nx * _PROBE, mid_y + ny * _PROBE)):
+            nx, ny = -nx, -ny
+        total_x += nx
+        total_y += ny
+
+    total = float(np.hypot(total_x, total_y))
+    if total < 1e-12:
+        # Two surfaces facing exactly opposite ways: a slot the width of a
+        # line, with no inward direction to find. Nothing sensible is available
+        # here, so leave the robot where it is rather than invent a push.
+        return (0.0, 0.0)
+    return (total_x / total, total_y / total)

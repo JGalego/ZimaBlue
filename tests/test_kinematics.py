@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from shapely.geometry import Point
 from shapely.geometry import box as shapely_box
 
+import zimablue as zb
 from zimablue.geometry import wrap_angle
 from zimablue.physics.collision import resolve
 from zimablue.physics.kinematics import exact_arc_step, slip_factors
@@ -133,3 +135,61 @@ def test_the_deepest_overlap_is_the_one_resolved():
         pool, 5.0, 2.5, 0.0, radius=0.25, neighbours=[(5.45, 2.5, 0.25), (5.1, 2.5, 0.25)]
     )
     assert both.penetration > shallow.penetration
+
+
+# ----------------------------------------------------------------------
+# A robot exactly on a surface.
+#
+# The wall-to-robot vector is zero there, so the normal has to come from the
+# surface itself. This used to fall back to the direction of the pool's
+# centroid and then flip it -- shapely's contains() is strict, so a point on
+# the boundary is not "inside" -- which pushed the robot out through the wall
+# it was resting on.
+
+
+def test_a_robot_exactly_on_a_wall_is_pushed_into_the_pool():
+    pool = Pool(shapely_box(0, 0, 10, 5), 1.5)
+    for x, y in ((0.0, 2.5), (10.0, 2.5), (5.0, 0.0), (5.0, 5.0)):
+        contact = resolve(pool, x, y, 0.0, radius=0.25)
+        assert contact.touching
+        assert np.isfinite([contact.x, contact.y]).all()
+        assert bool(pool.contains(contact.x, contact.y)), f"({x}, {y}) ended up outside"
+
+
+def test_a_robot_exactly_on_a_corner_is_pushed_along_the_bisector():
+    """On a vertex the robot touches two edges, and neither normal alone
+    points into the corner -- a step perpendicular to one leaves through the
+    other. Their sum is the bisector, which does."""
+    pool = Pool(shapely_box(0, 0, 10, 5), 1.5)
+    contact = resolve(pool, 0.0, 0.0, 0.0, radius=0.25)
+    assert bool(pool.contains(contact.x, contact.y))
+    assert contact.x == pytest.approx(contact.y), "the bisector of a right angle is diagonal"
+
+
+def test_the_push_is_local_so_a_concave_wall_does_not_send_it_across_the_pool():
+    """The kidney's waist is the case the centroid shortcut got wrong: the
+    straight line to the middle leaves through the opposite wall."""
+    pool = zb.make_pool("kidney")
+    ring = pool.boundary.exterior
+    outside = []
+    for station in np.linspace(0.0, ring.length, 200, endpoint=False):
+        point = ring.interpolate(float(station))
+        contact = resolve(pool, point.x, point.y, 0.0, radius=0.17)
+        if not pool.contains(contact.x, contact.y):
+            outside.append((round(point.x, 3), round(point.y, 3)))
+    assert outside == [], f"pushed out of the pool at {outside[:5]}"
+
+
+def test_every_preset_survives_a_robot_placed_on_its_wall():
+    for name in zb.POOL_PRESETS.names():
+        pool = zb.make_pool(name)
+        ring = pool.boundary.exterior
+        for station in np.linspace(0.0, ring.length, 60, endpoint=False):
+            point = ring.interpolate(float(station))
+            contact = resolve(pool, point.x, point.y, 0.0, radius=0.17)
+            assert np.isfinite([contact.x, contact.y]).all(), name
+            # Never further from the water than it started.
+            assert (
+                pool.navigable.distance(Point(contact.x, contact.y))
+                <= pool.navigable.distance(point) + 1e-9
+            ), name
