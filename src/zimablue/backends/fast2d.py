@@ -6,8 +6,13 @@ analytical sensors.  Pure NumPy float64 on the CPU, no GPU, no external engine.
 
 Known approximations, stated rather than hidden:
 
-* **Walls are 1D.** The robot moves on the floor plane. Wall climbing is not
-  simulated; wall coverage is tracked as an unrolled perimeter visit record.
+* **The wall climb is kinematic.** A grip-capable robot pressing the wall
+  climbs it as a scripted excursion -- up, a hold at the waterline, back down
+  -- and the wall is scored as a strip of perimeter bins by height band. The
+  adhesion hydrodynamics of staying on a wall are a backend of their own and
+  are not modelled; what the excursion claims is the time, the energy and the
+  wall area credited, which is what the metrics read. A robot without
+  ``wall_grip`` never leaves the floor plane.
 * **The model is kinematic, not dynamic.** Motors are rate- and acceleration-limited and
   slip is modelled, but there is no explicit force balance or momentum. At
   cleaner speeds (< 0.4 m/s) and masses (< 20 kg) the difference does not

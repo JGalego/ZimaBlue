@@ -67,7 +67,7 @@ rather than stubbed. **Shipped.**
 
 ## v0.4 — the thesis with a motor attached
 
-**On main, awaiting release.** Same bar: implemented, tested, runnable.
+**Shipped.** Same bar: implemented, tested, runnable.
 
 | | Component | State |
 |---|---|---|

@@ -11,6 +11,8 @@ understand.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-21
+
 ### Added
 - `export_mosaic` animates every recording side by side over the same pool --
   every planner cleaning the kidney at once, each panel the bare pool with the
@@ -83,6 +85,20 @@ understand.
   plus deposited -- so a live pool cannot score above one.
 - An oversize item the skimmer removed stops counting against `dirt_ceiling`;
   `debris_collected` counts only the robot's own catch.
+
+### Fixed
+- Collision resolution pushed a robot resting exactly on a surface *out* of
+  the pool -- the one thing `resolve` exists to prevent. The wall-to-robot
+  vector is zero there, so the normal fell back to the direction of the pool's
+  centroid, and then the "outside" branch flipped it: shapely's `contains` is
+  strict, so a point on the boundary is not inside and took that branch. The
+  normal now comes from the surfaces the point is touching, which is also
+  right where the centroid never was -- in the kidney's waist the straight
+  line to the middle leaves through the opposite wall -- and sums the
+  coincident edges at a vertex, where neither edge's normal alone points into
+  the corner. Reachable by hand-placing a start pose rather than by stepping,
+  so no recorded run changes: the eight seeded runs across four pools that
+  pinned this produce identical metrics.
 
 ## [0.3.0] — 2026-08-19
 
@@ -340,19 +356,6 @@ understand.
   4320 degrees.
 
 ### Fixed
-- Collision resolution pushed a robot resting exactly on a surface *out* of
-  the pool -- the one thing `resolve` exists to prevent. The wall-to-robot
-  vector is zero there, so the normal fell back to the direction of the pool's
-  centroid, and then the "outside" branch flipped it: shapely's `contains` is
-  strict, so a point on the boundary is not inside and took that branch. The
-  normal now comes from the surfaces the point is touching, which is also
-  right where the centroid never was -- in the kidney's waist the straight
-  line to the middle leaves through the opposite wall -- and sums the
-  coincident edges at a vertex, where neither edge's normal alone points into
-  the corner. Reachable by hand-placing a start pose rather than by stepping,
-  so no recorded run changes: the eight seeded runs across four pools that
-  pinned this produce identical metrics.
-
 - `TransferOperator.eigen` was annotated as returning real arrays. A transfer
   matrix is not symmetric, so a controller that circulates around the pool puts
   a conjugate pair in the spectrum; the spectrum plot already drew the values
@@ -643,7 +646,8 @@ reproducible, scored replay.
 - Wall climbing is not simulated; wall coverage is tracked as an unrolled
   perimeter visit record.
 
-[Unreleased]: https://github.com/JGalego/ZimaBlue/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/JGalego/ZimaBlue/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/JGalego/ZimaBlue/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/JGalego/ZimaBlue/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/JGalego/ZimaBlue/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JGalego/ZimaBlue/releases/tag/v0.1.0
