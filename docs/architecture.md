@@ -71,6 +71,7 @@ tomorrow — is an implementation detail behind an interface.
 | `zimablue.simulation` | `Simulation`, `SimState`, `StepResult`, `RunResult` |
 | `zimablue.controllers` | `Controller` protocol, the shipped controllers and oracles, registry |
 | `zimablue.estimation` | EKF over position, heading and gyro bias; ZUPT |
+| `zimablue.experiments` | Adaptive replicated parameter experiments |
 | `zimablue.calibration` | Parameter identification against observed `.zbr` trajectories |
 | `zimablue.counterfactual` | Deterministic alternate-policy replay and outcome deltas |
 | `zimablue.shadow` | Read-only live twin, sensor residuals and health thresholds |

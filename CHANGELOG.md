@@ -12,6 +12,9 @@ understand.
 ## [Unreleased]
 
 ### Added
+- `AutonomousExperiment` adaptively searches bounded simulation parameters,
+  evaluates every proposal under common random seeds, and records uncertainty
+  and convergence history without an external optimisation dependency.
 - `run_counterfactual()` rebuilds a recorded simulation from its embedded
   configuration, changes a controller or model explicitly, and reports
   deterministic trajectory divergence and metric deltas.

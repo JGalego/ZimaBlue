@@ -39,6 +39,13 @@ from zimablue.dirt import (
     make_dirt,
 )
 from zimablue.estimation import EstimatorConfig, PoseEstimate, PoseEstimator
+from zimablue.experiments import (
+    AutonomousExperiment,
+    CandidateResult,
+    ExperimentGeneration,
+    ExperimentObjective,
+    ExperimentResult,
+)
 from zimablue.fleet import Blackboard, Fleet, FleetMetrics, FleetResult, spread_poses
 from zimablue.geometry import Grid
 from zimablue.imaging import PoolTrace, pool_from_image, trace_pool
@@ -133,12 +140,14 @@ __all__ = [
     "PLANNERS",
     "POOL_PRESETS",
     "ROBOT_PRESETS",
+    "AutonomousExperiment",
     "BatchResult",
     "Battery",
     "Blackboard",
     "Brush",
     "CalibrationResult",
     "CalibrationStep",
+    "CandidateResult",
     "Chassis",
     "Cleaner",
     "CleaningSystem",
@@ -162,6 +171,9 @@ __all__ = [
     "DriveUnit",
     "Encoder",
     "EstimatorConfig",
+    "ExperimentGeneration",
+    "ExperimentObjective",
+    "ExperimentResult",
     "Filter",
     "Fleet",
     "FleetMetrics",

@@ -60,6 +60,7 @@ the same distinction.
 | Understand the design | [`architecture.md`](architecture.md) |
 | See the evidence behind it | [`research.md`](research.md) |
 | Write experiments | [`scenarios.md`](scenarios.md) |
+| Let an experiment choose its next trial | [`autonomous-experiments.md`](autonomous-experiments.md) |
 | Read or convert recordings | [`recording.md`](recording.md) |
 | Ask what another controller would do | [`counterfactual.md`](counterfactual.md) |
 | Calibrate a digital twin | [`calibration.md`](calibration.md) |
