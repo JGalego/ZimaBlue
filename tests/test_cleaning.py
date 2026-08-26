@@ -383,6 +383,30 @@ def test_every_pool_sweeps_its_dirt_towards_a_sink():
         )
 
 
+def test_a_complete_run_conserves_the_dirt_and_debris_budget():
+    """Everything missing at the end must have an explicit removal counter."""
+    result = Simulation(
+        pool="rectangular",
+        dirt="neglected_pool",
+        controller="baseline_coverage",
+        seed=7,
+    ).run(minutes=1)
+    recording = result.require_recording()
+
+    initial_debris = recording.debris_at(0.0)
+    final_debris = recording.debris_at(result.metrics.runtime)
+    initial = float(recording.dirt_at(0.0).sum() + initial_debris[:, 2].sum())
+    remaining = float(
+        recording.dirt_at(result.metrics.runtime).sum()
+        + final_debris[final_debris[:, 4] < 0.5, 2].sum()
+    )
+
+    # Dirt keyframes are deliberately quantised to float16, so the recording
+    # has a small bounded representation error even though the live state
+    # conserves mass to machine precision.
+    assert initial == pytest.approx(remaining + result.metrics.dirt_removed, abs=0.1)
+
+
 # ======================================================================
 # Debris the intake cannot take
 # ======================================================================

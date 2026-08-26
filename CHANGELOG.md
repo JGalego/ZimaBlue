@@ -12,6 +12,10 @@ understand.
 ## [Unreleased]
 
 ### Fixed
+- Gyro-rate process noise now carries its heading/position covariance through
+  the EKF midpoint motion model instead of understating uncertainty on curves.
+- Boustrophedon decomposition probes only adjacent vertex intervals, preventing
+  one densely sampled topology change from becoming hundreds of sliver cells.
 - `HardwareRuntime` now trips its watchdog before a controller's wrong return
   type or non-finite motor command can reach an actuator.
 - The Gymnasium environment and `PolicyController` reject actions that do not

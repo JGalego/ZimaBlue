@@ -221,7 +221,19 @@ class PoseEstimator:
         q[X, X] = along * cos_t**2 + across * sin_t**2
         q[Y, Y] = along * sin_t**2 + across * cos_t**2
         q[X, Y] = q[Y, X] = (along - across) * cos_t * sin_t
-        q[THETA, THETA] = (cfg.gyro_noise * dt) ** 2
+        # The same rate error that changes the heading also rotates this
+        # interval's displacement through ``mid``. Mapping it through the
+        # motion model keeps those errors correlated; adding only a heading
+        # variance makes the filter overconfident about curved motion.
+        gyro_effect = np.array(
+            [
+                -0.5 * speed * sin_t * dt * dt,
+                0.5 * speed * cos_t * dt * dt,
+                dt,
+                0.0,
+            ]
+        )
+        q += cfg.gyro_noise**2 * np.outer(gyro_effect, gyro_effect)
         q[BIAS, BIAS] = cfg.bias_walk**2 * dt
 
         self.covariance = f @ self.covariance @ f.T + q

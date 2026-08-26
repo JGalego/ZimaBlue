@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from shapely.affinity import rotate
 
 import zimablue as zb
 from zimablue.controllers.systematic import MapCell
@@ -158,6 +159,17 @@ def test_boustrophedon_decomposition_merges_what_trapezoidal_splits():
     split = make_planner("trapezoidal").plan(pool, robot)
     assert len(split.cells) > len(merged.cells) >= 1
     assert merged.length < split.length
+
+
+def test_dense_vertices_do_not_duplicate_a_connectivity_change():
+    """A smooth critical point is one event, however finely it is sampled."""
+    source = zb.make_pool("kidney")
+    turned = zb.Pool(rotate(source.boundary, 90, origin=(0, 0)), 1.5)
+    plan = make_planner("boustrophedon_cells").plan(turned, zb.make_robot("tracked"))
+
+    assert plan.notes["critical_points"] == 2
+    assert len(plan.cells) == 3
+    assert plan.length < 250.0
 
 
 # ======================================================================

@@ -271,10 +271,10 @@ w = R g d² / (C1 ν + sqrt(0.75 C2 R g d³))
 ```
 
 One explicit expression covering viscous through turbulent settling. The first
-denominator term dominates for fines, where it reduces exactly to Stokes; the
+denominator term dominates for fines, where `C1 = 18` recovers Stokes; the
 second dominates for coarse grains, giving the constant-drag Newton regime.
-`C1 = 20, C2 = 1.1` are the paper's values for natural sand (smooth spheres
-would be 18 and 0.4).
+`C1 = 20, C2 = 1.1` are the paper's fitted values for natural sand (smooth
+spheres use 18 and 0.4).
 
 Two further complications are worth knowing about even though they are not
 modelled: biofilm growth on particles measurably changes their drag and settling

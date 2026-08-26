@@ -71,11 +71,11 @@ def settling_velocity(
     ``w = R g d^2 / (C1 nu + sqrt(0.75 C2 R g d^3))``
 
     where ``R`` is submerged specific gravity and ``nu`` is kinematic
-    viscosity.  The first denominator term dominates for fine particles, where
-    the expression reduces exactly to Stokes' law; the second dominates for
-    coarse ones, giving the constant-drag (Newton) regime.  Defaults
-    ``C1 = 20, C2 = 1.1`` are the paper's values for natural sand grains
-    (smooth spheres would be 18 and 0.4).
+    viscosity. The first denominator term dominates for fine particles, where
+    ``C1 = 18`` recovers Stokes' law; the second dominates for coarse ones,
+    giving the constant-drag (Newton) regime. Defaults ``C1 = 20, C2 = 1.1``
+    are the paper's fitted values for natural sand grains (smooth spheres use
+    18 and 0.4).
 
     Positive is sinking, negative is rising: buoyant particles are computed
     from ``|R|`` and negated, since the correlation is posed for dense grains.

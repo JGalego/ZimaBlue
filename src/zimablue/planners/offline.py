@@ -407,14 +407,18 @@ def _critical_x(region: Polygon, tolerance: float) -> FloatArray:
     candidate rather than by classifying vertex types, which is far shorter and
     works on the discretised boundaries this library actually has.
     """
-    minx, _, maxx, _ = region.bounds
     xs = np.unique(np.round(_vertices(region)[:, 0], 6))
     critical: list[float] = []
-    for x in xs:
-        if x <= minx + tolerance or x >= maxx - tolerance:
-            continue
-        before = _slice_count(region, x - tolerance)
-        after = _slice_count(region, x + tolerance)
+    for index, x in enumerate(xs[1:-1], start=1):
+        # Probe inside the immediately adjacent vertex intervals. A fixed
+        # offset can cross dozens of densely sampled vertices around one
+        # smooth critical point, misclassifying every one as another topology
+        # change and exploding a three-cell decomposition into hundreds of
+        # slivers.
+        before_step = min(tolerance, 0.5 * (x - xs[index - 1]))
+        after_step = min(tolerance, 0.5 * (xs[index + 1] - x))
+        before = _slice_count(region, x - before_step)
+        after = _slice_count(region, x + after_step)
         if before != after:
             critical.append(float(x))
     return np.asarray(critical, dtype=float)

@@ -49,6 +49,33 @@ def test_uncertainty_grows_while_driving():
     assert first[1] > first[0] > 0.0
 
 
+def test_gyro_noise_correlates_heading_with_this_ticks_displacement():
+    """One noisy rate sample drives both errors through the midpoint model."""
+    config = EstimatorConfig(
+        speed_noise=0.0,
+        lateral_noise=0.0,
+        gyro_noise=0.8,
+        bias_walk=0.0,
+        initial_bias_sigma=0.0,
+    )
+    estimator = PoseEstimator(config)
+    estimator.covariance[:] = 0.0
+
+    speed, rate, dt = 0.7, 0.9, 0.2
+    estimator.predict(speed, rate, dt)
+
+    mid = 0.5 * rate * dt
+    effect = np.array(
+        [
+            -0.5 * speed * np.sin(mid) * dt**2,
+            0.5 * speed * np.cos(mid) * dt**2,
+            dt,
+        ]
+    )
+    expected = config.gyro_noise**2 * np.outer(effect, effect)
+    assert estimator.estimate.covariance[:3, :3] == pytest.approx(expected)
+
+
 def test_zupt_recovers_the_gyro_bias():
     """The whole reason the bias is a state.
 
