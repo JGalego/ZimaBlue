@@ -12,6 +12,13 @@ from __future__ import annotations
 
 from zimablue._version import __version__
 from zimablue.batch import BatchResult, run_batch
+from zimablue.calibration import (
+    CalibrationResult,
+    CalibrationStep,
+    Parameter,
+    TwinCalibrator,
+    trajectory_loss,
+)
 from zimablue.controllers import (
     CONTROLLERS,
     ControlInput,
@@ -120,6 +127,8 @@ __all__ = [
     "Battery",
     "Blackboard",
     "Brush",
+    "CalibrationResult",
+    "CalibrationStep",
     "Chassis",
     "Cleaner",
     "CleaningSystem",
@@ -153,6 +162,7 @@ __all__ = [
     "Obstacle",
     "OccupancyMap",
     "OnlineCoverage",
+    "Parameter",
     "Partition",
     "PathFollower",
     "PlaneSlopeDepth",
@@ -186,6 +196,7 @@ __all__ = [
     "SurfaceMaterial",
     "SystematicCoverage",
     "Territory",
+    "TwinCalibrator",
     "Water",
     "World",
     "__version__",
@@ -205,4 +216,5 @@ __all__ = [
     "spread_poses",
     "trace_pool",
     "trace_sketch",
+    "trajectory_loss",
 ]

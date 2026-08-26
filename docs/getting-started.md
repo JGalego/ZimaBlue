@@ -61,6 +61,7 @@ the same distinction.
 | See the evidence behind it | [`research.md`](research.md) |
 | Write experiments | [`scenarios.md`](scenarios.md) |
 | Read or convert recordings | [`recording.md`](recording.md) |
+| Calibrate a digital twin | [`calibration.md`](calibration.md) |
 | Watch runs properly | [`replay.md`](replay.md) |
 | Know what is missing | [`roadmap.md`](roadmap.md) |
 

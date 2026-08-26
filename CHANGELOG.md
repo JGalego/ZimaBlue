@@ -11,6 +11,11 @@ understand.
 
 ## [Unreleased]
 
+### Added
+- `TwinCalibrator` identifies bounded digital-twin parameters from a reference
+  `.zbr` trajectory with deterministic, NumPy-only differential evolution and
+  stores the fitted values and convergence history in recording metadata.
+
 ### Fixed
 - Gyro-rate process noise now carries its heading/position covariance through
   the EKF midpoint motion model instead of understating uncertainty on curves.
