@@ -12,6 +12,9 @@ understand.
 ## [Unreleased]
 
 ### Added
+- Benchmark regression gates compare exact planner/pool/seed suites against a
+  saved JSON baseline with explicit absolute and relative tolerances, respect
+  each metric's direction, and produce CI-friendly Markdown failures.
 - `AutonomousExperiment` adaptively searches bounded simulation parameters,
   evaluates every proposal under common random seeds, and records uncertainty
   and convergence history without an external optimisation dependency.

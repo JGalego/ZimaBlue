@@ -38,7 +38,17 @@ import numpy as np
 from zimablue._version import __version__
 from zimablue.planners.compare import Comparison, compare
 
-__all__ = ["BENCH_QUICK", "BENCH_V1", "BenchDefinition", "BenchResult", "run_bench"]
+__all__ = [
+    "BENCH_QUICK",
+    "BENCH_V1",
+    "BenchCheck",
+    "BenchDefinition",
+    "BenchGate",
+    "BenchResult",
+    "BenchTolerance",
+    "compare_benchmarks",
+    "run_bench",
+]
 
 
 @dataclass(frozen=True)
@@ -200,6 +210,164 @@ class BenchResult:
         self.comparison.to_csv(paths["csv"])
         paths["markdown"].write_text(self.to_markdown() + "\n")
         return paths
+
+
+@dataclass(frozen=True)
+class BenchTolerance:
+    """Allowed regression as an absolute amount plus a baseline fraction."""
+
+    absolute: float = 0.0
+    relative: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.absolute < 0.0 or self.relative < 0.0:
+            raise ValueError("benchmark tolerances must be non-negative")
+        if not np.isfinite(self.absolute) or not np.isfinite(self.relative):
+            raise ValueError("benchmark tolerances must be finite")
+
+
+@dataclass(frozen=True)
+class BenchCheck:
+    """One planner/metric comparison against a saved baseline."""
+
+    planner: str
+    metric: str
+    baseline: float
+    current: float
+    change: float
+    allowed: float
+    better: int
+
+    @property
+    def regressed(self) -> bool:
+        return self.change * self.better < -self.allowed
+
+
+@dataclass(frozen=True)
+class BenchGate:
+    """CI-friendly benchmark checks and completeness failures."""
+
+    checks: tuple[BenchCheck, ...]
+    missing: tuple[str, ...] = ()
+
+    @property
+    def regressions(self) -> tuple[BenchCheck, ...]:
+        return tuple(check for check in self.checks if check.regressed)
+
+    @property
+    def passed(self) -> bool:
+        return not self.missing and not self.regressions
+
+    def assert_passed(self) -> None:
+        if self.passed:
+            return
+        messages = list(self.missing)
+        messages.extend(
+            f"{check.planner}/{check.metric}: {check.baseline:g} -> {check.current:g} "
+            f"(allowed {check.allowed:g})"
+            for check in self.regressions
+        )
+        raise AssertionError("benchmark regression gate failed:\n" + "\n".join(messages))
+
+    def to_markdown(self) -> str:
+        state = "PASS" if self.passed else "FAIL"
+        lines = [f"# Benchmark regression gate: {state}", ""]
+        if self.missing:
+            lines.extend(f"- Missing: {item}" for item in self.missing)
+            lines.append("")
+        lines.extend(
+            [
+                "| planner | metric | baseline | current | change | allowance | result |",
+                "|---|---|---:|---:|---:|---:|---|",
+            ]
+        )
+        for check in self.checks:
+            result = "regression" if check.regressed else "ok"
+            lines.append(
+                f"| `{check.planner}` | `{check.metric}` | {check.baseline:.6g} | "
+                f"{check.current:.6g} | {check.change:+.6g} | {check.allowed:.6g} | "
+                f"{result} |"
+            )
+        return "\n".join(lines)
+
+
+def compare_benchmarks(
+    current: BenchResult,
+    baseline: dict[str, Any] | str | Path,
+    tolerances: dict[str, BenchTolerance],
+) -> BenchGate:
+    """Compare matched trial medians and flag direction-aware regressions."""
+    if not tolerances:
+        raise ValueError("at least one benchmark metric tolerance is required")
+    reference = (
+        json.loads(Path(baseline).read_text()) if isinstance(baseline, str | Path) else baseline
+    )
+    reference = json.loads(json.dumps(reference))
+    expected = json.loads(json.dumps(asdict(current.definition)))
+    if reference.get("definition") != expected:
+        raise ValueError("benchmark definitions differ; results are not comparable")
+
+    current_trials = current.to_dict()["trials"]
+    baseline_trials = reference.get("trials", [])
+    dimensions = {dimension.key: dimension for dimension in current.comparison.dimensions}
+    unknown = sorted(set(tolerances) - dimensions.keys())
+    if unknown:
+        raise ValueError(f"unknown benchmark metrics: {', '.join(unknown)}")
+
+    checks = []
+    missing = []
+    planners = current.definition.entries
+    for planner in planners:
+        for metric, tolerance in tolerances.items():
+            before = _trial_values(baseline_trials, planner, metric)
+            after = _trial_values(current_trials, planner, metric)
+            expected_keys = {
+                (pool, seed)
+                for pool in current.definition.pools
+                for seed in current.definition.seeds
+            }
+            if set(before) != expected_keys or set(after) != expected_keys:
+                missing.append(
+                    f"{planner}/{metric}: expected {len(expected_keys)} matched trials, "
+                    f"found baseline={len(before)}, current={len(after)}"
+                )
+                continue
+            base_value = float(np.median(list(before.values())))
+            current_value = float(np.median(list(after.values())))
+            checks.append(
+                BenchCheck(
+                    planner=planner,
+                    metric=metric,
+                    baseline=base_value,
+                    current=current_value,
+                    change=current_value - base_value,
+                    allowed=tolerance.absolute + tolerance.relative * abs(base_value),
+                    better=dimensions[metric].better,
+                )
+            )
+    return BenchGate(checks=tuple(checks), missing=tuple(missing))
+
+
+def _trial_values(
+    trials: list[dict[str, Any]], planner: str, metric: str
+) -> dict[tuple[str, int], float]:
+    values = {}
+    duplicates: set[tuple[str, int]] = set()
+    for trial in trials:
+        value = trial.get("scores", {}).get(metric)
+        if (
+            trial.get("planner") == planner
+            and isinstance(value, int | float)
+            and np.isfinite(value)
+        ):
+            key = (str(trial.get("pool")), int(trial.get("seed")))
+            if key in values or key in duplicates:
+                duplicates.add(key)
+            else:
+                values[key] = float(value)
+    for key in duplicates:
+        values.pop(key, None)
+    return values
 
 
 def _jsonable(value: float) -> float | None:

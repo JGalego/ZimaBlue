@@ -59,3 +59,39 @@ result = run_bench(BENCH_V1, jobs=4)
 print(result.comparison.table())
 result.save("runs/bench")
 ```
+
+## Regression gates
+
+A saved JSON result can be a CI baseline. Tolerances are explicit per metric;
+the library does not hide a universal percentage that might be harmless for
+energy and substantial for coverage.
+
+```python
+from pathlib import Path
+
+from zimablue.bench import BenchTolerance, compare_benchmarks
+
+current = run_bench(BENCH_V1, jobs=4)
+gate = compare_benchmarks(
+	current,
+	"benchmarks/zb-bench-v1.json",
+	{
+		"coverage": BenchTolerance(absolute=0.01),
+		"dirt": BenchTolerance(absolute=0.01),
+		"energy": BenchTolerance(relative=0.03),
+	},
+)
+
+gate.assert_passed()
+Path("bench-gate.md").write_text(gate.to_markdown())
+```
+
+Checks use the median over the exact pool and seed trials named by the frozen
+suite. Missing, duplicated or non-finite trial values fail completeness rather
+than disappearing from an aggregate. The metric metadata determines direction:
+lower energy and worst-gap values are improvements, while lower coverage is a
+regression.
+
+The baseline definition must equal the current definition. Comparing a quick
+run with `zb-bench-v1`, or a v1 suite with a future v2, raises an error before
+any score is interpreted.

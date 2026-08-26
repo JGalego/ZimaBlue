@@ -69,6 +69,7 @@ tomorrow — is an implementation detail behind an interface.
 | `zimablue.physics` | Diff-drive kinematics, collision resolution, cleaning interaction |
 | `zimablue.backends` | `SimulationBackend` protocol, `Fast2DBackend`, registry |
 | `zimablue.simulation` | `Simulation`, `SimState`, `StepResult`, `RunResult` |
+| `zimablue.bench` | Frozen benchmark suites, artifacts and regression gates |
 | `zimablue.controllers` | `Controller` protocol, the shipped controllers and oracles, registry |
 | `zimablue.estimation` | EKF over position, heading and gyro bias; ZUPT |
 | `zimablue.experiments` | Adaptive replicated parameter experiments |
