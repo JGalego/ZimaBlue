@@ -171,9 +171,8 @@ for episode in result.worst("dirt_removed_fraction", 3):
     print(episode.seed, episode.metrics.dirt_removed_fraction)
 ```
 
-To sweep a parameter rather than a seed, build the scenarios in a loop — there
-is no sweep DSL, and there will not be one until a real use case needs
-something a `for` loop cannot express:
+Build parameter sweeps in a loop. A sweep DSL can wait until a real use case
+needs something a `for` loop cannot express:
 
 ```python
 from dataclasses import replace
@@ -186,8 +185,7 @@ for robot in ("compact", "tracked", "heavy_duty"):
 ## Writing your own
 
 Anything registered is available by name. To use a component that is not a
-preset, skip YAML and construct `Simulation` directly — the scenario file is a
-convenience for the common case, not the only way in.
+preset, construct `Simulation` directly. Scenario files cover the common case.
 
 ```python
 import zimablue as zb

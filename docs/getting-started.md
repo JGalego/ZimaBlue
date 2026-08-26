@@ -9,9 +9,9 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-No GPU, no ROS, no Docker, no Omniverse, no multi-gigabyte assets. The required
-dependencies are NumPy, Shapely, PyYAML, Typer and Rich; matplotlib arrives with
-the `viz` or `dev` extra and is only needed for replay.
+The core install is NumPy, Shapely, PyYAML, Typer and Rich. It needs no GPU,
+ROS, Docker, Omniverse or multi-gigabyte assets. Matplotlib arrives with the
+`viz` or `dev` extra and is only needed for replay.
 
 ## Your first simulation
 

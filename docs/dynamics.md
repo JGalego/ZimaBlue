@@ -1,10 +1,10 @@
-# Behaviour, not outcomes
+# Behaviour over time
 
-Everything else in ZimaBlue measures what a run *achieved* — how much floor,
-how much dirt, how far, how long. This module measures what the robot *did*:
-whether it repeats itself, how fast it forgets where it started, whether it is
-serving the distribution you meant, and how far ahead a prediction about it is
-worth anything.
+Most ZimaBlue metrics describe the result of a run: floor covered, dirt
+removed, distance and duration. This module examines the robot's motion over
+time. It finds repeated paths, measures how quickly initial conditions are
+forgotten, compares the path with a target distribution and estimates a useful
+prediction horizon.
 
 ```python
 from zimablue.dynamics import return_map, transfer_operator, ergodic_score
@@ -126,17 +126,17 @@ formalism that already existed for it.
 </div>
 
 The shape is the result. `lawnmower_oracle` reaches **0.0091 at twelve
-minutes** — the best distribution any controller here achieves — and then
-climbs to 0.58 as it finishes and parks. A perfect V. `dirt_oracle` peaks
-thirty seconds in and degrades for 98% of the run, which is what a greedy
-policy looks like from this angle: it goes where the grams are and then keeps
-going back. `random_bounce` and `systematic` are the two still improving at the
-cutoff, and they are the two with no idea where the dirt is.
+minutes**, the best distribution any controller here achieves, and then
+climbs to 0.58 as it finishes and parks, producing a V-shaped curve.
+`dirt_oracle` peaks thirty seconds in and degrades for 98% of the run, which is
+what a greedy policy looks like from this angle: it goes where the grams are
+and then keeps going back. `random_bounce` and `systematic` are the two still
+improving at the cutoff, and they are the two with no idea where the dirt is.
 
-That is visible **because the metric is not monotone**. Coverage can only go
-up; dirt removed can only go up; so neither can see a robot spending the second
-half of its battery making its distribution worse. This can, and `score.wasted`
-puts a number on it.
+The metric reveals this **because it is not monotone**. Coverage and dirt
+removed can only rise, so neither can show a robot spending the second half of
+its battery making its distribution worse. The ergodic score can, and
+`score.wasted` puts a number on it.
 
 ## Divergence
 
@@ -192,10 +192,10 @@ forecast = forecast_cleaning(recording, fit_fraction=0.25)
 print(forecast.describe())
 ```
 
-The robot moves at 0.3 m/s and the dirt changes over tens of minutes. On the
-slow timescale, averaging theory says what matters is not the path but the
-*fraction of time spent in each place*. Fit an effective removal rate on the
-first few minutes of occupancy and predict the rest.
+The robot moves at 0.3 m/s and the dirt changes over tens of minutes. Averaging
+theory replaces the exact path on this slow timescale with the *fraction of
+time spent in each place*. Fit an effective removal rate on the first few
+minutes of occupancy and predict the rest.
 
 <div align="center">
 <img src="assets/dynamics-forecast.png" alt="Predicted against actual dirt curves for three controllers, with the fitting window shaded" width="860">

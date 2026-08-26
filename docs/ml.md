@@ -69,16 +69,15 @@ On a 2000 × 1500 drone photo of a hotel pool, calibrated the same way:
 | colour rules | 156.2 m² | 17 | needs `close_gaps=0.6` for the underwater lamps |
 | SAM | 162.0 m² | 16 | no gap closing needed |
 
-Two methods that share no code landing 3.7% apart is a reasonable amount of
-confidence in both. The 3.7% is the shallow stepped end, which SAM includes
-more of.
+Two methods that share no code land 3.7% apart. The difference comes from the
+shallow stepped end, which SAM includes more of.
 
-The lamps are the more interesting difference. Each one pokes a slot into the
+Each lamp pokes a slot into the
 colour mask, and the fix was a morphological closing at a stated physical
 scale. SAM does not need it: an underwater light is part of the pool, and it
 knows that in a way no threshold does.
 
-Where it is worth reaching for:
+SAM helps with:
 
 - Pools the hue rule cannot lock onto — black-bottomed, green, deep in shade.
 - Photos where half the water is in sun and half is not.

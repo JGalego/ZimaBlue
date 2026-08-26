@@ -6,8 +6,8 @@
 
 ### **Simulate, test, and replay robotic pool cleaners.**
 
-*Driving everywhere is not the same as cleaning everything.*<br>
-*ZimaBlue measures both — and lets you watch it happen.*
+*Measure where the robot drove and how much dirt it removed.*<br>
+*Then watch both change during replay.*
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-0e6cb2?style=flat-square)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0e6cb2?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
@@ -28,8 +28,8 @@ Watch the coverage and dirt meters drift apart.</sub>
 
 Give ZimaBlue a pool, a cleaner, some dirt and a control algorithm. It
 simulates the run, records it, replays it, and scores how clean the pool
-actually got. That is a different question from how much of the floor the
-robot drove over, and the gap between the two is what this is for.
+actually got. Coverage records how much floor the robot drove over; cleanliness
+records the dirt it removed. The two numbers often diverge.
 
 ```bash
 git clone https://github.com/JGalego/ZimaBlue
@@ -38,7 +38,7 @@ pip install -e ".[dev]"
 zimablue demo
 ```
 
-No GPU. No ROS. No Docker. No Omniverse. No multi-gigabyte assets.
+The install needs no GPU, ROS, Docker, Omniverse or multi-gigabyte assets.
 
 ## What's in it
 

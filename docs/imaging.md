@@ -91,7 +91,7 @@ joined to each other, though, so connectivity decides it.
 Every candidate is listed on the trace, and `region=1` picks by size instead if
 you would rather.
 
-### Why hue and not colour
+### Hue across changing depth
 
 Depth changes a pool's colour enormously and its hue barely at all — it is the
 same water over the same plaster, with more or less of it in between. Measured
@@ -111,15 +111,14 @@ open water differ from each other. Hue separates them cleanly and saturation
 confirms it, since wet plaster is vivid and dry stone is not. Brightness is
 ignored, which is what keeps sunlit and shaded water in one region.
 
-### Why grow at all
+### Growing the mask to the coping
 
-A pool does not end where a threshold ends. The last stretch before the coping
-is very shallow water grading continuously out of the water beside it — no
-step in it anywhere — while the coping arrives as a 36° jump. So the mask
-creeps outward a bounded number of pixels, taking each one only if it looks
-like the neighbours that already belong rather than like the distant sample,
-and the hard edge stops it. Missing that rim cost about 20 cm all the way
-round, which on a 25 m pool is 9% of the floor. `grow=0` turns it off.
+The colour threshold often stops inside the pool. Very shallow water near the
+coping grades continuously out of the deeper water, while the coping arrives
+as a 36° hue jump. The mask therefore grows outward by a bounded number of
+pixels. It accepts pixels that resemble neighbouring water pixels, and stops
+at the hard edge. Missing that rim cost about 20 cm all the way round, which on
+a 25 m pool is 9% of the floor. `grow=0` turns it off.
 
 ### Or let a model find it
 

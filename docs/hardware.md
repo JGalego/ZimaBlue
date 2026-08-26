@@ -3,8 +3,8 @@
 Everything in this library talks to a controller through two dataclasses.
 `ControlInput` is a clock, the latest reading per sensor, battery, filter load
 and the robot's own specification. `DriveCommand` is two track speeds, a brush
-and a pump. Nothing in either of them is simulator-specific, which was the
-point of writing them that way, and it means the port is narrow:
+and a pump. Both dataclasses work without the simulator, so a hardware port has
+a narrow interface:
 
 ```python
 from zimablue.hardware import DeviceSource, HardwareRuntime, WheelSpeedLoop
@@ -28,11 +28,11 @@ run = runtime.run(minutes=20)
 run.save("runs/tuesday.zbr")
 ```
 
-That replays in the ordinary viewer. `read_my_bus` and `write_my_motors` are
-yours, and they are the only two functions the port actually requires.
+That replays in the ordinary viewer. The port supplies only `read_my_bus` and
+`write_my_motors`.
 
-Nothing here needs an extra installed — standard library and NumPy, because a
-robot is the last place you want a dependency tree.
+This uses the standard library and NumPy, with no extra dependencies installed
+on the robot.
 
 ## What each piece is for
 

@@ -1,7 +1,7 @@
 # Replay
 
-> The brief for this part of ZimaBlue was: *make it obvious what the robot is
-> doing.* The failure mode to avoid is a debugging spreadsheet.
+Replay makes the robot's behaviour visible without turning the run into a
+debugging spreadsheet.
 
 ```bash
 zimablue replay runs/kidney.zbr

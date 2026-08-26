@@ -1,8 +1,8 @@
-# Recording — the `.zbr` format
+# Recording: the `.zbr` format
 
-A recording is everything needed to replay and audit one run. The design goal
-is not compactness first: it is that **a `.zbr` from six months ago still opens,
-still replays, and still tells you exactly what produced it.**
+A recording contains everything needed to replay and audit one run. Backward
+compatibility comes first: **a `.zbr` from six months ago must still open,
+replay and identify exactly what produced it.**
 
 ## Layout
 
@@ -51,8 +51,8 @@ of dense, uniformly-sampled numeric columns plus a few sparse side channels.
 That is a columnar array file, and the scientific-Python ecosystem already has
 a portable one that every consumer of this data already has installed.
 
-If you want MCAP, converting `.zbr` to it is a small script over `frames.npz` —
-and that script belongs in a bridge package, not in the core.
+Converting `.zbr` to MCAP takes a small script over `frames.npz`. That script
+belongs in a bridge package outside the core.
 
 ## Schema versioning
 
@@ -141,9 +141,9 @@ what a measurement wants, so it is the default — `ergodic_score` and
 `dirt_at(t, interpolate=True)` blends linearly towards the next keyframe
 instead, and the replay views use it. Ten seconds is five hundred rendered
 frames, so without the blend a cell holds still and then jumps, and dirt reads
-as appearing rather than accumulating. The blend is an estimate and is opt-in
-for that reason: a cell cleaned early in an interval fades across the whole of
-it rather than dropping when it was really cleaned. It cannot invent dirt —
+as appearing rather than accumulating. The blend remains opt-in because it is
+an estimate: a cell cleaned early in an interval fades across the whole of it
+rather than dropping when it was really cleaned. It cannot invent dirt —
 every value it returns lies between two the cell genuinely held — and it is
 computed in `float32`, because doing the weighting in the stored `float16`
 loses more than the step it is smoothing.

@@ -1,9 +1,9 @@
 # Research notes
 
-These are the notes that shaped ZimaBlue's architecture. They are deliberately
-opinionated: the goal was not a literature survey but a set of decisions with
-reasons attached. Every section ends with **→ what ZimaBlue does**, so the
-design can be traced back to the evidence.
+These notes are deliberately opinionated. They document the evidence behind
+ZimaBlue's architectural decisions and do not attempt a literature survey.
+Each section ends with **→ what ZimaBlue does** so the reasoning remains
+traceable.
 
 Last reviewed: 2026-08.
 

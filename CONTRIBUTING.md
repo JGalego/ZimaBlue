@@ -1,7 +1,7 @@
 # Contributing to ZimaBlue
 
-Thanks for taking a look. ZimaBlue is early, which means the useful
-contributions are large and structural as often as they are small.
+Thanks for taking a look. ZimaBlue is early, and both structural work and small
+fixes are welcome.
 
 ## Setup
 

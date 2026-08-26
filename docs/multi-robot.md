@@ -1,8 +1,8 @@
 # Fleets
 
-A second robot is not a second run. The two share a dirt field, so whoever
-arrives later finds the patch already clean; they cannot occupy the same water;
-and anything they know about each other, one of them had to say out loud.
+Adding a second robot changes the run. Both robots share one dirt field, so the
+later arrival may find a patch already clean. They also compete for space and
+must communicate anything they know about each other.
 
 ```python
 import zimablue as zb

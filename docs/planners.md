@@ -81,10 +81,9 @@ occupancy grid, the recovery behaviour and the business of driving to a cell; a
 subclass implements `choose`, which is handed the cell the robot is standing in
 and returns where to go next.
 
-That is not a convenience. If each algorithm brought its own motion layer, a
-difference in coverage could always be the motion layer's fault. Here the
-estimator, the grid resolution, the speeds and the bump recovery are the same
-code, so a difference in the numbers is a difference in the decision rule.
+Sharing the motion layer keeps the comparison controlled. Each algorithm uses
+the same estimator, grid resolution, speeds and bump recovery, leaving the
+decision rule as the source of differences in the results.
 
 ### The one that is not chasing coverage at all
 
