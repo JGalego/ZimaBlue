@@ -8,6 +8,7 @@ which is the job of `TwinCalibrator`.
 ```python
 import zimablue as zb
 
+
 def evaluate(parameters, seed):
     controller = MyController(turn_gain=parameters["turn_gain"])
     result = zb.Simulation(
@@ -18,6 +19,7 @@ def evaluate(parameters, seed):
         record=False,
     ).run(minutes=10)
     return result.metrics.dirt_removed_fraction
+
 
 experiment = zb.AutonomousExperiment(
     evaluate,

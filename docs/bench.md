@@ -73,13 +73,13 @@ from zimablue.bench import BenchTolerance, compare_benchmarks
 
 current = run_bench(BENCH_V1, jobs=4)
 gate = compare_benchmarks(
-	current,
-	"benchmarks/zb-bench-v1.json",
-	{
-		"coverage": BenchTolerance(absolute=0.01),
-		"dirt": BenchTolerance(absolute=0.01),
-		"energy": BenchTolerance(relative=0.03),
-	},
+    current,
+    "benchmarks/zb-bench-v1.json",
+    {
+        "coverage": BenchTolerance(absolute=0.01),
+        "dirt": BenchTolerance(absolute=0.01),
+        "energy": BenchTolerance(relative=0.03),
+    },
 )
 
 gate.assert_passed()

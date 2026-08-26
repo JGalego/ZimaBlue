@@ -4,10 +4,9 @@
 
 # 🌊 ZimaBlue
 
-### **Simulate, test, and replay robotic pool cleaners.**
+### **Where robotic pool cleaners come to play.**
 
-*Measure where the robot drove and how much dirt it removed.*<br>
-*Then watch both change during replay.*
+*Build pools, test controllers, measure cleaning, and replay every run.*
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-0e6cb2?style=flat-square)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0e6cb2?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
@@ -45,7 +44,7 @@ The install needs no GPU, ROS, Docker, Omniverse or multi-gigabyte assets.
 | | | |
 |---|---|---|
 | 🏊 | **Pools** | Presets from a plain rectangle to a kidney and a Bunimovich stadium, or your own Shapely outline with a pluggable depth model. Drains, skimmers, stairs and obstacles come out of the navigable area. |
-| 📷 | **Pools from photographs** | Point it at a picture of a real pool and get a model. Colour rules by default, or [SAM](docs/ml.md) if you have a checkpoint. |
+| 📷 | **Pools from photographs** | Trace one image, or fuse several perspective-corrected [phone views](docs/phone-reconstruction.md) with cross-view agreement and measured depth. Colour rules by default, or [SAM](docs/ml.md) if you have a checkpoint. |
 | ✏️ | **Pools from drawings** | Sketch one on a napkin or in a paint program and trace it. Copes with a lifted pen, notes scribbled inside the outline, and the shadow across a photo of paper. |
 | 🤖 | **Cleaners** | Composed from chassis, drive, cleaning head and power. A custom robot needs no changes to ZimaBlue. |
 | 🎨 | **Cleaner designs** | Silhouettes with real differences, so a domed suction unit does not look like a quad-brush commercial machine. Drawing only — the physics is the chassis. |
@@ -54,12 +53,14 @@ The install needs no GPU, ROS, Docker, Omniverse or multi-gigabyte assets.
 | 🧭 | **Controllers** | Boustrophedon coverage, random bounce, an EKF-and-occupancy-map planner, and ground-truth oracles to bound the problem. |
 | 🗺️ | **Coverage path planning** | Offline decompositions and online rules from the classical literature, Spiral-STC through a spectral ergodic controller. See [planners](docs/planners.md). |
 | 🧗 | **Walls and the waterline** | The wall is an area, not a line: a floor robot brushes the cove and nothing above it, a grip-capable one climbs to the waterline, and both are scored against the wall's real square metres. |
-| 🛥️ | **Fleets** | Several cleaners in one pool, sharing the dirt and getting in each other's way. Divide the pool between them, or let them coordinate without dividing it. See [fleets](docs/multi-robot.md). |
+| 🛥️ | **Fleets** | Several cleaners in one pool, sharing the dirt and getting in each other's way. Mix robot designs and controllers, divide the pool between them, or coordinate without dividing it. See [fleets](docs/multi-robot.md). |
 | ⚖️ | **Scored on what actually differs** | Coverage, overlap, turning, the worst gap left behind, anytime behaviour, energy. No single winner, and a matrix plot that shows why. |
 | 📊 | **Metrics that disagree** | Coverage and cleanliness scored separately, each with a spatial companion. The whole point is that they rank controllers differently. |
 | 🎬 | **Watch it** | Top down, [chase cam](docs/replay.md), the [dirt cam](docs/replay.md) from the robot's own bumper, and a 3D basin. GIF, MP4 or an interactive window. |
-| 💾 | **Reproducible recordings** | The `.zbr` format: same version, platform, scenario and seed gives a bit-identical run. Inspect it with `np.load` and no ZimaBlue. |
-| 🧪 | **Experiments** | YAML scenarios, batch sweeps across seeds, aggregate stats, worst-episode reproduction, CSV and JSON out. |
+| 💾 | **Reproducible recordings** | The `.zbr` format: same version, platform, scenario and seed gives a bit-identical run. Rerun one with a different policy using [counterfactual replay](docs/counterfactual.md). |
+| 🪞 | **Digital twins** | [Calibrate](docs/calibration.md) bounded model parameters against measured trajectories, then run a read-only [live shadow](docs/shadow.md) beside hardware and monitor sensor residuals. |
+| 🧪 | **Experiments** | YAML scenarios, batch sweeps, adaptive replicated [experiments](docs/autonomous-experiments.md), and frozen [benchmark regression gates](docs/bench.md). |
+| ∂ | **Motion gradients** | Exact free-space differential-drive integration with analytical state, command and track-width Jacobians for MPC and sensitivity analysis. See [differentiable physics](docs/differentiable-physics.md). |
 | 🕹️ | **A Gymnasium environment** | Train a policy against the same simulator, then run it as an ordinary controller so it is scored like every other one. |
 | 🔌 | **Runs on real hardware** | The control loop with no simulator underneath: sensor adapters, a wheel-speed loop, a watchdog. Writes the same `.zbr`. See [on a robot](docs/hardware.md). |
 | 📈 | **Checked against a real robot** | The pose estimator scored against a Pioneer 3-DX's logged trajectory, not only against motion we generated ourselves. |

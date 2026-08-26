@@ -18,12 +18,14 @@ import zimablue as zb
 reference = zb.Recording.load("runs/measured.zbr")
 base = zb.make_robot("tracked")
 
+
 def run_twin(values):
     motor = replace(base.locomotion.left.motor, max_accel=values["max_accel"])
     left = replace(base.locomotion.left, motor=motor)
     right = replace(base.locomotion.right, motor=motor)
     robot = replace(base, locomotion=replace(base.locomotion, left=left, right=right))
     return zb.Simulation(pool="kidney", robot=robot, seed=42).run(minutes=2).require_recording()
+
 
 calibrator = zb.TwinCalibrator(
     reference,

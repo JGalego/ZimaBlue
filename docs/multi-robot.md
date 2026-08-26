@@ -9,14 +9,14 @@ batteries and controllers. `FleetMember` keeps each assignment together:
 import zimablue as zb
 
 fleet = zb.Fleet(
-  pool="kidney",
-  dirt="autumn",
-  members=[
-    zb.FleetMember("heavy_duty", "bsa"),
-    zb.FleetMember("compact", "frontier"),
-    zb.FleetMember("tracked", "random_bounce"),
-  ],
-  seed=7,
+    pool="kidney",
+    dirt="autumn",
+    members=[
+        zb.FleetMember("heavy_duty", "bsa"),
+        zb.FleetMember("compact", "frontier"),
+        zb.FleetMember("tracked", "random_bounce"),
+    ],
+    seed=7,
 )
 result = fleet.run(minutes=20)
 ```

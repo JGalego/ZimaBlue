@@ -7,8 +7,8 @@ exposes them without requiring JAX, PyTorch or a second dynamics model:
 import numpy as np
 import zimablue as zb
 
-state = np.array([1.0, 2.0, 0.3])       # x, y, heading
-command = np.array([0.20, 0.27])        # left/right ground speed, m/s
+state = np.array([1.0, 2.0, 0.3])  # x, y, heading
+command = np.array([0.20, 0.27])  # left/right ground speed, m/s
 
 next_state, jacobian = zb.differentiable_drive_step(
     state,
@@ -17,9 +17,9 @@ next_state, jacobian = zb.differentiable_drive_step(
     track_width=0.38,
 )
 
-print(jacobian.state.shape)       # (3, 3)
-print(jacobian.control.shape)     # (3, 2)
-print(jacobian.track_width.shape) # (3,)
+print(jacobian.state.shape)  # (3, 3)
+print(jacobian.control.shape)  # (3, 2)
+print(jacobian.track_width.shape)  # (3,)
 ```
 
 The integrator is the same constant-twist exact arc used by the fast backend,
@@ -43,7 +43,7 @@ terminal pose derivative with respect to every wheel command:
 ```python
 trajectory = zb.differentiable_rollout(
     state,
-    commands,             # shape (steps, 2)
+    commands,  # shape (steps, 2)
     dt=0.02,
     track_width=0.38,
 )

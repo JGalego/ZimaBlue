@@ -355,12 +355,16 @@ def _trial_values(
     duplicates: set[tuple[str, int]] = set()
     for trial in trials:
         value = trial.get("scores", {}).get(metric)
+        pool = trial.get("pool")
+        seed = trial.get("seed")
         if (
             trial.get("planner") == planner
             and isinstance(value, int | float)
             and np.isfinite(value)
+            and isinstance(pool, str)
+            and isinstance(seed, int)
         ):
-            key = (str(trial.get("pool")), int(trial.get("seed")))
+            key = (pool, seed)
             if key in values or key in duplicates:
                 duplicates.add(key)
             else:

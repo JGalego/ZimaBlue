@@ -173,7 +173,7 @@ def main() -> None:
         parser.error(f"unknown target(s) {', '.join(unknown)} -- pick from {', '.join(TARGETS)}")
 
     if args.fresh:
-        for stale in CACHE.glob("*.zbr"):
+        for stale in CACHE.rglob("*.zbr"):
             stale.unlink()
 
     ASSETS.mkdir(parents=True, exist_ok=True)

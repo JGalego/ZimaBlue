@@ -46,9 +46,10 @@ coordinates with a pole or sonar. When retaining the diagnostic reconstruction,
 fit a plane explicitly:
 
 ```python
-traces = [zb.trace_pool(view.image, sample=view.sample,
-                        corners=(view.corners, view.rectangle))
-          for view in views]
+traces = [
+    zb.trace_pool(view.image, sample=view.sample, corners=(view.corners, view.rectangle))
+    for view in views
+]
 reconstruction = zb.fuse_phone_traces(traces)
 depth = zb.fit_phone_depth(
     reconstruction.boundary,
