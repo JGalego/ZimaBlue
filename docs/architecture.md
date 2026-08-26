@@ -91,6 +91,7 @@ Three modules sit outside it, each behind an optional extra, and each importing
 | Module | Extra | Responsibility |
 |---|---|---|
 | `zimablue.imaging` | `[image]` | Trace a pool out of a photograph |
+| `zimablue.phone` | `[image]` | Fuse rectified phone surveys and fit measured depth |
 | `zimablue.segment` | `[ml]` | SAM over onnxruntime as an alternative water mask |
 | `zimablue.rl` | `[rl]` | Gymnasium env, extra observations, policy-as-controller |
 

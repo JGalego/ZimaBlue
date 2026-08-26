@@ -43,6 +43,14 @@ from zimablue.geometry import Grid
 from zimablue.imaging import PoolTrace, pool_from_image, trace_pool
 from zimablue.metrics import Metrics, SpatialMetrics
 from zimablue.notebook import PoolPreview, preview
+from zimablue.phone import (
+    DepthObservation,
+    PhoneReconstruction,
+    PhoneView,
+    fit_phone_depth,
+    fuse_phone_traces,
+    pool_from_phones,
+)
 from zimablue.planners import (
     PARTITIONS,
     PLANNERS,
@@ -142,6 +150,7 @@ __all__ = [
     "CoveragePlanner",
     "DebrisSpec",
     "DepthModel",
+    "DepthObservation",
     "DirtField",
     "DirtSpec",
     "DirtState",
@@ -166,6 +175,8 @@ __all__ = [
     "Parameter",
     "Partition",
     "PathFollower",
+    "PhoneReconstruction",
+    "PhoneView",
     "PlaneSlopeDepth",
     "Pool",
     "PoolFeature",
@@ -204,6 +215,8 @@ __all__ = [
     "Water",
     "World",
     "__version__",
+    "fit_phone_depth",
+    "fuse_phone_traces",
     "get_material",
     "load_scenario",
     "make_dirt",
@@ -214,6 +227,7 @@ __all__ = [
     "mstc",
     "partitioned",
     "pool_from_image",
+    "pool_from_phones",
     "pool_from_sketch",
     "preview",
     "run_batch",

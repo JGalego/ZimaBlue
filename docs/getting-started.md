@@ -63,6 +63,7 @@ the same distinction.
 | Read or convert recordings | [`recording.md`](recording.md) |
 | Calibrate a digital twin | [`calibration.md`](calibration.md) |
 | Monitor a live machine | [`shadow.md`](shadow.md) |
+| Reconstruct from several phone views | [`phone-reconstruction.md`](phone-reconstruction.md) |
 | Watch runs properly | [`replay.md`](replay.md) |
 | Know what is missing | [`roadmap.md`](roadmap.md) |
 

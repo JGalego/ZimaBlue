@@ -12,6 +12,9 @@ understand.
 ## [Unreleased]
 
 ### Added
+- Multi-view phone reconstruction rectifies each photograph against a shared
+  survey rectangle, fuses outlines by polygon quorum, reports cross-view
+  agreement, and fits pool slopes from measured depth points.
 - `ShadowTwin` mirrors live commands in a read-only simulation, keeps rolling
   per-channel sensor residuals, and raises thresholded health anomalies without
   owning an actuator or changing the hardware control path.
