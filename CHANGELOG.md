@@ -12,6 +12,9 @@ understand.
 ## [Unreleased]
 
 ### Added
+- `FleetMember` makes heterogeneous teams explicit: each cleaner can carry a
+  different robot model, controller and start pose; mixed hull sizes are
+  placed with per-robot clearance and recordings retain every design for replay.
 - Benchmark regression gates compare exact planner/pool/seed suites against a
   saved JSON baseline with explicit absolute and relative tolerances, respect
   each metric's direction, and produce CI-friendly Markdown failures.

@@ -66,6 +66,8 @@ class Scene:
     not carry one and get the default."""
 
     robot_height: float = 0.26
+    fleet_geometry: tuple[tuple[float, float, CleanerDesign], ...] = ()
+    """Length, width and design for every recorded fleet member."""
 
 
 def load_scene(recording: Recording) -> Scene:
@@ -89,6 +91,7 @@ def load_scene(recording: Recording) -> Scene:
     pool = Pool.from_dict(manifest["pool_config"])
     cell = float(manifest.get("cell", 0.10))
     robot_cfg = manifest.get("robot_config", {})
+    robot_configs = manifest.get("robot_configs") or [robot_cfg]
     chassis = robot_cfg.get("chassis", {})
     cleaning = robot_cfg.get("cleaning", {})
 
@@ -105,6 +108,17 @@ def load_scene(recording: Recording) -> Scene:
             break
 
     design_cfg = robot_cfg.get("design")
+    fleet_geometry = []
+    for config in robot_configs:
+        member_chassis = config.get("chassis", {})
+        member_design = config.get("design")
+        fleet_geometry.append(
+            (
+                float(member_chassis.get("length", 0.42)),
+                float(member_chassis.get("width", 0.38)),
+                CleanerDesign.from_dict(member_design) if member_design else make_design(None),
+            )
+        )
     return Scene(
         pool=pool,
         grid=pool.grid(cell),
@@ -116,6 +130,7 @@ def load_scene(recording: Recording) -> Scene:
         sonar_angles=angles,
         sonar_max_range=max_range,
         design=CleanerDesign.from_dict(design_cfg) if design_cfg else make_design(None),
+        fleet_geometry=tuple(fleet_geometry),
     )
 
 
@@ -389,9 +404,18 @@ class ReplayRenderer:
             colour = FLEET_COLOURS[index % len(FLEET_COLOURS)]
             parts = []
             hull = None
-            for part in design.drawable():
+            if index < len(scene.fleet_geometry):
+                member_length, member_width, member_design = scene.fleet_geometry[index]
+            else:
+                member_length, member_width, member_design = (
+                    scene.robot_length,
+                    scene.robot_width,
+                    design,
+                )
+            member_scale = np.array([member_length, member_width])
+            for part in member_design.drawable():
                 patch = mpatches.Polygon(
-                    np.asarray(part.outline, dtype=float) * scale,
+                    np.asarray(part.outline, dtype=float) * member_scale,
                     closed=True,
                     facecolor=part.colour,
                     edgecolor="#05090e" if part.name == "hull" else "none",
@@ -407,7 +431,7 @@ class ReplayRenderer:
                 parts.append(patch)
             ring = mpatches.Circle(
                 (0.0, 0.0),
-                0.5 * max(scene.robot_length, scene.robot_width) * 1.15,
+                0.5 * max(member_length, member_width) * 1.15,
                 fill=False,
                 edgecolor=colour,
                 linewidth=1.6,

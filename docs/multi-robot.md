@@ -1,5 +1,39 @@
 # Fleets
 
+## Heterogeneous teams
+
+A fleet can combine machines with different hulls, cleaning systems, sensors,
+batteries and controllers. `FleetMember` keeps each assignment together:
+
+```python
+import zimablue as zb
+
+fleet = zb.Fleet(
+  pool="kidney",
+  dirt="autumn",
+  members=[
+    zb.FleetMember("heavy_duty", "bsa"),
+    zb.FleetMember("compact", "frontier"),
+    zb.FleetMember("tracked", "random_bounce"),
+  ],
+  seed=7,
+)
+result = fleet.run(minutes=20)
+```
+
+Automatic starts place larger hulls first and enforce each pair's combined
+radius. Explicit starts may be supplied on every member, but not only some of
+them; each point is checked against that member's own wall clearance.
+
+All robots still share one dirt field and advance in the same sense-decide-move
+phases. Power draw, filter capacity, cleaning width, sensor streams and metrics
+come from each robot independently. The recording manifest stores
+`robot_configs` in member order while retaining the first `robot_config` for
+older readers. Replay uses every embedded hull size and cleaner design rather
+than drawing the whole team as copies of its first member.
+
+## Homogeneous teams
+
 Adding a second robot changes the run. Both robots share one dirt field, so the
 later arrival may find a patch already clean. They also compete for space and
 must communicate anything they know about each other.

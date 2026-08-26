@@ -63,7 +63,15 @@ from zimablue.rng import RngTree
 from zimablue.robot import Cleaner, DriveCommand, make_robot
 from zimablue.world import World
 
-__all__ = ["Blackboard", "Fleet", "FleetMetrics", "FleetResult", "Peer", "spread_poses"]
+__all__ = [
+    "Blackboard",
+    "Fleet",
+    "FleetMember",
+    "FleetMetrics",
+    "FleetResult",
+    "Peer",
+    "spread_poses",
+]
 
 
 # ----------------------------------------------------------------------
@@ -283,6 +291,16 @@ class FleetResult:
 
 
 # ----------------------------------------------------------------------
+@dataclass(frozen=True)
+class FleetMember:
+    """One independently configured cleaner in a heterogeneous team."""
+
+    robot: Cleaner | str
+    controller: Controller | str = "bsa"
+    start_pose: tuple[float, float, float] | None = None
+
+
+# ----------------------------------------------------------------------
 def spread_poses(
     pool: Pool, robot: Cleaner, count: int, *, heading: str = "inward"
 ) -> list[tuple[float, float, float]]:
@@ -342,6 +360,7 @@ class Fleet:
         pool: Pool | str = "rectangular",
         robots: int | Cleaner | str | list[Cleaner | str] = 2,
         *,
+        members: list[FleetMember] | None = None,
         dirt: DirtSpec | str = "light_sediment",
         controllers: Any = "bsa",
         seed: int = 0,
@@ -372,6 +391,16 @@ class Fleet:
         self.share = share
 
         self.pool = make_pool(pool) if isinstance(pool, str) else pool
+        if members is not None:
+            if not members:
+                raise ValueError("members must not be empty")
+            robots = [member.robot for member in members]
+            controllers = [member.controller for member in members]
+            supplied = [member.start_pose for member in members]
+            if any(pose is not None for pose in supplied):
+                if not all(pose is not None for pose in supplied):
+                    raise ValueError("give a start pose for every fleet member or for none")
+                start_poses = [pose for pose in supplied if pose is not None]
         self.robots = _make_robots(robots)
         self.count = len(self.robots)
         self.dirt_spec = make_dirt(dirt) if isinstance(dirt, str) else dirt
@@ -379,12 +408,18 @@ class Fleet:
         self.world = World.build(self.pool, self.dirt_spec, self.rng.stream("dirt"), cell)
         self._initial_dirt = self.world.dirt.field.total_grid().copy()
 
-        self.start_poses = start_poses or spread_poses(self.pool, self.robots[0], self.count)
+        if start_poses is not None:
+            self.start_poses = start_poses
+        elif len({round(robot.radius, 12) for robot in self.robots}) == 1:
+            self.start_poses = spread_poses(self.pool, self.robots[0], self.count)
+        else:
+            self.start_poses = _spread_mixed_poses(self.pool, self.robots)
         if len(self.start_poses) != self.count:
             raise ValueError(f"{len(self.start_poses)} start poses for {self.count} robots")
-        for x, y, _ in self.start_poses:
-            if not self.pool.navigable.contains(ShapelyPoint(x, y)):
-                raise ValueError(f"start pose ({x:.2f}, {y:.2f}) is outside the navigable pool")
+        for index, (x, y, _) in enumerate(self.start_poses):
+            workspace = self.pool.navigable.buffer(-self.robots[index].radius)
+            if not workspace.contains(ShapelyPoint(x, y)):
+                raise ValueError(f"start pose ({x:.2f}, {y:.2f}) lacks clearance for robot {index}")
 
         self.blackboard = Blackboard(self.count, comms_range=comms_range)
         self.controllers = _make_controllers(
@@ -445,6 +480,7 @@ class Fleet:
             "fleet": {
                 "count": self.count,
                 "controllers": [getattr(c, "name", "custom") for c in self.controllers],
+                "robots": [robot.name for robot in self.robots],
                 "start_poses": [list(p) for p in self.start_poses],
                 "comms_range": (
                     None if math.isinf(self.blackboard.comms_range) else self.blackboard.comms_range
@@ -460,6 +496,7 @@ class Fleet:
             },
             "pool_config": self.pool.to_dict(),
             "robot_config": self.robots[0].to_dict(),
+            "robot_configs": [robot.to_dict() for robot in self.robots],
             "dirt_config": self.dirt_spec.to_dict(),
             "dirt_types": {
                 "layers": self.world.dirt.field.layer_names(),
@@ -731,6 +768,48 @@ def _make_robots(robots: Any) -> list[Cleaner]:
     if isinstance(robots, str | Cleaner):
         return [make_robot(robots) if isinstance(robots, str) else robots]
     return [make_robot(r) if isinstance(r, str) else r for r in robots]
+
+
+def _spread_mixed_poses(pool: Pool, robots: list[Cleaner]) -> list[tuple[float, float, float]]:
+    """Place different hull sizes without treating the first as representative."""
+    grid = pool.grid(max(pool.navigable.area / 900.0, 0.02) ** 0.5)
+    xs, ys = grid.cell_centers()
+    from shapely import contains_xy
+
+    points = np.column_stack([np.asarray(xs).ravel(), np.asarray(ys).ravel()])
+    order = sorted(range(len(robots)), key=lambda index: robots[index].radius, reverse=True)
+    chosen: dict[int, np.ndarray] = {}
+    centre = np.array([pool.navigable.centroid.x, pool.navigable.centroid.y])
+
+    for index in order:
+        robot = robots[index]
+        workspace = pool.navigable.buffer(-robot.radius * 1.5)
+        if workspace.is_empty:
+            raise ValueError(f"{pool.name} is too small for robot {index} ({robot.name})")
+        valid = np.asarray(contains_xy(workspace, points[:, 0], points[:, 1]))
+        candidates = points[valid]
+        if not len(candidates):
+            raise ValueError(f"{pool.name} has no valid placement for robot {index}")
+        if not chosen:
+            start = np.asarray(pool.start_pose(clearance=robot.radius)[:2])
+            pick = int(np.argmin(np.linalg.norm(candidates - start, axis=1)))
+        else:
+            clearance = np.full(len(candidates), np.inf)
+            for other, position in chosen.items():
+                gap = np.linalg.norm(candidates - position, axis=1)
+                gap -= robot.radius + robots[other].radius
+                clearance = np.minimum(clearance, gap)
+            pick = int(np.argmax(clearance))
+            if clearance[pick] <= 0.0:
+                raise ValueError(f"{pool.name} is too small to place {len(robots)} mixed robots")
+        chosen[index] = candidates[pick]
+
+    poses = []
+    for index in range(len(robots)):
+        point = chosen[index]
+        heading = float(np.arctan2(centre[1] - point[1], centre[0] - point[0]))
+        poses.append((float(point[0]), float(point[1]), heading))
+    return poses
 
 
 def _make_controllers(

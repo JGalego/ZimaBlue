@@ -70,6 +70,7 @@ tomorrow — is an implementation detail behind an interface.
 | `zimablue.backends` | `SimulationBackend` protocol, `Fast2DBackend`, registry |
 | `zimablue.simulation` | `Simulation`, `SimState`, `StepResult`, `RunResult` |
 | `zimablue.bench` | Frozen benchmark suites, artifacts and regression gates |
+| `zimablue.fleet` | Shared-world homogeneous and heterogeneous robot teams |
 | `zimablue.controllers` | `Controller` protocol, the shipped controllers and oracles, registry |
 | `zimablue.estimation` | EKF over position, heading and gyro bias; ZUPT |
 | `zimablue.experiments` | Adaptive replicated parameter experiments |

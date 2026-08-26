@@ -46,7 +46,7 @@ from zimablue.experiments import (
     ExperimentObjective,
     ExperimentResult,
 )
-from zimablue.fleet import Blackboard, Fleet, FleetMetrics, FleetResult, spread_poses
+from zimablue.fleet import Blackboard, Fleet, FleetMember, FleetMetrics, FleetResult, spread_poses
 from zimablue.geometry import Grid
 from zimablue.imaging import PoolTrace, pool_from_image, trace_pool
 from zimablue.metrics import Metrics, SpatialMetrics
@@ -176,6 +176,7 @@ __all__ = [
     "ExperimentResult",
     "Filter",
     "Fleet",
+    "FleetMember",
     "FleetMetrics",
     "FleetResult",
     "Grid",
