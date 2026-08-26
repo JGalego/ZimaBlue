@@ -67,6 +67,7 @@ tomorrow — is an implementation detail behind an interface.
 | `zimablue.sensors` | Sensor base + noise/fault pipeline; the five sensor models |
 | `zimablue.dirt` | `DirtType`, `DirtField`, `Debris`, deterministic generators |
 | `zimablue.physics` | Diff-drive kinematics, collision resolution, cleaning interaction |
+| `zimablue.physics.differentiable` | Smooth drive integration and analytical Jacobians |
 | `zimablue.backends` | `SimulationBackend` protocol, `Fast2DBackend`, registry |
 | `zimablue.simulation` | `Simulation`, `SimState`, `StepResult`, `RunResult` |
 | `zimablue.bench` | Frozen benchmark suites, artifacts and regression gates |

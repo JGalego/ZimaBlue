@@ -59,6 +59,12 @@ from zimablue.phone import (
     fuse_phone_traces,
     pool_from_phones,
 )
+from zimablue.physics import (
+    DifferentiableTrajectory,
+    DriveJacobians,
+    differentiable_drive_step,
+    differentiable_rollout,
+)
 from zimablue.planners import (
     PARTITIONS,
     PLANNERS,
@@ -162,12 +168,14 @@ __all__ = [
     "DebrisSpec",
     "DepthModel",
     "DepthObservation",
+    "DifferentiableTrajectory",
     "DirtField",
     "DirtSpec",
     "DirtState",
     "DirtType",
     "Drain",
     "DriveCommand",
+    "DriveJacobians",
     "DriveUnit",
     "Encoder",
     "EstimatorConfig",
@@ -230,6 +238,8 @@ __all__ = [
     "Water",
     "World",
     "__version__",
+    "differentiable_drive_step",
+    "differentiable_rollout",
     "fit_phone_depth",
     "fuse_phone_traces",
     "get_material",

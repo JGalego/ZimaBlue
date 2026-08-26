@@ -12,6 +12,9 @@ understand.
 ## [Unreleased]
 
 ### Added
+- NumPy-only differentiable drive physics integrates constant wheel speeds in
+  a branch-free sinc form and returns analytical state, command and track-width
+  Jacobians, including chain-rule sensitivities across command rollouts.
 - `FleetMember` makes heterogeneous teams explicit: each cleaner can carry a
   different robot model, controller and start pose; mixed hull sizes are
   placed with per-robot clearance and recordings retain every design for replay.
