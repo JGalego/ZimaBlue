@@ -155,6 +155,7 @@ class Simulation:
             "seed": self.seed,
             "timestep": self.timestep,
             "cell": self.world.cell,
+            "start_pose": list(self.start_pose),
             "backend": getattr(self.backend, "name", "unknown"),
             "scenario": {
                 "name": self.scenario_name,

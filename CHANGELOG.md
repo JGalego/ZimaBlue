@@ -12,6 +12,9 @@ understand.
 ## [Unreleased]
 
 ### Added
+- `run_counterfactual()` rebuilds a recorded simulation from its embedded
+  configuration, changes a controller or model explicitly, and reports
+  deterministic trajectory divergence and metric deltas.
 - Multi-view phone reconstruction rectifies each photograph against a shared
   survey rectangle, fuses outlines by polygon quorum, reports cross-view
   agreement, and fits pool slopes from measured depth points.

@@ -61,6 +61,7 @@ the same distinction.
 | See the evidence behind it | [`research.md`](research.md) |
 | Write experiments | [`scenarios.md`](scenarios.md) |
 | Read or convert recordings | [`recording.md`](recording.md) |
+| Ask what another controller would do | [`counterfactual.md`](counterfactual.md) |
 | Calibrate a digital twin | [`calibration.md`](calibration.md) |
 | Monitor a live machine | [`shadow.md`](shadow.md) |
 | Reconstruct from several phone views | [`phone-reconstruction.md`](phone-reconstruction.md) |

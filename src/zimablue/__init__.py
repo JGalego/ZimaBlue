@@ -26,6 +26,7 @@ from zimablue.controllers import (
     OccupancyMap,
     SystematicCoverage,
 )
+from zimablue.counterfactual import CounterfactualResult, run_counterfactual
 from zimablue.dirt import (
     DIRT_PRESETS,
     DIRT_TYPES,
@@ -146,6 +147,7 @@ __all__ = [
     "ContactSensor",
     "ControlInput",
     "Controller",
+    "CounterfactualResult",
     "CoveragePath",
     "CoveragePlanner",
     "DebrisSpec",
@@ -231,6 +233,7 @@ __all__ = [
     "pool_from_sketch",
     "preview",
     "run_batch",
+    "run_counterfactual",
     "spread_poses",
     "trace_pool",
     "trace_sketch",
