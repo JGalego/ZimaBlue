@@ -144,6 +144,20 @@ def test_actions_are_clipped_to_the_motor_limit(env):
     assert env.controller.command.right == pytest.approx(-limit)
 
 
+@pytest.mark.parametrize(
+    "action, message",
+    [
+        (np.array([0.5], dtype=np.float32), "exactly two"),
+        (np.array([0.1, 0.2, 0.3], dtype=np.float32), "exactly two"),
+        (np.array([0.5, np.nan], dtype=np.float32), "finite"),
+    ],
+)
+def test_invalid_actions_are_refused(env, action, message):
+    env.reset(seed=0)
+    with pytest.raises(ValueError, match=message):
+        env.step(action)
+
+
 def test_observation_channels_are_named_and_ordered(env):
     assert env.channels[:3] == ["battery", "filter_load", "elapsed"]
     sensors = [c.split(".")[0] for c in env.channels[3:]]
@@ -195,6 +209,27 @@ def test_a_policy_runs_as_a_controller():
     assert result.metrics.distance_traveled > 0
     assert seen, "the policy should have been asked for an action"
     assert result.metrics.coverage > 0
+
+
+@pytest.mark.parametrize(
+    "action, message",
+    [
+        (np.array([0.5]), "exactly two"),
+        (np.array([0.5, np.inf]), "finite"),
+    ],
+)
+def test_a_policy_must_return_two_finite_actions(action, message):
+    import zimablue as zb
+    from zimablue.rl import PolicyController
+
+    simulation = zb.Simulation(
+        pool="rectangular", controller=PolicyController(lambda _observation: action), seed=5
+    )
+    try:
+        with pytest.raises(ValueError, match=message):
+            simulation.step()
+    finally:
+        simulation.backend.close()
 
 
 def test_the_policy_is_asked_at_its_own_rate():

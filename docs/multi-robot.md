@@ -121,8 +121,8 @@ help until the planner can spend it.
 
 | | |
 |---|---|
-| `mstc` | one spanning-tree circuit, cut into arcs by robot position |
-| `mstc_backtracking` | the same, and a finished robot takes over a tail |
+| `mstc` | one spanning-tree circuit cut into arcs; a finished robot takes over a tail |
+| `mstc_nobt` | the same circuit and arcs, without backtracking |
 | `auction` | bid for the next cell; the cheapest robot gets it |
 | `binn_swarm` | the neural field, with team-mates as inhibition |
 | `smc_swarm` | one ergodic time-average, shared across the fleet |

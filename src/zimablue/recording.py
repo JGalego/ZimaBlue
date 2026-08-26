@@ -119,6 +119,8 @@ class Recording:
     def frame_index_at(self, t: float) -> int:
         """Index of the last frame at or before time ``t``."""
         times = self.frames["time"]
+        if times.size == 0:
+            raise ValueError("recording has no frames")
         return int(np.clip(np.searchsorted(times, t, side="right") - 1, 0, times.size - 1))
 
     def keyframe_span(self, t: float) -> tuple[int, int, float]:

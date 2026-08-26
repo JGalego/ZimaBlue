@@ -197,8 +197,14 @@ class RecordedSource:
         self.recording = recording
         self.jitter = float(jitter)
         self.dropout = float(dropout)
+        if not np.isfinite(self.jitter) or self.jitter < 0.0:
+            raise ValueError(f"jitter must be finite and non-negative, got {jitter}")
+        if not np.isfinite(self.dropout) or not 0.0 <= self.dropout <= 1.0:
+            raise ValueError(f"dropout must be between 0 and 1, got {dropout}")
         self._rng = np.random.default_rng(seed)
 
+        if recording.n_frames == 0:
+            raise ValueError("this recording has no frames to replay")
         self.channels = _channels_of(recording)
         if not self.channels:
             raise ValueError(
@@ -232,9 +238,14 @@ class RecordedSource:
         for name in self.channels:
             dropped = self.dropout > 0 and bool(self._rng.random() < self.dropout)
             previous = self._held.get(name)
-            if dropped and previous is not None:
+            if dropped:
+                values = (
+                    previous.values.copy()
+                    if previous is not None
+                    else np.zeros(len(self.channels[name]), dtype=float)
+                )
                 readings[name] = Reading(
-                    name=name, time=now, values=previous.values, valid=False, fresh=False
+                    name=name, time=now, values=values, valid=False, fresh=False
                 )
                 continue
             values = self._values[name][index].copy()
@@ -275,7 +286,9 @@ def _channels_of(recording: Recording) -> dict[str, tuple[str, ...]]:
     }
     if layout:
         return {
-            name: chans for name, chans in layout.items() if f"{name}.valid" in recording.frames
+            name: chans
+            for name, chans in layout.items()
+            if all(f"{name}.{channel}" in recording.frames for channel in chans)
         }
 
     found: dict[str, list[str]] = {}

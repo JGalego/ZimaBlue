@@ -11,6 +11,20 @@ understand.
 
 ## [Unreleased]
 
+### Fixed
+- `HardwareRuntime` now trips its watchdog before a controller's wrong return
+  type or non-finite motor command can reach an actuator.
+- The Gymnasium environment and `PolicyController` reject actions that do not
+  contain exactly two finite motor values instead of truncating them or
+  allowing NaNs into the simulation.
+- `RecordedSource` replays older recordings without `.valid` columns, handles
+  a dropout before the first sample, and rejects invalid jitter/dropout values
+  and recordings with no frames.
+- Empty batches and benchmark definitions now fail immediately with a clear
+  error; empty recordings no longer return the unusable frame index `-1`.
+- The fleet documentation uses the accepted `mstc` and `mstc_nobt` comparison
+  names.
+
 ## [0.4.0] — 2026-08-21
 
 ### Added

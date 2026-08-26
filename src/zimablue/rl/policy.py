@@ -29,7 +29,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from zimablue.controllers.base import ControlInput
-from zimablue.rl.env import observe
+from zimablue.rl.env import _action_pair, observe
 from zimablue.robot import Cleaner, DriveCommand
 
 __all__ = ["Policy", "PolicyController"]
@@ -84,8 +84,7 @@ class PolicyController:
             observation = np.concatenate([observation, extra])
 
         if control_input.time >= self._next_decision:
-            action = np.asarray(self.policy(observation), dtype=float).ravel()
-            left, right = np.clip(action[:2], -1.0, 1.0)
+            left, right = _action_pair(self.policy(observation))
             self._command = DriveCommand(left=left * self._limit, right=right * self._limit)
             self._next_decision = control_input.time + 1.0 / self.control_hz
         return self._command

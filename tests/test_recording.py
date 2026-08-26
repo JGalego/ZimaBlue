@@ -233,6 +233,12 @@ def test_a_time_between_frames_resolves_to_the_frame_before_it():
     assert recording.frame_index_at(1e6) == recording.n_frames - 1
 
 
+def test_an_empty_recording_has_no_frame_index():
+    recording = _recording(frames={"time": np.zeros(0, dtype=np.float32)})
+    with pytest.raises(ValueError, match="no frames"):
+        recording.frame_index_at(0.0)
+
+
 def test_a_recording_with_no_keyframes_has_a_span_anyway():
     """Dirt keyframes are optional; the player asks for a span regardless."""
     assert _recording().keyframe_span(3.0) == (0, 0, 0.0)

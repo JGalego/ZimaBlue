@@ -26,6 +26,7 @@ from zimablue.hardware import (
     Watchdog,
     WheelSpeedLoop,
 )
+from zimablue.recording import Recording
 from zimablue.robot import DriveCommand
 from zimablue.sensors import Reading
 
@@ -134,6 +135,24 @@ def test_a_recording_replays_as_readings(recording):
     assert readings["sonar"].values.size == 3
 
 
+def test_an_old_recording_without_valid_columns_still_replays(recording):
+    frames = {
+        name: values for name, values in recording.frames.items() if not name.endswith(".valid")
+    }
+    old = Recording(manifest=recording.manifest, frames=frames)
+    source = RecordedSource(old)
+
+    readings = source.read(1.0)
+    assert readings["encoder"].valid
+    assert readings["encoder"].values.size == 2
+
+
+def test_a_recording_source_needs_at_least_one_frame():
+    empty = Recording(manifest={}, frames={"time": np.zeros(0, dtype=np.float32)})
+    with pytest.raises(ValueError, match="no frames"):
+        RecordedSource(empty)
+
+
 def test_nan_in_a_recording_means_not_reported_yet(recording):
     """The recorder back-fills a late-arriving sensor's early frames with NaN.
 
@@ -153,6 +172,28 @@ def test_dropouts_hold_the_previous_reading(recording):
     reading = source.read(1.0)["encoder"]
     assert not reading.valid
     assert reading.values.tolist() == [0.5, 0.5]
+
+
+def test_a_dropout_before_the_first_reading_is_invalid(recording):
+    source = RecordedSource(recording, dropout=1.0, seed=0)
+    reading = source.read(0.0)["encoder"]
+    assert not reading.valid
+    assert not reading.fresh
+    assert reading.values.tolist() == [0.0, 0.0]
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"jitter": -0.1}, "jitter"),
+        ({"jitter": np.inf}, "jitter"),
+        ({"dropout": -0.1}, "dropout"),
+        ({"dropout": 1.1}, "dropout"),
+    ],
+)
+def test_recording_fault_parameters_are_bounded(recording, kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        RecordedSource(recording, **kwargs)
 
 
 # -- the controllers, under conditions they were not written for -----------
@@ -368,6 +409,31 @@ def test_a_controller_that_raises_stops_the_robot(recording):
     assert run.watchdog_reasons and "planner exploded" in run.watchdog_reasons[0]
     assert all(command.left == 0.0 and command.right == 0.0 for command in sent)
     assert any(event.kind == "fault" for event in run.events)
+
+
+@pytest.mark.parametrize(
+    "command, message",
+    [
+        (DriveCommand(left=np.nan), "non-finite"),
+        (None, "expected DriveCommand"),
+    ],
+)
+def test_an_invalid_controller_command_stops_the_robot(recording, command, message):
+    class Broken:
+        name = "broken"
+
+        def reset(self, robot):
+            pass
+
+        def step(self, control_input):
+            return command
+
+    sent = []
+    runtime, _ = runtime_for(RecordedSource(recording), controller=Broken(), actuate=sent.append)
+    run = runtime.run(max_ticks=1)
+
+    assert run.watchdog_reasons and message in run.watchdog_reasons[0]
+    assert sent[0] == DriveCommand.stop()
 
 
 def test_finishing_stops_the_motors_even_when_nothing_else_happened(recording):

@@ -75,3 +75,14 @@ def test_batch_csv_has_a_row_per_episode(scenario, tmp_path):
 def test_explicit_seeds_are_honoured(scenario):
     result = run_batch(scenario, seeds=[100, 200])
     assert [e.seed for e in result.episodes] == [100, 200]
+
+
+@pytest.mark.parametrize("episodes", [0, -1])
+def test_a_batch_needs_at_least_one_episode(scenario, episodes):
+    with pytest.raises(ValueError, match="episodes must be positive"):
+        run_batch(scenario, episodes=episodes)
+
+
+def test_an_explicit_seed_list_cannot_be_empty(scenario):
+    with pytest.raises(ValueError, match="seeds must contain"):
+        run_batch(scenario, seeds=[])

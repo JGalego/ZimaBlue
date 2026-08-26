@@ -185,7 +185,14 @@ def run_batch(
     ``.zbr``; otherwise recording is skipped, which is meaningfully faster and
     is the right default for a sweep of hundreds.
     """
-    seed_list = list(seeds) if seeds is not None else [scenario.seed + i for i in range(episodes)]
+    if seeds is None:
+        if episodes <= 0:
+            raise ValueError(f"episodes must be positive, got {episodes}")
+        seed_list = [scenario.seed + i for i in range(episodes)]
+    else:
+        seed_list = list(seeds)
+        if not seed_list:
+            raise ValueError("seeds must contain at least one seed")
     record_path = Path(record_dir) if record_dir else None
     if record_path:
         record_path.mkdir(parents=True, exist_ok=True)

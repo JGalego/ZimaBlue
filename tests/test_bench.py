@@ -24,6 +24,29 @@ def test_the_definition_is_frozen():
         BENCH_V1.minutes = 1.0  # type: ignore[misc]
 
 
+@pytest.mark.parametrize(
+    "changes, message",
+    [
+        ({"entries": ()}, "entries"),
+        ({"pools": ()}, "pools"),
+        ({"seeds": ()}, "seeds"),
+        ({"minutes": 0.0}, "minutes"),
+        ({"minutes": float("nan")}, "minutes"),
+    ],
+)
+def test_a_definition_rejects_invalid_work(changes, message):
+    values = {
+        "name": "invalid",
+        "entries": ("random_bounce",),
+        "pools": ("rectangular",),
+        "seeds": (1,),
+        "minutes": 1.0,
+        **changes,
+    }
+    with pytest.raises(ValueError, match=message):
+        BenchDefinition(**values)
+
+
 def test_v1_names_its_entries_rather_than_asking_the_package():
     """The suite must not grow when the package does."""
     assert isinstance(BENCH_V1.entries, tuple)

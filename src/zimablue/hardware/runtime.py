@@ -252,7 +252,14 @@ class HardwareRuntime:
         error: BaseException | None = None
         command = self.watchdog.safe_command()
         try:
-            command = self.controller.step(self._control_input(now, dt, readings, platform))
+            proposed = self.controller.step(self._control_input(now, dt, readings, platform))
+            if not isinstance(proposed, DriveCommand):
+                raise TypeError(
+                    f"controller returned {type(proposed).__name__}, expected DriveCommand"
+                )
+            if not np.isfinite((proposed.left, proposed.right, proposed.pump)).all():
+                raise ValueError("controller returned a non-finite drive command")
+            command = proposed
         except Exception as exc:
             error = exc
         decide_time = self.clock() - started

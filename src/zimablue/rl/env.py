@@ -112,6 +112,17 @@ def observe(control_input: ControlInput, *, elapsed: float) -> FloatArray:
     return np.asarray(values, dtype=np.float32)
 
 
+def _action_pair(action: Any) -> tuple[float, float]:
+    """Validate and clip the two motor values returned by an agent."""
+    values = np.asarray(action, dtype=float).ravel()
+    if values.size != 2:
+        raise ValueError(f"action must contain exactly two values, got {values.size}")
+    if not np.isfinite(values).all():
+        raise ValueError("action values must be finite")
+    left, right = np.clip(values, -1.0, 1.0)
+    return float(left), float(right)
+
+
 class _AgentController:
     """The controller that does as it is told.
 
@@ -355,7 +366,7 @@ class PoolCleaningEnv(gym.Env[FloatArray, FloatArray]):
             raise RuntimeError("this episode was saved and is over; call reset() for another")
 
         limit = self.sim.robot.locomotion.max_speed
-        left, right = np.clip(np.asarray(action, dtype=float).ravel()[:2], -1.0, 1.0)
+        left, right = _action_pair(action)
         self.controller.command = DriveCommand(left=left * limit, right=right * limit)
 
         for _ in range(self.repeat):

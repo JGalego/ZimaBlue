@@ -53,6 +53,17 @@ class BenchDefinition:
     dirt: str = "autumn"
     robot: str = "tracked"
 
+    def __post_init__(self) -> None:
+        for name, values in (
+            ("entries", self.entries),
+            ("pools", self.pools),
+            ("seeds", self.seeds),
+        ):
+            if not values:
+                raise ValueError(f"{name} must not be empty")
+        if not np.isfinite(self.minutes) or self.minutes <= 0:
+            raise ValueError(f"minutes must be finite and positive, got {self.minutes}")
+
     @property
     def runs(self) -> int:
         return len(self.entries) * len(self.pools) * len(self.seeds)
