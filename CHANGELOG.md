@@ -12,6 +12,9 @@ understand.
 ## [Unreleased]
 
 ### Added
+- `ShadowTwin` mirrors live commands in a read-only simulation, keeps rolling
+  per-channel sensor residuals, and raises thresholded health anomalies without
+  owning an actuator or changing the hardware control path.
 - `TwinCalibrator` identifies bounded digital-twin parameters from a reference
   `.zbr` trajectory with deterministic, NumPy-only differential evolution and
   stores the fitted values and convergence history in recording metadata.

@@ -109,6 +109,7 @@ from zimablue.sensors import (
     SensorSuite,
     Sonar,
 )
+from zimablue.shadow import ResidualStats, ShadowHealth, ShadowTwin
 from zimablue.simulation import RunResult, Simulation
 from zimablue.sketch import SketchSegmenter, pool_from_sketch, trace_sketch
 from zimablue.world import World
@@ -178,6 +179,7 @@ __all__ = [
     "Reading",
     "Recording",
     "Registry",
+    "ResidualStats",
     "Return",
     "RngTree",
     "RunResult",
@@ -187,6 +189,8 @@ __all__ = [
     "SensorContext",
     "SensorFault",
     "SensorSuite",
+    "ShadowHealth",
+    "ShadowTwin",
     "Simulation",
     "SketchSegmenter",
     "Skimmer",
