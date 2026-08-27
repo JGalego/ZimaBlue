@@ -96,6 +96,27 @@ def test_rl_env_runs_and_ranks_the_baseline_above_random():
     )
 
 
+def test_live_training_runs_and_captures_what_it_shows(tmp_path):
+    pytest.importorskip("gymnasium")
+    pytest.importorskip("matplotlib")
+    pytest.importorskip("PIL")
+    output = tmp_path / "training.gif"
+    result = run(
+        "live_training.py",
+        "--generations",
+        "1",
+        "--population",
+        "4",
+        "--minutes",
+        "0.05",
+        "--gif",
+        str(output),
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "generation  1" in result.stdout
+    assert output.stat().st_size > 0
+
+
 def test_tune_controller_improves_on_the_defaults():
     result = run("tune_controller.py", "--minutes", "2", "--episodes", "1", "--iterations", "4")
     assert result.returncode == 0, result.stderr[-2000:]

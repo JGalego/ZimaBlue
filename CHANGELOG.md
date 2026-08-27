@@ -13,8 +13,8 @@ understand.
 
 ### Added
 - The README now pairs a 1200x740 headline replay with a reproducible VHS
-  capture of the CLI generating a real recording and a complete minimal
-  Gymnasium episode.
+  capture of the CLI generating a real recording and a live Gymnasium policy
+  search that discovers a known optimal island-cleaning orbit.
 - NumPy-only differentiable drive physics integrates constant wheel speeds in
   a branch-free sinc form and returns analytical state, command and track-width
   Jacobians, including chain-rule sensitivities across command rollouts.

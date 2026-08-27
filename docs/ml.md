@@ -240,6 +240,23 @@ env = PoolCleaningEnv(
 
 ## Watching it train
 
+For the smallest complete live example:
+
+```bash
+pip install "zimablue[rl,viz]"
+python examples/live_training.py
+```
+
+It keeps the current pool trial beside the score curve while cross-entropy
+policy search learns two track speeds. This is a deliberately answerable task:
+the pool is a constant-width loop around an island, so a maximum-speed lap on
+its centreline is the shortest non-overlapping coverage path. The dashed line
+is that policy's measured score. Starting from random commands, the model
+discovers the orbit in generation three and reaches 99% of it in four. Every
+candidate is visible, not merely the final trained policy. Use `--generations`,
+`--population` and `--minutes` to change the experiment, or `--gif path.gif` to
+capture the same dashboard.
+
 `render_mode="rgb_array"` draws the pool from the simulation grids with numpy
 alone -- dirt darkening the water, visited floor lifted a shade, the robot on
 top -- which is what `RecordVideo` needs:

@@ -221,6 +221,12 @@ def test_the_readme_has_one_visual_hero():
     assert "docs/assets/replay.gif" in text
 
 
+def test_the_readme_shows_the_gymnasium_loop():
+    text = (ROOT / "README.md").read_text()
+    assert "docs/assets/gymnasium.gif" in text
+    assert 'gym.make(\n    "ZimaBlue-v0"' in text
+
+
 def test_every_referenced_asset_exists():
     """A rewritten URL still 404s if the file was never committed."""
     from hatch_build import absolutise

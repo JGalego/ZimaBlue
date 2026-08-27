@@ -19,6 +19,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -88,6 +89,26 @@ def make_cli() -> None:
         cwd=ROOT,
         check=True,
         env=environment,
+    )
+
+
+def make_gymnasium() -> None:
+    """Capture the same live policy-search dashboard readers can run."""
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "examples" / "live_training.py"),
+            "--generations",
+            "8",
+            "--population",
+            "8",
+            "--minutes",
+            "1",
+            "--gif",
+            str(ASSETS / "gymnasium.gif"),
+        ],
+        cwd=ROOT,
+        check=True,
     )
 
 
@@ -173,6 +194,7 @@ def make_3d() -> None:
 TARGETS = {
     "replay": make_replay,
     "cli": make_cli,
+    "gymnasium": make_gymnasium,
     "dirtcam": make_dirtcam,
     "chase": make_chase,
     "mosaic": make_mosaic,

@@ -238,24 +238,53 @@ Driving it is a boustrophedon baseline, a random-bounce floor, a map-building
 heads for whatever is dirtiest. Yours needs a class with `reset` and `step`,
 and sees sensor readings only.
 
-Or train one. `zimablue[rl]` puts a Gymnasium env over the same loop, at 24×
-real time on one core with no GPU, and the reward is the experiment: pay for
-coverage and you get a policy that drives beautifully over dirt it never picks
-up. See [machine learning](docs/ml.md).
+Or train one. `zimablue[rl]` registers the same simulation as the ordinary
+Gymnasium environment `ZimaBlue-v0`. An observation is the robot's sensor
+readings, an action is its two track speeds, and the default reward is dirt
+collected. The loop runs at 24× real time on one CPU core with no GPU.
+
+![Policy search discovering the optimal cleaning orbit around a ZimaBlue pool island](docs/assets/gymnasium.gif)
+
+*This is training, not playback. Each cyan point is a policy tried in the live
+pool on the left; the yellow line is the best found so far. The dashed line is
+not a hoped-for score: it is the known constant-curvature optimum.*
+
+Watch the same run update in a window on your machine:
+
+```bash
+pip install "zimablue[rl,viz]"
+python examples/live_training.py
+```
+
+The pool floor is a constant-width loop around an island. Its shortest
+non-overlapping coverage path is the centreline, and differential-drive
+kinematics gives the exact track speeds for that circle. Cross-entropy policy
+search starts from random track speeds and discovers the stable orbit: with
+the fixed demo seed, its score jumps in generation three and reaches 99% of
+the reference in generation four. For a full PPO run on an ordinary pool, use
+`python examples/train_policy.py`.
 
 Here is a complete first episode. The action is simply the left and right
 track speed from -1 (full reverse) to 1 (full forward):
 
 ```python
-from zimablue.rl import PoolCleaningEnv
+import gymnasium as gym
+import numpy as np
+import zimablue.rl  # registers ZimaBlue-v0
 
-env = PoolCleaningEnv(pool="rectangular", dirt="light_sediment", minutes=1)
+env = gym.make(
+    "ZimaBlue-v0",
+    pool="rectangular",
+    dirt="light_sediment",
+    minutes=1,
+    render_mode="rgb_array",
+)
 observation, info = env.reset(seed=42)
 
 finished = False
 total_reward = 0.0
 while not finished:
-    action = env.action_space.sample()  # replace this with your policy
+    action = np.array([1.0, 0.72])  # left track, right track
     observation, reward, terminated, truncated, info = env.step(action)
     total_reward += reward
     finished = terminated or truncated
@@ -266,8 +295,10 @@ print(f"dirt removed: {info['dirt_removed']:.1%}")
 env.close()
 ```
 
-Install it with `pip install "zimablue[rl]"`. A learning library only has to
-replace the `action_space.sample()` line; the rest is ordinary Gymnasium.
+Install it with `pip install "zimablue[rl]"`. Replace the one `action = ...`
+line with a model prediction to start training; the rest is standard
+Gymnasium. Reward design matters: pay for coverage and a policy can learn to
+drive beautifully over dirt it never picks up. See [machine learning](docs/ml.md).
 
 `systematic` runs an EKF over position, heading and **gyro bias**. The bias is
 only observable when the robot stops — a stationary gyro's reading *is* its
@@ -660,6 +691,7 @@ Every one takes `--minutes` if you want a shorter run.
 | [`custom_pool.py`](examples/custom_pool.py) | Build a pool from geometry, depth models and features, then read the spatial metrics |
 | [`pool_from_photo.py`](examples/pool_from_photo.py) | Trace a pool out of a photograph, check the trace, then clean it — `--sam` to segment with a model |
 | [`rl_env.py`](examples/rl_env.py) | The Gymnasium env, and the baseline a trained policy has to beat |
+| [`live_training.py`](examples/live_training.py) | Watch cross-entropy policy search try candidates and improve its reward live |
 | [`tune_controller.py`](examples/tune_controller.py) | Search the shipped controller's parameters, which is the cheap thing to try first |
 | [`train_policy.py`](examples/train_policy.py) | Train a controller with PPO, score it against the shipped ones, and replay it |
 | [`custom_robot.py`](examples/custom_robot.py) | Compose a cleaner from components and break a sensor on purpose |
