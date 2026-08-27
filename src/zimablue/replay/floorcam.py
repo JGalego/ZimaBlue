@@ -121,13 +121,13 @@ class FloorCamera:
         self._pile_range = pile_range(recording, self._dirt_max)
 
     def _build_walls(self) -> None:
-        """Cache a modest polygonal wall mesh and its real basin depths."""
-        ring = np.asarray(self.scene.pool.boundary.exterior.coords, dtype=float)
-        step = max(1, (len(ring) - 1) // 72)
-        indices = list(range(0, len(ring) - 1, step))
-        if indices[-1] != len(ring) - 1:
-            indices.append(len(ring) - 1)
-        self._wall_ring = ring[indices]
+        """Cache the exact polygonal wall mesh and its real basin depths.
+
+        Decimating a curved boundary saves intersections but replaces arcs
+        with long chords. The floor still follows the original polygon, so the
+        discrepancy opens triangular holes at the foot of the wall.
+        """
+        self._wall_ring = np.asarray(self.scene.pool.boundary.exterior.coords, dtype=float)
         self._wall_depth = np.asarray(
             self.scene.pool.depth_at(self._wall_ring[:, 0], self._wall_ring[:, 1]),
             dtype=float,
@@ -227,16 +227,64 @@ class FloorCamera:
         rows = np.clip(((world_y - grid.miny) / grid.cell).astype(int), 0, grid.nrows - 1)
         cols = np.clip(((world_x - grid.minx) / grid.cell).astype(int), 0, grid.ncols - 1)
 
-        inside = self.scene.navigable[rows, cols] & ~self.sky
-        dirt = np.asarray(rec.dirt_at(t, interpolate=True))[rows, cols]
-        wall_mask, wall_colour = self._wall_layer(cx, cy, yaw)
+        # Dirt is a raster, but the pool edge is not. Sampling the navigable
+        # mask here leaves cell-sized dark wedges between a curved floor and
+        # its exact wall; use the recorded polygon for the visual boundary.
+        inside = self.scene.pool.contains(world_x, world_y) & ~self.sky
+        dirt = self._sample_floor_dirt(
+            np.asarray(rec.dirt_at(t, interpolate=True)), rows, cols, inside
+        )
+        wall_mask, wall_colour, wall_distance = self._wall_layer(cx, cy, yaw)
 
-        image = self._paint(dirt, inside, world_x, world_y, wall_mask, wall_colour)
+        image = self._paint(dirt, inside, world_x, world_y, wall_mask, wall_colour, wall_distance)
         self._draw_debris(image, rec, t, cx, cy, yaw)
         self.draw_overlays(image, index)
         return image
 
-    def _wall_layer(self, cx: float, cy: float, yaw: float) -> tuple[NDArray[np.bool_], FloatArray]:
+    def _sample_floor_dirt(
+        self,
+        dirt_grid: FloatArray,
+        rows: NDArray[np.int64],
+        cols: NDArray[np.int64],
+        inside: NDArray[np.bool_],
+    ) -> FloatArray:
+        """Sample dirt through the curved edge of the rasterised floor.
+
+        A boundary cell can contain real pool floor while its centre lies just
+        outside the polygon. The simulation correctly excludes that cell, but
+        rendering its partial area as clean tile creates a bright triangle
+        beside a dirty interior tile. Continue the nearest interior cell's dirt
+        value through that sub-cell sliver instead.
+        """
+        dirt = dirt_grid[rows, cols].copy()
+        raster_inside = self.scene.navigable[rows, cols]
+        unresolved = inside & ~raster_inside
+        if not unresolved.any():
+            return dirt
+
+        offsets = sorted(
+            (
+                (dr, dc)
+                for radius in (1, 2)
+                for dr in range(-radius, radius + 1)
+                for dc in range(-radius, radius + 1)
+                if max(abs(dr), abs(dc)) == radius
+            ),
+            key=lambda offset: offset[0] ** 2 + offset[1] ** 2,
+        )
+        for dr, dc in offsets:
+            neighbour_rows = np.clip(rows + dr, 0, self.scene.grid.nrows - 1)
+            neighbour_cols = np.clip(cols + dc, 0, self.scene.grid.ncols - 1)
+            use = unresolved & self.scene.navigable[neighbour_rows, neighbour_cols]
+            dirt[use] = dirt_grid[neighbour_rows[use], neighbour_cols[use]]
+            unresolved &= ~use
+            if not unresolved.any():
+                break
+        return dirt
+
+    def _wall_layer(
+        self, cx: float, cy: float, yaw: float
+    ) -> tuple[NDArray[np.bool_], FloatArray, FloatArray]:
         """Intersect every camera ray with the basin's vertical wall panels.
 
         The floor camera already has one ray per output pixel. Intersecting the
@@ -297,8 +345,9 @@ class FloorCamera:
 
         mask = np.isfinite(nearest)
         colour = np.zeros((*mask.shape, 3), dtype=float)
+        metric_distance = nearest * ray_norm
         if not mask.any():
-            return mask, colour
+            return mask, colour, metric_distance
 
         vertical = np.clip((wall_z + wall_depth) / np.maximum(wall_depth, 1e-9), 0.0, 1.0)
         brightness = 0.48 + 0.22 * vertical + 0.13 * incidence
@@ -324,7 +373,7 @@ class FloorCamera:
         caustic = 1.0 + 0.035 * np.sin(8.0 * wall_along + 5.0 * height_above_floor)
         base = np.array(rgb(PALETTE["shallow"]))
         colour = base * (brightness * caustic)[..., None]
-        return mask, np.clip(colour, 0.0, 1.0)
+        return mask, np.clip(colour, 0.0, 1.0), metric_distance
 
     # ------------------------------------------------------------------
     def _paint(
@@ -335,6 +384,7 @@ class FloorCamera:
         world_y: FloatArray,
         wall_mask: NDArray[np.bool_],
         wall_colour: FloatArray,
+        wall_distance: FloatArray,
     ) -> FloatArray:
         """Floor, walls and water, shaded by distance."""
         cfg = self.config
@@ -360,7 +410,8 @@ class FloorCamera:
         # Turbidity: contrast falls off with distance, and the far field
         # dissolves into water rather than ending at a hard line.
         turbidity = float(getattr(self.scene.pool.water, "turbidity", 0.05))
-        depth_fade = np.clip(self._distance / cfg.far, 0.0, 1.0)[..., None]
+        surface_distance = np.where(wall_mask, wall_distance, self._distance)
+        depth_fade = np.clip(surface_distance / cfg.far, 0.0, 1.0)[..., None]
         fog = np.clip(depth_fade ** (1.0 - 0.6 * turbidity), 0.0, 1.0)
         image = image * (1.0 - fog) + water * fog
 
@@ -373,6 +424,17 @@ class FloorCamera:
         # a cropping error rather than like distance.
         open_water = self.sky & ~wall_mask
         image = np.where(open_water[..., None], water[None, None, :] * self._murk[..., None], image)
+        # A wall near the visibility limit must dissolve into the same water
+        # gradient as its surroundings. Otherwise fully fogged wall pixels
+        # still bypass `_murk` and survive as detached dark silhouettes.
+        distant_wall = np.clip((wall_distance / cfg.far - 0.45) / 0.30, 0.0, 1.0)
+        wall_sky = wall_mask & self.sky
+        image = np.where(
+            wall_sky[..., None],
+            image * (1.0 - distant_wall[..., None])
+            + water[None, None, :] * self._murk[..., None] * distant_wall[..., None],
+            image,
+        )
         return np.clip(image, 0.0, 1.0)
 
     def _floor_texture(

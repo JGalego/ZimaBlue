@@ -77,17 +77,35 @@ def test_config_changes_the_geometry(recording):
 
 
 def test_pool_walls_are_vertical_tiled_surfaces(cam):
+    assert len(cam._wall_ring) == len(cam.scene.pool.boundary.exterior.coords)
     centre = cam.scene.pool.boundary.centroid
     target = cam._wall_ring[
         np.argmin(np.hypot(cam._wall_ring[:, 0] - centre.x, cam._wall_ring[:, 1] - centre.y))
     ]
     yaw = float(np.arctan2(target[1] - centre.y, target[0] - centre.x))
 
-    wall, colour = cam._wall_layer(centre.x, centre.y, yaw)
+    wall, colour, distance = cam._wall_layer(centre.x, centre.y, yaw)
 
     assert wall.any(), "a camera aimed at the boundary should see a wall"
     assert (wall & cam.sky).any(), "the wall should rise above the floor horizon"
     assert np.ptp(colour[wall], axis=0).max() > 0.05, "lighting and grout should shape the wall"
+    assert np.isfinite(distance[wall]).all()
+
+
+def test_partial_boundary_cells_continue_the_adjacent_floor_material(cam):
+    cx, cy, yaw = cam.camera_pose(0)
+    world_x = cx + cam._ahead * np.cos(yaw) - cam._lateral * np.sin(yaw)
+    world_y = cy + cam._ahead * np.sin(yaw) + cam._lateral * np.cos(yaw)
+    grid = cam.scene.grid
+    rows = np.clip(((world_y - grid.miny) / grid.cell).astype(int), 0, grid.nrows - 1)
+    cols = np.clip(((world_x - grid.minx) / grid.cell).astype(int), 0, grid.ncols - 1)
+    inside = cam.scene.pool.contains(world_x, world_y) & ~cam.sky
+    partial = inside & ~cam.scene.navigable[rows, cols]
+    assert partial.any(), "the curved test pool should cross at least one raster cell"
+
+    interior_dirt = cam.scene.navigable.astype(float)
+    sampled = cam._sample_floor_dirt(interior_dirt, rows, cols, inside)
+    assert (sampled[partial] == 1.0).all()
 
 
 def test_debris_is_drawn_as_its_own_outline(cam, recording):

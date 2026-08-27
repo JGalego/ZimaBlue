@@ -38,6 +38,9 @@ understand.
   stores the fitted values and convergence history in recording metadata.
 
 ### Fixed
+- Close-up cameras use the exact pool curve for floor and wall geometry,
+  continue dirt through partial edge cells, and dissolve distant walls into
+  open water instead of showing triangular seams or detached silhouettes.
 - CI shards each interpreter run, separates scripts, dynamics and notebook
   examples, distributes tests across both runner cores, collects coverage only
   on Python 3.12, and cancels superseded runs.
