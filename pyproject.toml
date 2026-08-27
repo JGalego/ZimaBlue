@@ -60,6 +60,7 @@ dev = [
     "hatchling>=1.21",
     "pytest>=7.4",
     "pytest-cov>=4.1",
+    "pytest-xdist>=3.6",
     # Pinned to a minor range: ruff gains rules and formatting opinions
     # between releases, and an unrelated upgrade should not turn CI red on a
     # branch that changed nothing. Bump deliberately.
