@@ -19,8 +19,9 @@ How it works
 Inverse perspective mapping, the technique behind a driving game's road view.
 For every output pixel, cast a ray from the camera through it, intersect that
 ray with the floor plane, and sample the dirt raster at the point where it
-lands. No 3D engine, no mesh, no z-buffer -- one vectorised NumPy expression
-per frame over a grid of rays.
+lands. The rays also meet vertical panels built from the recorded pool
+boundary, so the wall rises from the basin floor to the waterline with proper
+perspective. No 3D engine, mesh or z-buffer is involved.
 
 The floor is treated as flat for the *ray geometry* while the colour comes from
 the real depth and dirt fields. In a pool whose floor slopes by two metres over

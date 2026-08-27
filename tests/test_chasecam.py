@@ -74,6 +74,15 @@ def test_the_camera_sits_behind_the_robot(cam):
     assert np.hypot(x - cx, y - cy) == pytest.approx(cam.cfg.distance, rel=0.05)
 
 
+def test_the_camera_does_not_pass_through_the_pool_wall(recording):
+    from shapely.geometry import Point
+
+    cam = ChaseCam(recording)
+    for index in np.linspace(0, recording.n_frames - 1, 30, dtype=int):
+        cx, cy, _ = cam.camera_pose(int(index))
+        assert cam.scene.pool.boundary.covers(Point(cx, cy))
+
+
 def test_the_camera_heading_lags_the_robot(turning):
     """Rigidly bolting the camera makes a turn read as the pool spinning.
 

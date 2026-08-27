@@ -2,9 +2,9 @@
 
 Inverse perspective mapping, the technique behind a driving game's road view.
 For every output pixel, cast a ray from the camera through it, intersect that
-ray with the floor plane, and sample the dirt raster where it lands.  No mesh,
-no z-buffer, no renderer -- one vectorised NumPy expression per frame over a
-grid of rays.
+ray with the floor plane, and sample the dirt raster where it lands. The same
+rays are tested against a small set of vertical boundary panels so walls have
+real height and perspective. No mesh, z-buffer or 3D renderer is involved.
 
 Two cameras are built on this and they differ in exactly one thing: where the
 camera sits.  Bolt it to the bumper 18 cm off the floor and you get
@@ -99,8 +99,8 @@ class FloorCamera:
     """Renders the pool floor from a moving camera.
 
     The ray grid depends only on the configuration, so it is built once and
-    reused for every frame; per frame the work is a rotation, a translation and
-    two raster lookups.
+    reused for every frame; the basin boundary is likewise reduced to a small
+    set of depth-aware wall panels before rendering starts.
 
     Subclasses override :meth:`camera_pose` to say where the camera is, and
     :meth:`draw_overlays` to put things in front of the floor.
@@ -112,12 +112,28 @@ class FloorCamera:
         self.scene: Scene = load_scene(recording)
         self._debris_outlines: dict[int, FloatArray] | None = None
         self._debris_colours: dict[int, FloatArray] = {}
+        self._build_walls()
         self._build_rays()
 
         dirt0 = recording.dirt_at(0.0)
         positive = dirt0[dirt0 > 0] if dirt0.size else np.zeros(0)
         self._dirt_max = float(np.percentile(positive, 92)) if positive.size else 1.0
         self._pile_range = pile_range(recording, self._dirt_max)
+
+    def _build_walls(self) -> None:
+        """Cache a modest polygonal wall mesh and its real basin depths."""
+        ring = np.asarray(self.scene.pool.boundary.exterior.coords, dtype=float)
+        step = max(1, (len(ring) - 1) // 72)
+        indices = list(range(0, len(ring) - 1, step))
+        if indices[-1] != len(ring) - 1:
+            indices.append(len(ring) - 1)
+        self._wall_ring = ring[indices]
+        self._wall_depth = np.asarray(
+            self.scene.pool.depth_at(self._wall_ring[:, 0], self._wall_ring[:, 1]),
+            dtype=float,
+        )
+        lengths = np.hypot(*np.diff(self._wall_ring, axis=0).T)
+        self._wall_along = np.concatenate(([0.0], np.cumsum(lengths)))
 
     # ------------------------------------------------------------------
     def _build_rays(self) -> None:
@@ -139,6 +155,9 @@ class FloorCamera:
         # screen_y, then tilted down by the pitch.
         up = screen_y * np.cos(cfg.pitch) - np.sin(cfg.pitch)
         forward = np.cos(cfg.pitch) + screen_y * np.sin(cfg.pitch)
+        self._ray_forward = forward
+        self._ray_lateral = screen_x
+        self._ray_up = up
 
         # Rays angled upward never meet the floor: that is the horizon. They
         # get a large finite range rather than infinity -- inf would give the
@@ -149,6 +168,7 @@ class FloorCamera:
             t = np.where(up < -1e-6, cfg.camera_height / -up, beyond)
         t = np.clip(np.nan_to_num(t, nan=beyond, posinf=beyond), 0.0, beyond)
 
+        self._floor_parameter = t
         self._ahead = t * forward
         self._lateral = t * screen_x
         self._distance = np.hypot(self._ahead, self._lateral)
@@ -209,11 +229,102 @@ class FloorCamera:
 
         inside = self.scene.navigable[rows, cols] & ~self.sky
         dirt = np.asarray(rec.dirt_at(t, interpolate=True))[rows, cols]
+        wall_mask, wall_colour = self._wall_layer(cx, cy, yaw)
 
-        image = self._paint(dirt, inside, world_x, world_y)
+        image = self._paint(dirt, inside, world_x, world_y, wall_mask, wall_colour)
         self._draw_debris(image, rec, t, cx, cy, yaw)
         self.draw_overlays(image, index)
         return image
+
+    def _wall_layer(self, cx: float, cy: float, yaw: float) -> tuple[NDArray[np.bool_], FloatArray]:
+        """Intersect every camera ray with the basin's vertical wall panels.
+
+        The floor camera already has one ray per output pixel. Intersecting the
+        horizontal part of those rays with each boundary segment gives the
+        nearest wall. The ray's height at that point decides whether it hits
+        tile between the basin floor and water surface or passes above it.
+        """
+        ray_forward = self._ray_forward
+        ray_lateral = self._ray_lateral
+        ray_up = self._ray_up
+        nearest = np.full(ray_forward.shape, np.inf)
+        wall_z = np.zeros(ray_forward.shape)
+        wall_depth = np.ones(ray_forward.shape)
+        wall_along = np.zeros(ray_forward.shape)
+        incidence = np.zeros(ray_forward.shape)
+
+        ahead, lateral = self.to_camera(self._wall_ring[:, 0], self._wall_ring[:, 1], cx, cy, yaw)
+        camera_depth = float(self.scene.pool.depth_at(cx, cy))
+        camera_z = -camera_depth + self.config.camera_height
+        ray_norm = np.hypot(ray_forward, ray_lateral)
+
+        for index in range(len(ahead) - 1):
+            ax, ay = ahead[index], lateral[index]
+            sx, sy = ahead[index + 1] - ax, lateral[index + 1] - ay
+            segment_length = float(np.hypot(sx, sy))
+            if segment_length <= 1e-9:
+                continue
+
+            denominator = ray_forward * sy - ray_lateral * sx
+            valid_denominator = np.abs(denominator) > 1e-9
+            with np.errstate(divide="ignore", invalid="ignore"):
+                distance = (ax * sy - ay * sx) / denominator
+                fraction = (ax * ray_lateral - ay * ray_forward) / denominator
+            z = camera_z + distance * ray_up
+            depth = self._wall_depth[index] + fraction * (
+                self._wall_depth[index + 1] - self._wall_depth[index]
+            )
+            visible = (
+                valid_denominator
+                & (distance > 0.02)
+                & (distance <= self.config.far)
+                & (distance < nearest)
+                & (distance <= self._floor_parameter)
+                & (fraction >= 0.0)
+                & (fraction <= 1.0)
+                & (z >= -depth)
+                & (z <= 0.0)
+            )
+            if not visible.any():
+                continue
+
+            nearest[visible] = distance[visible]
+            wall_z[visible] = z[visible]
+            wall_depth[visible] = depth[visible]
+            wall_along[visible] = self._wall_along[index] + fraction[visible] * segment_length
+            angle = np.abs(denominator) / np.maximum(ray_norm * segment_length, 1e-9)
+            incidence[visible] = np.clip(angle[visible], 0.0, 1.0)
+
+        mask = np.isfinite(nearest)
+        colour = np.zeros((*mask.shape, 3), dtype=float)
+        if not mask.any():
+            return mask, colour
+
+        vertical = np.clip((wall_z + wall_depth) / np.maximum(wall_depth, 1e-9), 0.0, 1.0)
+        brightness = 0.48 + 0.22 * vertical + 0.13 * incidence
+
+        # Tile joints run both around the pool and up toward the waterline.
+        # Their apparent width grows with range, which suppresses shimmer when
+        # a distant joint becomes narrower than one output pixel.
+        tile = self.config.tile
+        gap_horizontal = np.minimum(np.mod(wall_along, tile), tile - np.mod(wall_along, tile))
+        height_above_floor = wall_z + wall_depth
+        gap_vertical = np.minimum(
+            np.mod(height_above_floor, tile), tile - np.mod(height_above_floor, tile)
+        )
+        world_per_pixel = np.maximum(
+            0.006,
+            nearest * (2.0 * np.tan(self.config.fov / 2.0) / self.config.width),
+        )
+        joint = np.exp(-((np.minimum(gap_horizontal, gap_vertical) / world_per_pixel) ** 2))
+        brightness *= 1.0 - 0.20 * joint
+
+        # Subtle world-locked caustics keep a clean wall from reading as a
+        # single flat vector fill without making it sparkle frame-to-frame.
+        caustic = 1.0 + 0.035 * np.sin(8.0 * wall_along + 5.0 * height_above_floor)
+        base = np.array(rgb(PALETTE["shallow"]))
+        colour = base * (brightness * caustic)[..., None]
+        return mask, np.clip(colour, 0.0, 1.0)
 
     # ------------------------------------------------------------------
     def _paint(
@@ -222,6 +333,8 @@ class FloorCamera:
         inside: NDArray[np.bool_],
         world_x: FloatArray,
         world_y: FloatArray,
+        wall_mask: NDArray[np.bool_],
+        wall_colour: FloatArray,
     ) -> FloatArray:
         """Floor, walls and water, shaded by distance."""
         cfg = self.config
@@ -240,13 +353,9 @@ class FloorCamera:
         muck = filth * (1.0 - heaped) + silt * heaped
         image = floor * (1.0 - intensity) + muck * intensity
 
-        # Walls are tiled in the same material as the floor, just turned
-        # vertical and in their own shadow. Shading rather than replacing keeps
-        # the grout running up them, which is what stops the pool edge from
-        # reading as a painted band across the frame.
-        shade = np.where(inside[..., None], 1.0, 0.42)
-        image = image * shade + water * (1.0 - shade) * 0.55
-        image = image * self._floor_texture(world_x, world_y, intensity[..., 0])[..., None]
+        floor_texture = self._floor_texture(world_x, world_y, intensity[..., 0])[..., None]
+        image = np.where(inside[..., None], image * floor_texture, water * 0.55)
+        image = np.where(wall_mask[..., None], wall_colour, image)
 
         # Turbidity: contrast falls off with distance, and the far field
         # dissolves into water rather than ending at a hard line.
@@ -262,7 +371,8 @@ class FloorCamera:
         # Above the horizon: open water, brightest where it meets the floor and
         # darkening upward. A flat fill there gives a hard seam that looks like
         # a cropping error rather than like distance.
-        image = np.where(self.sky[..., None], water[None, None, :] * self._murk[..., None], image)
+        open_water = self.sky & ~wall_mask
+        image = np.where(open_water[..., None], water[None, None, :] * self._murk[..., None], image)
         return np.clip(image, 0.0, 1.0)
 
     def _floor_texture(

@@ -38,6 +38,9 @@ understand.
   stores the fitted values and convergence history in recording metadata.
 
 ### Fixed
+- Dirt and chase cameras now ray-cast the basin boundary as vertical tiled
+  walls with depth, grout, lighting and floor occlusion; the chase camera
+  slides along nearby walls instead of clipping outside the pool.
 - Gyro-rate process noise now carries its heading/position covariance through
   the EKF midpoint motion model instead of understating uncertainty on curves.
 - Boustrophedon decomposition probes only adjacent vertex intervals, preventing

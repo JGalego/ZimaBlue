@@ -76,6 +76,20 @@ def test_config_changes_the_geometry(recording):
     assert wide._distance[~wide.sky].max() <= 2.0 + 1e-9
 
 
+def test_pool_walls_are_vertical_tiled_surfaces(cam):
+    centre = cam.scene.pool.boundary.centroid
+    target = cam._wall_ring[
+        np.argmin(np.hypot(cam._wall_ring[:, 0] - centre.x, cam._wall_ring[:, 1] - centre.y))
+    ]
+    yaw = float(np.arctan2(target[1] - centre.y, target[0] - centre.x))
+
+    wall, colour = cam._wall_layer(centre.x, centre.y, yaw)
+
+    assert wall.any(), "a camera aimed at the boundary should see a wall"
+    assert (wall & cam.sky).any(), "the wall should rise above the floor horizon"
+    assert np.ptp(colour[wall], axis=0).max() > 0.05, "lighting and grout should shape the wall"
+
+
 def test_debris_is_drawn_as_its_own_outline(cam, recording):
     """Not a disc. A leaf and a twig have to be told apart."""
     outlines = cam._outlines()

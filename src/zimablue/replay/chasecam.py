@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from numpy.typing import NDArray
+from shapely import contains_xy
 
 from zimablue.replay._deps import require_matplotlib
 from zimablue.replay.floorcam import FloorCamConfig, FloorCamera, frame_window
@@ -110,6 +111,8 @@ class ChaseCam(FloorCamera):
     def __init__(self, recording: Recording, config: ChaseCamConfig | None = None) -> None:
         super().__init__(recording, config or ChaseCamConfig())
         self._smoothed: FloatArray | None = None
+        inset = self.scene.pool.boundary.buffer(-0.06)
+        self._camera_region = inset if not inset.is_empty else self.scene.pool.boundary
 
     # ------------------------------------------------------------------
     @property
@@ -145,11 +148,42 @@ class ChaseCam(FloorCamera):
         return smoothed
 
     def camera_pose(self, index: int) -> tuple[float, float, float]:
-        """Behind the robot, on the lagged heading."""
+        """Behind the robot, on the lagged heading and inside the pool wall."""
         index = int(np.clip(index, 0, self.recording.n_frames - 1))
         x, y, _ = self.robot_pose(index)
         yaw = float(self._heading_track()[index])
-        return (x - np.cos(yaw) * self.cfg.distance, y - np.sin(yaw) * self.cfg.distance, yaw)
+        offsets = np.deg2rad(
+            np.ravel(np.column_stack((np.arange(0, 181, 10), -np.arange(0, 181, 10))))
+        )
+        offsets = offsets[np.concatenate(([True], np.abs(np.diff(offsets)) > 1e-12))]
+        angles = yaw + np.pi + offsets
+        candidates_x = x + np.cos(angles) * self.cfg.distance
+        candidates_y = y + np.sin(angles) * self.cfg.distance
+        valid = np.asarray(contains_xy(self._camera_region, candidates_x, candidates_y))
+        if valid.any():
+            selected = int(np.flatnonzero(valid)[0])
+            cx, cy = float(candidates_x[selected]), float(candidates_y[selected])
+            return cx, cy, float(np.arctan2(y - cy, x - cx))
+
+        distance = min(self.cfg.distance, max(0.02, self._wall_distance(x, y, yaw) - 0.06))
+        return (x - np.cos(yaw) * distance, y - np.sin(yaw) * distance, yaw)
+
+    def _wall_distance(self, x: float, y: float, yaw: float) -> float:
+        """Distance from the robot backwards to the first basin wall."""
+        ring = self._wall_ring
+        ax = ring[:-1, 0] - x
+        ay = ring[:-1, 1] - y
+        sx = np.diff(ring[:, 0])
+        sy = np.diff(ring[:, 1])
+        dx, dy = -np.cos(yaw), -np.sin(yaw)
+        denominator = dx * sy - dy * sx
+        with np.errstate(divide="ignore", invalid="ignore"):
+            distance = (ax * sy - ay * sx) / denominator
+            fraction = (ax * dy - ay * dx) / denominator
+        hits = distance[
+            (np.abs(denominator) > 1e-9) & (distance > 0.0) & (fraction >= 0.0) & (fraction <= 1.0)
+        ]
+        return float(hits.min()) if hits.size else self.cfg.distance
 
     # ------------------------------------------------------------------
     def draw_overlays(self, image: FloatArray, index: int) -> None:
