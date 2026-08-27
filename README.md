@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="docs/assets/logo-animated.svg" alt="A robotic cleaner tracing a coverage path across a kidney-shaped pool" width="640">
-
 # 🌊 ZimaBlue
 
 ### **Where robotic pool cleaners come to play.**
@@ -38,6 +36,12 @@ zimablue demo
 ```
 
 The install needs no GPU, ROS, Docker, Omniverse or multi-gigabyte assets.
+
+<div align="center">
+<img src="docs/assets/cli-run.gif" alt="ZimaBlue CLI simulating a five-minute kidney-pool run and saving its recording" width="760">
+
+<sub>A real run, from command to metrics to a replayable `.zbr` recording.</sub>
+</div>
 
 ## What's in it
 
@@ -239,6 +243,32 @@ real time on one core with no GPU, and the reward is the experiment: pay for
 coverage and you get a policy that drives beautifully over dirt it never picks
 up. See [machine learning](docs/ml.md).
 
+Here is a complete first episode. The action is simply the left and right
+track speed from -1 (full reverse) to 1 (full forward):
+
+```python
+from zimablue.rl import PoolCleaningEnv
+
+env = PoolCleaningEnv(pool="rectangular", dirt="light_sediment", minutes=1)
+observation, info = env.reset(seed=42)
+
+finished = False
+total_reward = 0.0
+while not finished:
+    action = env.action_space.sample()  # replace this with your policy
+    observation, reward, terminated, truncated, info = env.step(action)
+    total_reward += reward
+    finished = terminated or truncated
+
+print(f"reward: {total_reward:.1f}")
+print(f"coverage: {info['coverage']:.1%}")
+print(f"dirt removed: {info['dirt_removed']:.1%}")
+env.close()
+```
+
+Install it with `pip install "zimablue[rl]"`. A learning library only has to
+replace the `action_space.sample()` line; the rest is ordinary Gymnasium.
+
 `systematic` runs an EKF over position, heading and **gyro bias**. The bias is
 only observable when the robot stops — a stationary gyro's reading *is* its
 bias — so zero-velocity updates are what keep heading from fanning out over
@@ -416,9 +446,9 @@ silt plain with leaves in it, which is closer to what a cleaner is driving
 through. From above you see where the robot went; from down here you see what
 it left behind.
 
-It is inverse perspective mapping over the same dirt raster the metrics are
-computed from — one NumPy expression per frame across a grid of rays, no 3D
-engine involved.
+It uses inverse perspective mapping over the same dirt raster the metrics are
+computed from. Those rays also meet depth-aware panels along the exact pool
+curve, so the tiled wall rises from the floor without needing a 3D engine.
 
 ### In 3D
 

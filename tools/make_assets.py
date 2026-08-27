@@ -16,6 +16,9 @@ asset built from geometry rather than from a recording.
 from __future__ import annotations
 
 import argparse
+import os
+import shutil
+import subprocess
 import time
 from pathlib import Path
 
@@ -62,12 +65,30 @@ def recording_for(name: str, **spec: object) -> Recording:
 
 # ----------------------------------------------------------------------
 def make_replay() -> None:
-    """The animation at the top of the README, plus the summary sheet."""
+    """The HD animation at the top of the README, plus the summary sheet."""
     from zimablue.replay import export_movie, export_summary
 
     rec = recording_for("kidney", **KIDNEY)
-    export_movie(rec, ASSETS / "replay.gif", speed=REPLAY_SPEED, fps=12, dpi=52)
+    export_movie(rec, ASSETS / "replay.gif", speed=REPLAY_SPEED, fps=12, dpi=100)
     export_summary(rec, ASSETS / "summary.png")
+
+
+def make_cli() -> None:
+    """A terminal capture of the CLI producing a real recording."""
+    executable = shutil.which("vhs")
+    if executable is None:
+        raise RuntimeError("the cli asset needs VHS: https://github.com/charmbracelet/vhs")
+    (CACHE / "cli-demo.zbr").unlink(missing_ok=True)
+    environment = os.environ.copy()
+    environment["PATH"] = (
+        f"{Path(__file__).resolve().parent.parent / '.venv' / 'bin'}:{environment['PATH']}"
+    )
+    subprocess.run(
+        [executable, str(ROOT / "tools" / "cli-demo.tape")],
+        cwd=ROOT,
+        check=True,
+        env=environment,
+    )
 
 
 def make_dirtcam() -> None:
@@ -151,6 +172,7 @@ def make_3d() -> None:
 
 TARGETS = {
     "replay": make_replay,
+    "cli": make_cli,
     "dirtcam": make_dirtcam,
     "chase": make_chase,
     "mosaic": make_mosaic,

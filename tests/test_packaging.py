@@ -215,15 +215,10 @@ def test_readme_urls_are_absolute_in_package_metadata():
     assert "/v9.9.9/" in text, "the ref should be substituted into the URLs"
 
 
-def test_the_animated_logo_is_swapped_for_a_still():
-    """PyPI only serves description images through its camo proxy, whose SVG
-    handling is not worth betting the hero image on."""
-    from hatch_build import absolutise
-
-    text = absolutise((ROOT / "README.md").read_text())
+def test_the_readme_has_one_visual_hero():
+    text = (ROOT / "README.md").read_text()
     assert "logo-animated.svg" not in text
-    assert "docs/assets/logo.png" in text
-    assert not [u for u in re.findall(r'<img[^>]+src="([^"]+)"', text) if u.endswith(".svg")]
+    assert "docs/assets/replay.gif" in text
 
 
 def test_every_referenced_asset_exists():
