@@ -11,6 +11,8 @@ understand.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-27
+
 ### Added
 - The README now pairs a 1200x740 headline replay with a reproducible VHS
   capture of the CLI generating a real recording and a live Gymnasium policy
